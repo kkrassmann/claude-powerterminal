@@ -26,9 +26,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Context Information
 
-- [ ] **CTXT-01**: Terminal header displays the working directory path
-- [ ] **CTXT-02**: Terminal header displays the current Git branch name
-- [ ] **CTXT-03**: Terminal header displays the count of uncommitted Git changes
+- [x] **CTXT-01**: Terminal header displays the working directory path
+- [x] **CTXT-02**: Terminal header displays the current Git branch name
+- [x] **CTXT-03**: Terminal header displays the count of uncommitted Git changes
 
 ### Session Persistence
 
@@ -87,9 +87,9 @@ Deferred to future release. Tracked but not in current roadmap.
 | TERM-05 | Phase 2 | Complete |
 | TERM-06 | Phase 2 | Pending |
 | TERM-02 | Phase 3 | Pending |
-| CTXT-01 | Phase 3 | Pending |
-| CTXT-02 | Phase 3 | Pending |
-| CTXT-03 | Phase 3 | Pending |
+| CTXT-01 | Phase 3 | Complete |
+| CTXT-02 | Phase 3 | Complete |
+| CTXT-03 | Phase 3 | Complete |
 | STAT-01 | Phase 4 | Pending |
 | STAT-02 | Phase 4 | Pending |
 | STAT-03 | Phase 4 | Pending |

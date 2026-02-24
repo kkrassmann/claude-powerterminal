@@ -13,7 +13,7 @@ This roadmap takes Claude PowerTerminal from empty directory to a production-rea
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Core PTY Infrastructure** - Spawn Claude CLI in PTY with Windows workarounds, session persistence
-- [ ] **Phase 2: WebSocket Bridge & UI** - Stream PTY to browser via xterm.js with real-time I/O
+- [x] **Phase 2: WebSocket Bridge & UI** - Stream PTY to browser via xterm.js with real-time I/O
 - [ ] **Phase 3: Dashboard Grid** - Multi-terminal grid layout with context headers
 - [ ] **Phase 4: Status Detection & Alerts** - Pattern-based status detection with audio notifications
 - [ ] **Phase 5: Network Access** - Mobile-responsive UI with LAN accessibility
@@ -50,7 +50,7 @@ Plans:
 **Plans**: 2 plans in 2 waves
 
 Plans:
-- [ ] 02-01-PLAN.md — WebSocket server + protocol types (ws server in Electron main, PTY bridge, scrollback buffer replay, heartbeat)
+- [x] 02-01-PLAN.md — WebSocket server + protocol types (ws server in Electron main, PTY bridge, scrollback buffer replay, heartbeat)
 - [ ] 02-02-PLAN.md — xterm.js terminal component (WebGL renderer, dark theme, clipboard, auto-reconnect, resize, app wiring)
 
 ### Phase 3: Dashboard Grid
@@ -66,7 +66,7 @@ Plans:
 **Plans**: 2 plans in 2 waves
 
 Plans:
-- [ ] 03-01-PLAN.md — Git context pipeline (GitContext model, IPC handler for git branch/status, GitContextService with 30s polling)
+- [x] 03-01-PLAN.md — Git context pipeline (GitContext model, IPC handler for git branch/status, GitContextService with 30s polling)
 - [ ] 03-02-PLAN.md — Dashboard grid UI (CSS Grid layout, CDK drag-drop, tile headers with path/git/actions, maximize toggle, app wiring)
 
 ### Phase 4: Status Detection & Alerts
@@ -105,11 +105,11 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Core PTY Infrastructure | 3/3 | Complete | 2026-02-24 |
-| 2. WebSocket Bridge & UI | 0/2 | Planned | - |
-| 3. Dashboard Grid | 0/2 | Planned | - |
+| 2. WebSocket Bridge & UI | 1/2 | In Progress | - |
+| 3. Dashboard Grid | 1/3 | In Progress | - |
 | 4. Status Detection & Alerts | 0/? | Not started | - |
 | 5. Network Access | 0/? | Not started | - |
 
 ---
 *Roadmap created: 2026-02-24*
-*Last updated: 2026-02-24 after Phase 3 planning (2 plans created)*
+*Last updated: 2026-02-24 after 03-01 completion (Git context data pipeline)*
