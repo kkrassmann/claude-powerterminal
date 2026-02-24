@@ -32,7 +32,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Session Persistence
 
-- [ ] **SESS-01**: App saves Claude CLI session IDs and working directories to persistent storage on session creation
+- [x] **SESS-01**: App saves Claude CLI session IDs and working directories to persistent storage on session creation
 - [ ] **SESS-02**: On app restart, user can restore all previous sessions via Claude CLI `--resume` flag
 - [ ] **SESS-03**: App detects when a resumed session fails and notifies the user
 
@@ -80,7 +80,7 @@ Deferred to future release. Tracked but not in current roadmap.
 |-------------|-------|--------|
 | TERM-01 | Phase 1 | Pending |
 | TERM-04 | Phase 1 | Pending |
-| SESS-01 | Phase 1 | Pending |
+| SESS-01 | Phase 1 | Complete |
 | SESS-02 | Phase 1 | Pending |
 | SESS-03 | Phase 1 | Pending |
 | TERM-03 | Phase 2 | Pending |
