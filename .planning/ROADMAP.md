@@ -33,8 +33,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 3 plans in 3 waves
 
 Plans:
-- [ ] 01-01-PLAN.md — Foundation & Models (Electron + Angular scaffold, session persistence service)
-- [ ] 01-02-PLAN.md — PTY Lifecycle (PTY spawn/kill with Windows cleanup, IPC handlers)
+- [x] 01-01-PLAN.md — Foundation & Models (Electron + Angular scaffold, session persistence service)
+- [x] 01-02-PLAN.md — PTY Lifecycle (PTY spawn/kill with Windows cleanup, IPC handlers)
 - [ ] 01-03-PLAN.md — Session Management UI & Restore (Session creation UI, auto-restore logic, scrollback buffer)
 
 ### Phase 2: WebSocket Bridge & UI

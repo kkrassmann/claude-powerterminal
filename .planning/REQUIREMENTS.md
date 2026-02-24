@@ -9,10 +9,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Terminal Management
 
-- [ ] **TERM-01**: User can create a new terminal session by selecting a working directory and spawning Claude CLI with `--session-id`
+- [x] **TERM-01**: User can create a new terminal session by selecting a working directory and spawning Claude CLI with `--session-id`
 - [ ] **TERM-02**: User can view all active terminals simultaneously in a responsive grid layout (supports 6-10 terminals)
 - [ ] **TERM-03**: User can interact with any terminal (type input, see output) via xterm.js with canvas renderer
-- [ ] **TERM-04**: User can close/kill a terminal session from the UI with proper PTY cleanup (Windows SIGKILL timeout)
+- [x] **TERM-04**: User can close/kill a terminal session from the UI with proper PTY cleanup (Windows SIGKILL timeout)
 - [ ] **TERM-05**: User can scroll back through terminal history with buffer replay on WebSocket reconnect
 - [ ] **TERM-06**: User can resize grid tiles and terminals adapt dynamically
 
@@ -78,8 +78,8 @@ Deferred to future release. Tracked but not in current roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| TERM-01 | Phase 1 | Pending |
-| TERM-04 | Phase 1 | Pending |
+| TERM-01 | Phase 1 | Complete |
+| TERM-04 | Phase 1 | Complete |
 | SESS-01 | Phase 1 | Complete |
 | SESS-02 | Phase 1 | Pending |
 | SESS-03 | Phase 1 | Pending |
