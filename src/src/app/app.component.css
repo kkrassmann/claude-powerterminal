@@ -1,0 +1,37 @@
+.app-container {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #181825;
+  color: #cdd6f4;
+}
+
+.app-header {
+  padding: 8px 16px;
+  background: #1e1e2e;
+  border-bottom: 1px solid #313244;
+}
+
+.app-header h1 {
+  font-size: 18px;
+  margin: 0 0 8px 0;
+  font-weight: 500;
+}
+
+.terminals-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+}
+
+.terminal-wrapper {
+  border: 1px solid #313244;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.no-sessions {
+  text-align: center;
+  padding: 40px;
+  color: #6c7086;
+}
