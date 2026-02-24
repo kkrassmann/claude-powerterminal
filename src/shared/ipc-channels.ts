@@ -5,6 +5,7 @@
 export const IPC_CHANNELS = {
   // PTY lifecycle channels
   PTY_SPAWN: 'pty:spawn',
+  PTY_WRITE: 'pty:write',
   PTY_KILL: 'pty:kill',
   PTY_DATA: 'pty:data',
   PTY_EXIT: 'pty:exit',
