@@ -5,33 +5,34 @@
 See: .planning/PROJECT.md (updated 2026-02-24)
 
 **Core value:** Never lose track of which terminal needs attention — instant visibility into the status of every running Claude instance, with alerts that pull you back when action is needed.
-**Current focus:** Phase 1 - Core PTY Infrastructure
+**Current focus:** Phase 2 - WebSocket Bridge & UI
 
 ## Current Position
 
-Phase: 1 of 5 (Core PTY Infrastructure)
-Plan: 3 of 3 in current phase
-Status: Phase 1 complete
-Last activity: 2026-02-24 — Completed 01-03-PLAN.md (Session Management UI & Restore)
+Phase: 2 of 5 (WebSocket Bridge & UI)
+Plan: 2 of 2 in current phase
+Status: In progress
+Last activity: 2026-02-24 — Completed 02-01-PLAN.md (WebSocket Bridge Infrastructure)
 
-Progress: [████░░░░░░] 20%
+Progress: [████░░░░░░] 27%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 3
-- Average duration: 10.7 minutes
-- Total execution time: 0.53 hours
+- Total plans completed: 4
+- Average duration: 8.8 minutes
+- Total execution time: 0.58 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01 | 3 | 32 min | 10.7 min |
+| 02 | 1 | 3 min | 3.0 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (5min), 01-02 (2min), 01-03 (25min)
-- Trend: Variable (testing phase extended 01-03)
+- Last 5 plans: 01-01 (5min), 01-02 (2min), 01-03 (25min), 02-01 (3min)
+- Trend: Improving (infrastructure plans faster than UI plans)
 
 *Updated after each plan completion*
 
@@ -43,6 +44,7 @@ Progress: [████░░░░░░] 20%
 | Phase 01 P02 | 2 min | 3 tasks | 5 files |
 | Phase 01 P02 | 2 | 3 tasks | 5 files |
 | Phase 01 P03 | 25 | 4 tasks | 8 files |
+| Phase 02 P01 | 3 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -65,6 +67,9 @@ Recent decisions affecting current work:
 - [Phase 01]: Spawn Claude CLI via cmd.exe /c for Windows PATH resolution instead of direct spawn
 - [Phase 01]: Add isDestroyed() guards on IPC sends to prevent errors during window cleanup
 - [Phase 01]: Implement isCleaningUp flag to prevent recursive will-quit handler execution
+- [Phase 02]: WebSocket server on port 9800 for PTY bridge with 30-second heartbeat
+- [Phase 02]: 10,000 line scrollback buffer with buffering/buffered signals for client reset
+- [Phase 02]: Resize guard (try/catch) to prevent Windows crash on exited PTY
 
 ### Pending Todos
 
@@ -79,5 +84,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-24 (plan execution)
-Stopped at: Completed 01-03-PLAN.md (Session Management UI & Restore) — Phase 1 complete
+Stopped at: Completed 02-01-PLAN.md (WebSocket Bridge Infrastructure)
 Resume file: None
