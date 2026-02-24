@@ -12,7 +12,13 @@
     "dev": "concurrently \"npm run start:angular\" \"npm run start:electron\"",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": ["electron", "angular", "terminal", "claude", "pty"],
+  "keywords": [
+    "electron",
+    "angular",
+    "terminal",
+    "claude",
+    "pty"
+  ],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
@@ -21,10 +27,12 @@
     "electron": "^28.3.3",
     "node-addon-api": "^7.1.1",
     "node-pty": "^1.1.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "ws": "^8.19.0"
   },
   "devDependencies": {
     "@types/node": "^25.3.0",
+    "@types/ws": "^8.18.1",
     "concurrently": "^9.2.1",
     "electron-builder": "^26.8.1"
   }
