@@ -12,7 +12,7 @@ This roadmap takes Claude PowerTerminal from empty directory to a production-rea
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Core PTY Infrastructure** - Spawn Claude CLI in PTY with Windows workarounds, session persistence
+- [x] **Phase 1: Core PTY Infrastructure** - Spawn Claude CLI in PTY with Windows workarounds, session persistence
 - [ ] **Phase 2: WebSocket Bridge & UI** - Stream PTY to browser via xterm.js with real-time I/O
 - [ ] **Phase 3: Dashboard Grid** - Multi-terminal grid layout with context headers
 - [ ] **Phase 4: Status Detection & Alerts** - Pattern-based status detection with audio notifications
@@ -35,7 +35,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 Plans:
 - [x] 01-01-PLAN.md — Foundation & Models (Electron + Angular scaffold, session persistence service)
 - [x] 01-02-PLAN.md — PTY Lifecycle (PTY spawn/kill with Windows cleanup, IPC handlers)
-- [ ] 01-03-PLAN.md — Session Management UI & Restore (Session creation UI, auto-restore logic, scrollback buffer)
+- [x] 01-03-PLAN.md — Session Management UI & Restore (Session creation UI, auto-restore logic, scrollback buffer)
 
 ### Phase 2: WebSocket Bridge & UI
 **Goal**: Stream PTY output to browser via WebSocket with xterm.js terminal emulation, supporting full interactive I/O
@@ -102,8 +102,8 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Core PTY Infrastructure | 0/3 | Ready to execute | - |
-| 2. WebSocket Bridge & UI | 0/? | Not started | - |
+| 1. Core PTY Infrastructure | 3/3 | Complete | 2026-02-24 |
+| 2. WebSocket Bridge & UI | 0/? | Ready to plan | - |
 | 3. Dashboard Grid | 0/? | Not started | - |
 | 4. Status Detection & Alerts | 0/? | Not started | - |
 | 5. Network Access | 0/? | Not started | - |
