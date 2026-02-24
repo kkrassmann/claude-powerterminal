@@ -1,0 +1,62 @@
+<!-- Grid view -->
+<div class="dashboard-grid"
+     *ngIf="!maximizedSessionId"
+     cdkDropList
+     cdkDropListOrientation="mixed"
+     [cdkDropListData]="sessions"
+     (cdkDropListDropped)="onDrop($event)">
+
+  <!-- Active session tiles -->
+  <div *ngFor="let session of sessions; trackBy: trackBySessionId"
+       class="tile" cdkDrag>
+    <!-- Use cdkDragHandle on tile-header to restrict drag to header only -->
+    <app-tile-header
+      [session]="session"
+      [gitContext]="gitContextService.getContext(session.metadata.sessionId)"
+      [isChanged]="gitContextService.changedSessions.has(session.metadata.sessionId)"
+      [isMaximized]="false"
+      [homeDir]="homeDir"
+      (maximize)="toggleMaximize(session.metadata.sessionId)"
+      (restart)="restartSession(session.metadata.sessionId)"
+      (kill)="killSession(session.metadata.sessionId)"
+      cdkDragHandle>
+    </app-tile-header>
+    <app-terminal
+      [sessionId]="session.metadata.sessionId"
+      (sessionExited)="onSessionExited($event)">
+    </app-terminal>
+  </div>
+
+  <!-- Pending resume placeholders -->
+  <div *ngFor="let pending of pendingSessions" class="tile pending-tile">
+    <div class="pending-indicator">
+      <div class="spinner"></div>
+      <span class="pending-text">Resuming session</span>
+      <code class="pending-id">{{ pending.sessionId }}</code>
+      <span class="pending-dir">{{ pending.workingDirectory }}</span>
+    </div>
+  </div>
+
+  <!-- Empty state -->
+  <div *ngIf="sessions.length === 0 && pendingSessions.length === 0" class="no-sessions">
+    <p>No active sessions. Create one above to get started.</p>
+  </div>
+</div>
+
+<!-- Maximized view -->
+<div class="maximized-view" *ngIf="maximizedSessionId">
+  <app-tile-header
+    [session]="getSession(maximizedSessionId)!"
+    [gitContext]="gitContextService.getContext(maximizedSessionId)"
+    [isChanged]="gitContextService.changedSessions.has(maximizedSessionId)"
+    [isMaximized]="true"
+    [homeDir]="homeDir"
+    (maximize)="toggleMaximize(maximizedSessionId)"
+    (restart)="restartSession(maximizedSessionId)"
+    (kill)="killSession(maximizedSessionId)">
+  </app-tile-header>
+  <app-terminal
+    [sessionId]="maximizedSessionId"
+    (sessionExited)="onSessionExited($event)">
+  </app-terminal>
+</div>

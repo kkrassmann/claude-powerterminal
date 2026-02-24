@@ -1,0 +1,231 @@
+import { Component, Input, Output, EventEmitter, OnInit, OnDestroy, NgZone } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
+import { Subscription } from 'rxjs';
+import { SessionStateService, ActiveSession } from '../../services/session-state.service';
+import { GitContextService } from '../../services/git-context.service';
+import { SessionManagerService } from '../../services/session-manager.service';
+import { SessionMetadata } from '../../models/session.model';
+import { TerminalComponent } from '../terminal/terminal.component';
+import { TileHeaderComponent } from '../tile-header/tile-header.component';
+import { IPC_CHANNELS } from '../../../../shared/ipc-channels';
+
+/**
+ * Dashboard grid component for displaying and managing multiple terminal sessions.
+ *
+ * Features:
+ * - Responsive CSS Grid layout with auto-fill columns (min 400px tile width)
+ * - CDK drag-drop for tile reordering via header drag handle
+ * - Maximize toggle to view single tile in full viewport
+ * - Git context integration for each tile header
+ * - Pending session placeholders during session restore
+ * - Session tracking in git context service
+ */
+@Component({
+  selector: 'app-dashboard',
+  standalone: true,
+  imports: [CommonModule, DragDropModule, TerminalComponent, TileHeaderComponent],
+  templateUrl: './dashboard.component.html',
+  styleUrls: ['./dashboard.component.css']
+})
+export class DashboardComponent implements OnInit, OnDestroy {
+  /**
+   * Pending sessions that are being restored (show placeholders).
+   * Passed from parent AppComponent during session restoration.
+   */
+  @Input() pendingSessions: SessionMetadata[] = [];
+
+  /**
+   * Emitted when a session exits and should be removed from state.
+   */
+  @Output() sessionExited = new EventEmitter<string>();
+
+  /**
+   * Active sessions (with live PTY processes and scrollback buffers).
+   * Populated from SessionStateService subscription.
+   */
+  sessions: ActiveSession[] = [];
+
+  /**
+   * ID of the currently maximized session, or null if in grid view.
+   */
+  maximizedSessionId: string | null = null;
+
+  /**
+   * User's home directory for path shortening in tile headers.
+   */
+  homeDir: string = '';
+
+  /**
+   * Subscription to sessions$ observable.
+   */
+  private sessionsSubscription: Subscription | null = null;
+
+  constructor(
+    private sessionStateService: SessionStateService,
+    public gitContextService: GitContextService,
+    private sessionManagerService: SessionManagerService,
+    private ngZone: NgZone
+  ) {}
+
+  ngOnInit(): void {
+    // Subscribe to active sessions stream
+    this.sessionsSubscription = this.sessionStateService.sessions$.subscribe(sessionsMap => {
+      this.sessions = Array.from(sessionsMap.values());
+
+      // Remove pending sessions that became active
+      if (this.pendingSessions.length > 0) {
+        const activeSessonIds = new Set(this.sessions.map(s => s.metadata.sessionId));
+        this.pendingSessions = this.pendingSessions.filter(p => !activeSessonIds.has(p.sessionId));
+      }
+
+      // Track/untrack sessions in git context service
+      this.updateGitContextTracking();
+    });
+
+    // Fetch home directory for path shortening
+    this.fetchHomeDir();
+
+    // Start git context polling
+    this.gitContextService.startPolling();
+  }
+
+  ngOnDestroy(): void {
+    // Clean up subscriptions and polling
+    this.sessionsSubscription?.unsubscribe();
+    this.gitContextService.stopPolling();
+  }
+
+  /**
+   * Fetch user's home directory from main process.
+   */
+  private async fetchHomeDir(): Promise<void> {
+    try {
+      this.homeDir = await window.electronAPI.invoke(IPC_CHANNELS.APP_HOME_DIR);
+    } catch (error) {
+      console.error('[Dashboard] Failed to fetch home directory:', error);
+      this.homeDir = '';
+    }
+  }
+
+  /**
+   * Update git context service tracking based on current active sessions.
+   * Track new sessions, untrack removed sessions.
+   */
+  private updateGitContextTracking(): void {
+    const currentSessionIds = new Set(this.sessions.map(s => s.metadata.sessionId));
+    const trackedSessionIds = new Set(this.gitContextService['trackedSessions'].keys());
+
+    // Track new sessions
+    for (const session of this.sessions) {
+      if (!trackedSessionIds.has(session.metadata.sessionId)) {
+        this.gitContextService.trackSession(session.metadata.sessionId, session.metadata.workingDirectory);
+      }
+    }
+
+    // Untrack removed sessions
+    for (const sessionId of trackedSessionIds) {
+      if (!currentSessionIds.has(sessionId)) {
+        this.gitContextService.untrackSession(sessionId);
+      }
+    }
+  }
+
+  /**
+   * Toggle maximize state for a session.
+   * If already maximized, restore to grid view.
+   * If not maximized, maximize the specified session.
+   *
+   * @param sessionId - ID of session to maximize/restore
+   */
+  toggleMaximize(sessionId: string): void {
+    if (this.maximizedSessionId === sessionId) {
+      this.maximizedSessionId = null; // Restore to grid
+    } else {
+      this.maximizedSessionId = sessionId; // Maximize
+    }
+  }
+
+  /**
+   * Handle drag-drop reordering of tiles in grid.
+   *
+   * @param event - CDK drag-drop event with previous/current indices
+   */
+  onDrop(event: CdkDragDrop<ActiveSession[]>): void {
+    moveItemInArray(this.sessions, event.previousIndex, event.currentIndex);
+  }
+
+  /**
+   * TrackBy function for *ngFor to optimize rendering.
+   *
+   * @param index - Array index
+   * @param session - ActiveSession item
+   * @returns Session ID as unique identifier
+   */
+  trackBySessionId(index: number, session: ActiveSession): string {
+    return session.metadata.sessionId;
+  }
+
+  /**
+   * Get session by ID (used in maximized view template).
+   *
+   * @param sessionId - Session ID to retrieve
+   * @returns ActiveSession or undefined if not found
+   */
+  getSession(sessionId: string): ActiveSession | undefined {
+    return this.sessions.find(s => s.metadata.sessionId === sessionId);
+  }
+
+  /**
+   * Handle session exit event from terminal component.
+   * Emit to parent AppComponent for cleanup.
+   *
+   * @param sessionId - ID of exited session
+   */
+  onSessionExited(sessionId: string): void {
+    // If maximized session exited, restore to grid
+    if (this.maximizedSessionId === sessionId) {
+      this.maximizedSessionId = null;
+    }
+
+    // Emit to parent for state cleanup
+    this.sessionExited.emit(sessionId);
+  }
+
+  /**
+   * Restart a session by killing PTY and spawning new one.
+   *
+   * @param sessionId - ID of session to restart
+   */
+  async restartSession(sessionId: string): Promise<void> {
+    const session = this.getSession(sessionId);
+    if (!session) {
+      console.error('[Dashboard] Cannot restart: session not found', sessionId);
+      return;
+    }
+
+    try {
+      // Use PTY_RESTART handler which handles kill + respawn
+      const result = await window.electronAPI.invoke(IPC_CHANNELS.PTY_RESTART, sessionId, 80, 24);
+      if (!result?.success) {
+        console.error('[Dashboard] Restart failed:', result?.error);
+      }
+    } catch (error) {
+      console.error('[Dashboard] Failed to restart session:', error);
+    }
+  }
+
+  /**
+   * Kill a session permanently.
+   *
+   * @param sessionId - ID of session to kill
+   */
+  async killSession(sessionId: string): Promise<void> {
+    try {
+      await window.electronAPI.invoke(IPC_CHANNELS.PTY_KILL, sessionId);
+      // Session exit event will be handled by terminal component's WebSocket onclose
+    } catch (error) {
+      console.error('[Dashboard] Failed to kill session:', error);
+    }
+  }
+}

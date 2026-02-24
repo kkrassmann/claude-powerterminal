@@ -1,0 +1,26 @@
+<div class="tile-header" (dblclick)="onHeaderDblClick()">
+  <!-- Line 1: Working directory + action buttons -->
+  <div class="header-line-1">
+    <span class="working-dir" [title]="session.metadata.workingDirectory">{{ shortenedPath }}</span>
+    <div class="header-actions">
+      <button class="header-btn" (click)="onRestart()" title="Neu starten">&#x21BB;</button>
+      <button class="header-btn danger" (click)="onKill()" title="Session beenden">&#x2715;</button>
+      <button class="header-btn" (click)="onMaximize()" [title]="isMaximized ? 'Wiederherstellen' : 'Maximieren'">
+        {{ isMaximized ? '&#x29C9;' : '&#x25A1;' }}
+      </button>
+    </div>
+  </div>
+
+  <!-- Line 2: Git branch + change counts (only if git repo) -->
+  <div class="header-line-2" *ngIf="gitContext?.isGitRepo">
+    <span class="git-branch">
+      <span class="git-icon">&#xE0A0;</span>
+      <span class="git-branch-name">{{ gitContext.branch || 'unknown' }}</span>
+    </span>
+    <span class="git-changes" [class.highlight]="isChanged">
+      <span class="git-added">+{{ gitContext.added }}</span>
+      <span class="git-modified">~{{ gitContext.modified }}</span>
+      <span class="git-deleted">-{{ gitContext.deleted }}</span>
+    </span>
+  </div>
+</div>
