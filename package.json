@@ -1,0 +1,31 @@
+{
+  "name": "claude-powerterminal",
+  "version": "1.0.0",
+  "description": "Multi-session terminal manager for Claude CLI with status monitoring",
+  "main": "dist/electron/main.js",
+  "scripts": {
+    "build:electron": "tsc -p tsconfig.json",
+    "build:angular": "cd src && npm run build",
+    "build": "npm run build:electron && npm run build:angular",
+    "start:electron": "npm run build:electron && electron .",
+    "start:angular": "cd src && npm start",
+    "dev": "concurrently \"npm run start:angular\" \"npm run start:electron\"",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": ["electron", "angular", "terminal", "claude", "pty"],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@angular/cli": "^17.3.17",
+    "electron": "^28.3.3",
+    "node-addon-api": "^7.1.1",
+    "node-pty": "^1.1.0",
+    "typescript": "^5.9.3"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.0",
+    "concurrently": "^9.2.1",
+    "electron-builder": "^26.8.1"
+  }
+}
