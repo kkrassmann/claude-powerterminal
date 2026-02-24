@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import * as pty from 'node-pty';
 import { registerPtyHandlers, getPtyProcesses } from './ipc/pty-handlers';
 import { registerSessionHandlers } from './ipc/session-handlers';
+import { startWebSocketServer, stopWebSocketServer } from './websocket/ws-server';
 import { IPC_CHANNELS } from '../src/shared/ipc-channels';
 
 let mainWindow: BrowserWindow | null = null;
@@ -242,6 +243,9 @@ app.whenReady().then(async () => {
   registerPtyHandlers();
   registerSessionHandlers();
 
+  // Start WebSocket server before creating window
+  startWebSocketServer();
+
   createWindow();
 
   // Auto-restore saved sessions after window is created
@@ -286,9 +290,12 @@ app.on('will-quit', async (event) => {
     return;
   }
 
-  console.log(`[App Lifecycle] Killing ${ptyProcesses.size} active PTY processes`);
+  console.log(`[App Lifecycle] Shutting down WebSocket server and killing ${ptyProcesses.size} active PTY processes`);
   isCleaningUp = true;
   event.preventDefault();
+
+  // Stop WebSocket server first (closes all WebSocket connections)
+  stopWebSocketServer();
 
   // Kill all active PTY processes
   for (const [sessionId, ptyProcess] of ptyProcesses.entries()) {

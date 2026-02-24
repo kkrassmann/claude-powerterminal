@@ -11,6 +11,8 @@ import * as path from 'path';
 import { ipcMain } from 'electron';
 import { IPC_CHANNELS } from '../../src/shared/ipc-channels';
 import { killPtyProcess } from '../utils/process-cleanup';
+import { getScrollbackBuffers } from '../websocket/ws-server';
+import { ScrollbackBuffer } from '../../src/src/app/services/scrollback-buffer.service';
 
 /**
  * Map of session IDs to active PTY processes.
@@ -87,10 +89,19 @@ export function registerPtyHandlers(): void {
       // Store in map for later access
       ptyProcesses.set(sessionId, ptyProcess);
 
+      // Create scrollback buffer for WebSocket replay
+      getScrollbackBuffers().set(sessionId, new ScrollbackBuffer(10000));
+
       console.log(`[PTY Handlers] PTY spawned for session ${sessionId} with PID ${ptyProcess.pid}`);
 
       // Setup output streaming to renderer (guard against destroyed window during quit)
       ptyProcess.onData((data) => {
+        // Append to scrollback buffer for WebSocket replay
+        const buffer = getScrollbackBuffers().get(sessionId);
+        if (buffer) {
+          buffer.append(data);
+        }
+
         if (!event.sender.isDestroyed()) {
           event.sender.send(IPC_CHANNELS.PTY_DATA, { sessionId, data });
         }
@@ -103,6 +114,9 @@ export function registerPtyHandlers(): void {
           event.sender.send(IPC_CHANNELS.PTY_EXIT, { sessionId, exitCode, signal });
         }
         ptyProcesses.delete(sessionId);
+
+        // Clean up scrollback buffer when PTY exits
+        getScrollbackBuffers().delete(sessionId);
       });
 
       return { success: true, pid: ptyProcess.pid };
