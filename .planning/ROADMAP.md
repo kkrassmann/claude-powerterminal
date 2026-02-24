@@ -47,10 +47,11 @@ Plans:
   3. User can scroll back through terminal history with buffer replay on WebSocket reconnect
   4. Terminal resizes automatically when browser window changes size
   5. Canvas renderer is used (not DOM) for performance with multiple terminals
-**Plans**: TBD
+**Plans**: 2 plans in 2 waves
 
 Plans:
-- [ ] TBD (will be created during phase planning)
+- [ ] 02-01-PLAN.md — WebSocket server + protocol types (ws server in Electron main, PTY bridge, scrollback buffer replay, heartbeat)
+- [ ] 02-02-PLAN.md — xterm.js terminal component (WebGL renderer, dark theme, clipboard, auto-reconnect, resize, app wiring)
 
 ### Phase 3: Dashboard Grid
 **Goal**: Display multiple terminals simultaneously in a responsive grid layout with context information (working directory, Git branch)
@@ -103,11 +104,11 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Core PTY Infrastructure | 3/3 | Complete | 2026-02-24 |
-| 2. WebSocket Bridge & UI | 0/? | Ready to plan | - |
+| 2. WebSocket Bridge & UI | 0/2 | Planned | - |
 | 3. Dashboard Grid | 0/? | Not started | - |
 | 4. Status Detection & Alerts | 0/? | Not started | - |
 | 5. Network Access | 0/? | Not started | - |
 
 ---
 *Roadmap created: 2026-02-24*
-*Last updated: 2026-02-24 after Phase 1 planning (3 plans created)*
+*Last updated: 2026-02-24 after Phase 2 planning (2 plans created)*
