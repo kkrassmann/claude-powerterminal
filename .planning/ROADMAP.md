@@ -54,7 +54,7 @@ Plans:
 - [ ] 02-02-PLAN.md — xterm.js terminal component (WebGL renderer, dark theme, clipboard, auto-reconnect, resize, app wiring)
 
 ### Phase 3: Dashboard Grid
-**Goal**: Display multiple terminals simultaneously in a responsive grid layout with context information (working directory, Git branch)
+**Goal**: Display multiple terminals simultaneously in a responsive grid layout with context information (working directory, Git branch, uncommitted changes) and tile management (maximize, drag-drop reorder)
 **Depends on**: Phase 2
 **Requirements**: TERM-02, CTXT-01, CTXT-02, CTXT-03
 **Success Criteria** (what must be TRUE):
@@ -63,10 +63,11 @@ Plans:
   3. Each terminal tile displays the current Git branch name in the header
   4. Each terminal tile displays the count of uncommitted Git changes in the header
   5. Grid layout is responsive and tiles can be resized
-**Plans**: TBD
+**Plans**: 2 plans in 2 waves
 
 Plans:
-- [ ] TBD (will be created during phase planning)
+- [ ] 03-01-PLAN.md — Git context pipeline (GitContext model, IPC handler for git branch/status, GitContextService with 30s polling)
+- [ ] 03-02-PLAN.md — Dashboard grid UI (CSS Grid layout, CDK drag-drop, tile headers with path/git/actions, maximize toggle, app wiring)
 
 ### Phase 4: Status Detection & Alerts
 **Goal**: Detect terminal status (working/waiting/done) via pattern matching and idle heuristics, with audio alerts on state changes
@@ -105,10 +106,10 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Core PTY Infrastructure | 3/3 | Complete | 2026-02-24 |
 | 2. WebSocket Bridge & UI | 0/2 | Planned | - |
-| 3. Dashboard Grid | 0/? | Not started | - |
+| 3. Dashboard Grid | 0/2 | Planned | - |
 | 4. Status Detection & Alerts | 0/? | Not started | - |
 | 5. Network Access | 0/? | Not started | - |
 
 ---
 *Roadmap created: 2026-02-24*
-*Last updated: 2026-02-24 after Phase 2 planning (2 plans created)*
+*Last updated: 2026-02-24 after Phase 3 planning (2 plans created)*
