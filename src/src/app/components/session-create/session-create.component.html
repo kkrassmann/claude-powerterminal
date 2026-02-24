@@ -1,0 +1,95 @@
+<div class="session-create-container">
+  <h2>Create New Session</h2>
+
+  <form (ngSubmit)="createSession()" #sessionForm="ngForm">
+    <!-- Directory Selection Section -->
+    <div class="form-section">
+      <label for="directory-select">Working Directory</label>
+
+      <!-- Dropdown for recent directories -->
+      <div class="directory-input-group">
+        <select
+          id="directory-select"
+          (change)="onDirectorySelect($any($event.target).value)"
+          class="directory-dropdown"
+        >
+          <option value="">-- Select recent directory --</option>
+          <option *ngFor="let dir of recentDirectories" [value]="dir">
+            {{ dir }}
+          </option>
+        </select>
+
+        <!-- Freetext input for custom directory -->
+        <input
+          type="text"
+          id="directory-input"
+          name="workingDirectory"
+          [(ngModel)]="workingDirectory"
+          placeholder="C:\Users\username\projects\my-app"
+          class="directory-input"
+          required
+        />
+      </div>
+
+      <small class="form-hint">
+        Select from recent directories or type a custom path
+      </small>
+    </div>
+
+    <!-- CLI Flags Section -->
+    <div class="form-section">
+      <label>CLI Flags</label>
+
+      <!-- Checkboxes for common flags -->
+      <div class="flags-checkboxes">
+        <div
+          class="flag-checkbox"
+          *ngFor="let flag of objectKeys(selectedFlags)"
+        >
+          <input
+            type="checkbox"
+            [id]="'flag-' + flag"
+            [(ngModel)]="selectedFlags[flag]"
+            [name]="'flag-' + flag"
+          />
+          <label [for]="'flag-' + flag">{{ flag }}</label>
+        </div>
+      </div>
+
+      <!-- Freetext input for custom flags -->
+      <input
+        type="text"
+        id="custom-flags"
+        name="customFlags"
+        [(ngModel)]="customFlags"
+        placeholder="e.g., --timeout 60 --model opus"
+        class="custom-flags-input"
+      />
+
+      <small class="form-hint">
+        Check common flags or enter custom flags separated by spaces
+      </small>
+    </div>
+
+    <!-- Status Message -->
+    <div
+      *ngIf="statusMessage"
+      class="status-message"
+      [class.success]="statusType === 'success'"
+      [class.error]="statusType === 'error'"
+    >
+      {{ statusMessage }}
+    </div>
+
+    <!-- Create Button -->
+    <div class="form-actions">
+      <button
+        type="submit"
+        class="create-button"
+        [disabled]="isCreating || !workingDirectory"
+      >
+        {{ isCreating ? 'Creating...' : 'Create Session' }}
+      </button>
+    </div>
+  </form>
+</div>
