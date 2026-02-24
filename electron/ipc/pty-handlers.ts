@@ -34,6 +34,14 @@ interface PTYWriteOptions {
 }
 
 /**
+ * Get the map of active PTY processes.
+ * Used by main.ts for session restore and cleanup.
+ */
+export function getPtyProcesses(): Map<string, pty.IPty> {
+  return ptyProcesses;
+}
+
+/**
  * Register all PTY-related IPC handlers.
  * Call this once during app initialization in main.ts.
  */
