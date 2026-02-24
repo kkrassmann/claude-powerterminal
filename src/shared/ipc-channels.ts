@@ -10,12 +10,21 @@ export const IPC_CHANNELS = {
   PTY_DATA: 'pty:data',
   PTY_EXIT: 'pty:exit',
   PTY_RESIZE: 'pty:resize',
+  PTY_LIST: 'pty:list',
+  PTY_RESTART: 'pty:restart',
+  SESSION_RESTORE_COMPLETE: 'session:restore-complete',
 
   // Session persistence channels
   SESSION_SAVE: 'session:save',
   SESSION_LOAD: 'session:load',
   SESSION_DELETE: 'session:delete',
   SESSION_GET: 'session:get',
+
+  // Git context channels
+  GIT_CONTEXT: 'git:context',
+
+  // App info channels
+  APP_HOME_DIR: 'app:home-dir',
 } as const;
 
 export type IPCChannel = typeof IPC_CHANNELS[keyof typeof IPC_CHANNELS];

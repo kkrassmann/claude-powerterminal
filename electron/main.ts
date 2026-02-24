@@ -1,11 +1,15 @@
-import { app, BrowserWindow } from 'electron';
+import { app, BrowserWindow, Menu } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as pty from 'node-pty';
-import { registerPtyHandlers, getPtyProcesses } from './ipc/pty-handlers';
+import { registerPtyHandlers, getPtyProcesses, setShuttingDown, isShuttingDown, isSessionRestarting } from './ipc/pty-handlers';
 import { registerSessionHandlers } from './ipc/session-handlers';
-import { startWebSocketServer, stopWebSocketServer } from './websocket/ws-server';
+import { registerGitHandlers } from './ipc/git-handlers';
+import { startWebSocketServer, stopWebSocketServer, getScrollbackBuffers } from './websocket/ws-server';
+import { ScrollbackBuffer } from '../src/src/app/services/scrollback-buffer.service';
+import { deleteSessionFromDisk } from './ipc/session-handlers';
 import { IPC_CHANNELS } from '../src/shared/ipc-channels';
+import { killPtyProcess } from './utils/process-cleanup';
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -13,6 +17,9 @@ let mainWindow: BrowserWindow | null = null;
  * Create the main application window.
  */
 function createWindow(): void {
+  // Hide default menu bar
+  Menu.setApplicationMenu(null);
+
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -27,7 +34,7 @@ function createWindow(): void {
   // In development, load from Angular dev server
   const isDev = !app.isPackaged;
   if (isDev) {
-    mainWindow.loadURL('http://localhost:5000');
+    mainWindow.loadURL('http://localhost:4800');
     mainWindow.webContents.openDevTools();
   } else {
     // In production, load from built Angular files
@@ -120,12 +127,12 @@ async function spawnPtyWithResume(session: SessionMetadata): Promise<pty.IPty> {
 
     ptyProcess.onExit(exitHandler);
 
-    // Wait 5 seconds - if process still alive, consider resume successful
+    // If process still alive after 1.5s, consider resume successful
     setTimeout(() => {
       hasResolved = true;
       console.log(`[Auto-Restore] Resume successful for ${session.sessionId} (PID ${ptyProcess.pid})`);
       resolve(ptyProcess);
-    }, 5000);
+    }, 1500);
   });
 }
 
@@ -163,18 +170,38 @@ function spawnPtyFresh(session: SessionMetadata): pty.IPty {
 }
 
 /**
+ * Setup PTY event handlers and register in process map.
+ */
+function registerRestoredPty(session: SessionMetadata, ptyProcess: pty.IPty): void {
+  const ptyProcesses = getPtyProcesses();
+  ptyProcesses.set(session.sessionId, ptyProcess);
+  getScrollbackBuffers().set(session.sessionId, new ScrollbackBuffer(10000));
+
+  ptyProcess.onData((data) => {
+    const buffer = getScrollbackBuffers().get(session.sessionId);
+    if (buffer) buffer.append(data);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send(IPC_CHANNELS.PTY_DATA, { sessionId: session.sessionId, data });
+    }
+  });
+
+  ptyProcess.onExit(({ exitCode, signal }) => {
+    if (isSessionRestarting(session.sessionId)) return;
+    console.log(`[Auto-Restore] Session ${session.sessionId} exited with code ${exitCode}`);
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send(IPC_CHANNELS.PTY_EXIT, { sessionId: session.sessionId, exitCode, signal });
+    }
+    ptyProcesses.delete(session.sessionId);
+    getScrollbackBuffers().delete(session.sessionId);
+    if (!isShuttingDown()) {
+      deleteSessionFromDisk(session.sessionId);
+    }
+  });
+}
+
+/**
  * Restore all saved sessions on app startup.
- *
- * Flow:
- * 1. Load sessions.json from userData directory
- * 2. For each session:
- *    a. Attempt --resume first
- *    b. If resume fails, fall back to fresh session in same directory
- *    c. Stagger spawns with 2-second delay to prevent CPU/RAM spikes
- * 3. Setup PTY event handlers (onData, onExit) for each restored session
- *
- * Per Phase 1 CONTEXT.md: All sessions auto-restore on startup, staggered
- * delay to prevent resource spikes, transparent fallback on resume failure.
+ * Spawns all sessions in parallel for fast startup.
  */
 async function restoreAllSessions(): Promise<void> {
   console.log('[Auto-Restore] Starting session auto-restore');
@@ -188,50 +215,29 @@ async function restoreAllSessions(): Promise<void> {
 
   console.log(`[Auto-Restore] Found ${sessions.length} sessions to restore`);
 
-  const ptyProcesses = getPtyProcesses();
-
-  for (const session of sessions) {
+  // Spawn all sessions in parallel
+  const restorePromises = sessions.map(async (session) => {
     try {
       let ptyProcess: pty.IPty;
-
-      // Attempt resume first
       try {
         ptyProcess = await spawnPtyWithResume(session);
-      } catch (error) {
-        // Resume failed - fall back to fresh session
+      } catch {
         console.warn(`[Auto-Restore] Resume failed for ${session.sessionId}, starting fresh`);
         ptyProcess = spawnPtyFresh(session);
       }
-
-      // Store in map for IPC handlers
-      ptyProcesses.set(session.sessionId, ptyProcess);
-
-      // Setup event handlers (guard against destroyed window during quit)
-      ptyProcess.onData((data) => {
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send(IPC_CHANNELS.PTY_DATA, { sessionId: session.sessionId, data });
-        }
-      });
-
-      ptyProcess.onExit(({ exitCode, signal }) => {
-        console.log(`[Auto-Restore] Restored session ${session.sessionId} exited with code ${exitCode}`);
-        if (mainWindow && !mainWindow.isDestroyed()) {
-          mainWindow.webContents.send(IPC_CHANNELS.PTY_EXIT, { sessionId: session.sessionId, exitCode, signal });
-        }
-        ptyProcesses.delete(session.sessionId);
-      });
-
-      console.log(`[Auto-Restore] Session ${session.sessionId} restored successfully`);
-
-      // Stagger spawns with 2-second delay (per Phase 1 CONTEXT.md)
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      registerRestoredPty(session, ptyProcess);
+      console.log(`[Auto-Restore] Session ${session.sessionId} restored`);
     } catch (error) {
       console.error(`[Auto-Restore] Failed to restore session ${session.sessionId}:`, error);
-      // Continue with next session - don't block entire restore on one failure
     }
-  }
+  });
 
+  await Promise.all(restorePromises);
   console.log('[Auto-Restore] All sessions restored');
+
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send(IPC_CHANNELS.SESSION_RESTORE_COMPLETE);
+  }
 }
 
 
@@ -242,19 +248,17 @@ app.whenReady().then(async () => {
   // Register all IPC handlers before creating window
   registerPtyHandlers();
   registerSessionHandlers();
+  registerGitHandlers();
 
   // Start WebSocket server before creating window
   startWebSocketServer();
 
   createWindow();
 
-  // Auto-restore saved sessions after window is created
-  // Delay slightly to ensure renderer process is ready to receive PTY events
-  setTimeout(() => {
-    restoreAllSessions().catch((error) => {
-      console.error('[Auto-Restore] Fatal error during session restore:', error);
-    });
-  }, 1000);
+  // Auto-restore saved sessions
+  restoreAllSessions().catch((error) => {
+    console.error('[Auto-Restore] Fatal error during session restore:', error);
+  });
 
   app.on('activate', () => {
     // On macOS, re-create window when dock icon is clicked and no windows are open
@@ -292,26 +296,25 @@ app.on('will-quit', async (event) => {
 
   console.log(`[App Lifecycle] Shutting down WebSocket server and killing ${ptyProcesses.size} active PTY processes`);
   isCleaningUp = true;
+  setShuttingDown(true);
   event.preventDefault();
 
   // Stop WebSocket server first (closes all WebSocket connections)
   stopWebSocketServer();
 
-  // Kill all active PTY processes
-  for (const [sessionId, ptyProcess] of ptyProcesses.entries()) {
+  // Kill all active PTY processes using taskkill /T /F to kill entire process tree
+  const killPromises = Array.from(ptyProcesses.entries()).map(async ([sessionId, ptyProcess]) => {
     console.log(`[App Lifecycle] Killing session ${sessionId} (PID ${ptyProcess.pid})`);
     try {
-      ptyProcess.kill();
+      await killPtyProcess(ptyProcess, 2000);
     } catch (error) {
-      // AttachConsole failed is expected on Windows during shutdown — ignore
       console.log(`[App Lifecycle] Kill signal sent for ${sessionId} (errors during shutdown are expected)`);
     }
-  }
+  });
 
-  // Brief wait for processes to terminate, then force quit
-  setTimeout(() => {
+  Promise.all(killPromises).then(() => {
     ptyProcesses.clear();
     console.log('[App Lifecycle] All PTY processes cleaned up');
     app.quit();
-  }, 1500);
+  });
 });
