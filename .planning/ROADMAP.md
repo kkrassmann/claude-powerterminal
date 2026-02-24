@@ -30,10 +30,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. Session IDs and working directories are saved to disk when created
   4. On app restart, all previous sessions are restored via Claude CLI --resume flag
   5. Scrollback buffer is limited to prevent memory explosion (10k line circular buffer)
-**Plans**: TBD
+**Plans**: 3 plans in 3 waves
 
 Plans:
-- [ ] TBD (will be created during phase planning)
+- [ ] 01-01-PLAN.md — Foundation & Models (Electron + Angular scaffold, session persistence service)
+- [ ] 01-02-PLAN.md — PTY Lifecycle (PTY spawn/kill with Windows cleanup, IPC handlers)
+- [ ] 01-03-PLAN.md — Session Management UI & Restore (Session creation UI, auto-restore logic, scrollback buffer)
 
 ### Phase 2: WebSocket Bridge & UI
 **Goal**: Stream PTY output to browser via WebSocket with xterm.js terminal emulation, supporting full interactive I/O
@@ -100,7 +102,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Core PTY Infrastructure | 0/? | Not started | - |
+| 1. Core PTY Infrastructure | 0/3 | Ready to execute | - |
 | 2. WebSocket Bridge & UI | 0/? | Not started | - |
 | 3. Dashboard Grid | 0/? | Not started | - |
 | 4. Status Detection & Alerts | 0/? | Not started | - |
@@ -108,4 +110,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 ---
 *Roadmap created: 2026-02-24*
-*Last updated: 2026-02-24 after initial creation*
+*Last updated: 2026-02-24 after Phase 1 planning (3 plans created)*
