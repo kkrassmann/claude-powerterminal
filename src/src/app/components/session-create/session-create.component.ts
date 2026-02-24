@@ -1,7 +1,6 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { randomUUID } from 'crypto';
 import { PtyManagerService } from '../../services/pty-manager.service';
 import { SessionManagerService } from '../../services/session-manager.service';
 import { SessionStateService } from '../../services/session-state.service';
@@ -119,7 +118,7 @@ export class SessionCreateComponent {
 
     try {
       // Step 1: Generate unique session ID
-      const sessionId = randomUUID();
+      const sessionId = crypto.randomUUID();
 
       // Step 2: Combine flags
       const flags = this.combineFlags();

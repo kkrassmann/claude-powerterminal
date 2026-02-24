@@ -6,6 +6,8 @@
  */
 
 import * as pty from 'node-pty';
+import * as fs from 'fs';
+import * as path from 'path';
 import { ipcMain } from 'electron';
 import { IPC_CHANNELS } from '../../src/shared/ipc-channels';
 import { killPtyProcess } from '../utils/process-cleanup';
@@ -55,17 +57,29 @@ export function registerPtyHandlers(): void {
     console.log(`[PTY Handlers] Spawning PTY for session ${sessionId} in ${cwd} with flags:`, flags);
 
     try {
+      // Validate cwd exists
+      const resolvedCwd = path.resolve(cwd);
+      if (!fs.existsSync(resolvedCwd) || !fs.statSync(resolvedCwd).isDirectory()) {
+        return { success: false, error: `Directory does not exist: ${resolvedCwd}` };
+      }
+
       // Environment sanitization: Remove CLAUDECODE vars to prevent nested session conflicts
       const env = { ...process.env };
       delete env.CLAUDECODE;
       delete env.CLAUDECODE_SESSION_ID;
 
+      // On Windows, spawn claude.exe directly with full path resolution
+      const claudeExe = process.platform === 'win32' ? 'claude.exe' : 'claude';
+      const claudeArgs = ['--session-id', sessionId, ...flags];
+
+      console.log(`[PTY Handlers] Spawning: ${claudeExe} ${claudeArgs.join(' ')} in ${resolvedCwd}`);
+
       // Spawn PTY process with Windows ConPTY mode
-      const ptyProcess = pty.spawn('claude', ['--session-id', sessionId, ...flags], {
+      const ptyProcess = pty.spawn(claudeExe, claudeArgs, {
         name: 'xterm-256color',
         cols: 80,
         rows: 30,
-        cwd,
+        cwd: resolvedCwd,
         env,
         useConpty: true, // Windows ConPTY mode (auto-enabled on Win10 1809+)
       });
@@ -75,15 +89,19 @@ export function registerPtyHandlers(): void {
 
       console.log(`[PTY Handlers] PTY spawned for session ${sessionId} with PID ${ptyProcess.pid}`);
 
-      // Setup output streaming to renderer
+      // Setup output streaming to renderer (guard against destroyed window during quit)
       ptyProcess.onData((data) => {
-        event.sender.send(IPC_CHANNELS.PTY_DATA, { sessionId, data });
+        if (!event.sender.isDestroyed()) {
+          event.sender.send(IPC_CHANNELS.PTY_DATA, { sessionId, data });
+        }
       });
 
       // Setup exit handling
       ptyProcess.onExit(({ exitCode, signal }) => {
         console.log(`[PTY Handlers] Session ${sessionId} exited with code ${exitCode}, signal ${signal}`);
-        event.sender.send(IPC_CHANNELS.PTY_EXIT, { sessionId, exitCode, signal });
+        if (!event.sender.isDestroyed()) {
+          event.sender.send(IPC_CHANNELS.PTY_EXIT, { sessionId, exitCode, signal });
+        }
         ptyProcesses.delete(sessionId);
       });
 

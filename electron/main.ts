@@ -26,7 +26,7 @@ function createWindow(): void {
   // In development, load from Angular dev server
   const isDev = !app.isPackaged;
   if (isDev) {
-    mainWindow.loadURL('http://localhost:4200');
+    mainWindow.loadURL('http://localhost:5000');
     mainWindow.webContents.openDevTools();
   } else {
     // In production, load from built Angular files
@@ -93,8 +93,13 @@ async function spawnPtyWithResume(session: SessionMetadata): Promise<pty.IPty> {
     delete env.CLAUDECODE;
     delete env.CLAUDECODE_SESSION_ID;
 
-    // Spawn with --resume flag
-    const ptyProcess = pty.spawn('claude', ['--resume', session.sessionId, ...session.cliFlags], {
+    // Spawn with --resume flag via cmd.exe for PATH resolution on Windows
+    const shell = process.platform === 'win32' ? 'cmd.exe' : '/bin/bash';
+    const args = process.platform === 'win32'
+      ? ['/c', 'claude', '--resume', session.sessionId, ...session.cliFlags]
+      : ['-c', `claude --resume ${session.sessionId} ${session.cliFlags.join(' ')}`];
+
+    const ptyProcess = pty.spawn(shell, args, {
       name: 'xterm-256color',
       cols: 80,
       rows: 30,
@@ -137,8 +142,13 @@ function spawnPtyFresh(session: SessionMetadata): pty.IPty {
   delete env.CLAUDECODE;
   delete env.CLAUDECODE_SESSION_ID;
 
-  // Spawn with --session-id flag (fresh session)
-  const ptyProcess = pty.spawn('claude', ['--session-id', session.sessionId, ...session.cliFlags], {
+  // Spawn with --session-id flag (fresh session) via cmd.exe for PATH resolution on Windows
+  const shell = process.platform === 'win32' ? 'cmd.exe' : '/bin/bash';
+  const args = process.platform === 'win32'
+    ? ['/c', 'claude', '--session-id', session.sessionId, ...session.cliFlags]
+    : ['-c', `claude --session-id ${session.sessionId} ${session.cliFlags.join(' ')}`];
+
+  const ptyProcess = pty.spawn(shell, args, {
     name: 'xterm-256color',
     cols: 80,
     rows: 30,
@@ -195,16 +205,16 @@ async function restoreAllSessions(): Promise<void> {
       // Store in map for IPC handlers
       ptyProcesses.set(session.sessionId, ptyProcess);
 
-      // Setup event handlers
+      // Setup event handlers (guard against destroyed window during quit)
       ptyProcess.onData((data) => {
-        if (mainWindow) {
+        if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send(IPC_CHANNELS.PTY_DATA, { sessionId: session.sessionId, data });
         }
       });
 
       ptyProcess.onExit(({ exitCode, signal }) => {
         console.log(`[Auto-Restore] Restored session ${session.sessionId} exited with code ${exitCode}`);
-        if (mainWindow) {
+        if (mainWindow && !mainWindow.isDestroyed()) {
           mainWindow.webContents.send(IPC_CHANNELS.PTY_EXIT, { sessionId: session.sessionId, exitCode, signal });
         }
         ptyProcesses.delete(session.sessionId);
@@ -261,47 +271,40 @@ app.on('window-all-closed', () => {
 });
 
 /**
- * Handle cleanup on app quit
+ * Handle cleanup on app quit.
+ * Uses a flag to prevent recursive will-quit calls when app.quit() is called after cleanup.
  */
+let isCleaningUp = false;
+
 app.on('will-quit', async (event) => {
-  console.log('[App Lifecycle] App is quitting, cleaning up PTY processes...');
+  if (isCleaningUp) return; // Prevent recursive will-quit
 
   const ptyProcesses = getPtyProcesses();
 
-  if (ptyProcesses.size > 0) {
-    console.log(`[App Lifecycle] Killing ${ptyProcesses.size} active PTY processes`);
-
-    // Prevent quit until cleanup is done
-    event.preventDefault();
-
-    // Kill all active PTY processes
-    const killPromises: Promise<void>[] = [];
-    for (const [sessionId, ptyProcess] of ptyProcesses.entries()) {
-      console.log(`[App Lifecycle] Killing session ${sessionId} (PID ${ptyProcess.pid})`);
-      killPromises.push(
-        new Promise<void>((resolve) => {
-          try {
-            ptyProcess.kill();
-            // Give process 1 second to terminate gracefully
-            setTimeout(() => {
-              ptyProcesses.delete(sessionId);
-              resolve();
-            }, 1000);
-          } catch (error) {
-            console.error(`[App Lifecycle] Error killing session ${sessionId}:`, error);
-            resolve(); // Continue cleanup even if one fails
-          }
-        })
-      );
-    }
-
-    // Wait for all kills to complete
-    await Promise.all(killPromises);
-    console.log('[App Lifecycle] All PTY processes cleaned up');
-
-    // Now actually quit
-    app.quit();
-  } else {
+  if (ptyProcesses.size === 0) {
     console.log('[App Lifecycle] No active PTY processes to clean up');
+    return;
   }
+
+  console.log(`[App Lifecycle] Killing ${ptyProcesses.size} active PTY processes`);
+  isCleaningUp = true;
+  event.preventDefault();
+
+  // Kill all active PTY processes
+  for (const [sessionId, ptyProcess] of ptyProcesses.entries()) {
+    console.log(`[App Lifecycle] Killing session ${sessionId} (PID ${ptyProcess.pid})`);
+    try {
+      ptyProcess.kill();
+    } catch (error) {
+      // AttachConsole failed is expected on Windows during shutdown — ignore
+      console.log(`[App Lifecycle] Kill signal sent for ${sessionId} (errors during shutdown are expected)`);
+    }
+  }
+
+  // Brief wait for processes to terminate, then force quit
+  setTimeout(() => {
+    ptyProcesses.clear();
+    console.log('[App Lifecycle] All PTY processes cleaned up');
+    app.quit();
+  }, 1500);
 });
