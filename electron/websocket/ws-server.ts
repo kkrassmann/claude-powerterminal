@@ -182,6 +182,22 @@ export function startWebSocketServer(): WebSocketServer {
         const msg = JSON.parse(raw.toString()) as ClientMessage;
 
         switch (msg.type) {
+          case 'buffer-replay':
+            // Client requested full buffer replay (for self-correction after desync)
+            const bufferForReplay = scrollbackBuffers.get(sessionId);
+
+            if (bufferForReplay && bufferForReplay.getLineCount() > 0) {
+              console.log(`[WebSocket] Buffer replay requested for session ${sessionId}`);
+
+              // Clear terminal first
+              safeSend({ type: 'buffer-clear' });
+
+              // Send full scrollback buffer
+              const lines = bufferForReplay.getLines();
+              safeSend({ type: 'buffer-replay', data: lines.join('') });
+            }
+            break;
+
           case 'input':
             ptyProcess.write(msg.data);
             break;

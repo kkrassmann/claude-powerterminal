@@ -15,11 +15,14 @@ export type ServerMessage =
   | { type: 'buffering'; total: number }   // Buffer replay starting (line count)
   | { type: 'buffered' }                   // Buffer replay complete
   | { type: 'status'; status: TerminalStatus }  // Terminal status update
+  | { type: 'buffer-clear' }               // Clear terminal before buffer replay
+  | { type: 'buffer-replay'; data: string } // Full scrollback buffer replay
 
 // Client -> Server messages
 export type ClientMessage =
   | { type: 'input'; data: string }                   // User keyboard input
   | { type: 'resize'; cols: number; rows: number }    // Terminal resize
+  | { type: 'buffer-replay' }                         // Request full buffer replay
 
 // WebSocket close codes (custom range 4000-4999)
 export const WS_CLOSE_CODES = {
