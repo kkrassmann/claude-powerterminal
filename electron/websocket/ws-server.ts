@@ -8,13 +8,20 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { getPtyProcesses } from '../ipc/pty-handlers';
 import { ScrollbackBuffer } from '../../src/src/app/services/scrollback-buffer.service';
-import { WS_PORT, WS_CLOSE_CODES, ServerMessage, ClientMessage } from '../../src/shared/ws-protocol';
+import { WS_PORT, WS_CLOSE_CODES, ServerMessage, ClientMessage, TerminalStatus } from '../../src/shared/ws-protocol';
+import { StatusDetector } from '../status/status-detector';
 
 /**
  * Map of session IDs to scrollback buffers.
  * Buffers are created when PTY processes are spawned and persist across WebSocket connections.
  */
 const scrollbackBuffers = new Map<string, ScrollbackBuffer>();
+
+/**
+ * Map of session IDs to status detectors.
+ * Created when PTY processes are spawned, accessed by pty-handlers for status updates.
+ */
+const statusDetectors = new Map<string, StatusDetector>();
 
 /**
  * WebSocket server instance.
@@ -32,6 +39,29 @@ let heartbeatInterval: NodeJS.Timeout | null = null;
  */
 export function getScrollbackBuffers(): Map<string, ScrollbackBuffer> {
   return scrollbackBuffers;
+}
+
+/**
+ * Get the status detectors map.
+ * Used by pty-handlers.ts to create detectors and by ws connection handler for initial status.
+ */
+export function getStatusDetectors(): Map<string, StatusDetector> {
+  return statusDetectors;
+}
+
+/**
+ * Broadcast status change to all WebSocket clients connected to a session.
+ * Called by StatusDetector callback when status transitions occur.
+ */
+export function broadcastStatus(sessionId: string, status: TerminalStatus): void {
+  if (!wss) return;
+
+  wss.clients.forEach((ws) => {
+    const client = ws as any;
+    if (client.sessionId === sessionId && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'status', status }));
+    }
+  });
 }
 
 /**
@@ -97,6 +127,17 @@ export function startWebSocketServer(): WebSocketServer {
       (ws as any).isAlive = true;
     });
 
+    // Safe send helper — prevents errors from crashing the connection
+    const safeSend = (msg: ServerMessage) => {
+      try {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify(msg));
+        }
+      } catch (err) {
+        console.warn(`[WebSocket] Send failed for session ${sessionId}:`, err);
+      }
+    };
+
     // Scrollback buffer replay on connect
     const buffer = scrollbackBuffers.get(sessionId);
 
@@ -104,44 +145,35 @@ export function startWebSocketServer(): WebSocketServer {
       console.log(`[WebSocket] Replaying ${buffer.getLineCount()} lines of scrollback for session ${sessionId}`);
 
       // Send buffering signal
-      const bufferingMsg: ServerMessage = { type: 'buffering', total: buffer.getLineCount() };
-      ws.send(JSON.stringify(bufferingMsg));
+      safeSend({ type: 'buffering', total: buffer.getLineCount() });
 
       // Send all buffered lines
       const lines = buffer.getLines();
       for (const line of lines) {
-        const outputMsg: ServerMessage = { type: 'output', data: line };
-        ws.send(JSON.stringify(outputMsg));
+        safeSend({ type: 'output', data: line });
       }
 
       // Send buffered signal
-      const bufferedMsg: ServerMessage = { type: 'buffered' };
-      ws.send(JSON.stringify(bufferedMsg));
+      safeSend({ type: 'buffered' });
+    }
+
+    // Send initial status after scrollback replay (or immediately if no buffer)
+    const detector = statusDetectors.get(sessionId);
+    if (detector) {
+      safeSend({ type: 'status', status: detector.getStatus() });
     }
 
     // Forward PTY output to WebSocket
+    // NOTE: Scrollback buffer is populated by pty-handlers.ts / main.ts — NOT here
     // CRITICAL: Store handler reference for cleanup on ws close
     const dataDisposable = ptyProcess.onData((data) => {
-      // Append to scrollback buffer
-      if (buffer) {
-        buffer.append(data);
-      }
-
-      // Forward to WebSocket if connection is open
-      if (ws.readyState === WebSocket.OPEN) {
-        const outputMsg: ServerMessage = { type: 'output', data };
-        ws.send(JSON.stringify(outputMsg));
-      }
+      safeSend({ type: 'output', data });
     });
 
     // Handle PTY exit
     ptyProcess.onExit(({ exitCode }) => {
       console.log(`[WebSocket] PTY exited for session ${sessionId} with code ${exitCode}`);
-
-      if (ws.readyState === WebSocket.OPEN) {
-        const exitMsg: ServerMessage = { type: 'exit', exitCode };
-        ws.send(JSON.stringify(exitMsg));
-      }
+      safeSend({ type: 'exit', exitCode });
     });
 
     // Handle incoming client messages
