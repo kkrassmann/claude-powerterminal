@@ -79,10 +79,11 @@ Plans:
   3. Each terminal tile shows a color-coded visual indicator (working = yellow, waiting = red, done = green)
   4. Audio notification plays when a terminal transitions to "waiting for input" or "done"
   5. User can mute/unmute audio notifications globally via a toggle in the UI
-**Plans**: TBD
+**Plans**: 2 plans in 2 waves
 
 Plans:
-- [ ] TBD (will be created during phase planning)
+- [ ] 04-01-PLAN.md — StatusDetector backend engine (ANSI stripping, pattern matching state machine, WebSocket protocol extension, PTY handler + WS server wiring)
+- [ ] 04-02-PLAN.md — Frontend status UI (status dot in tile header, box-shadow glow, Web Audio API alerts with debounce, global mute toggle)
 
 ### Phase 5: Network Access
 **Goal**: Enable mobile/tablet access via local network with responsive UI and automatic network discovery
@@ -107,7 +108,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. Core PTY Infrastructure | 3/3 | Complete | 2026-02-24 |
 | 2. WebSocket Bridge & UI | 1/2 | In Progress | - |
 | 3. Dashboard Grid | 2/2 | Complete   | 2026-02-25 |
-| 4. Status Detection & Alerts | 0/? | Not started | - |
+| 4. Status Detection & Alerts | 0/2 | Not started | - |
 | 5. Network Access | 0/? | Not started | - |
 
 ---
