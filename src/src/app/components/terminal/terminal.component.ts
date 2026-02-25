@@ -1,9 +1,11 @@
-import { Component, Input, OnInit, OnDestroy, ViewChild, ElementRef, NgZone } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, OnDestroy, ViewChild, ElementRef, NgZone, HostListener } from '@angular/core';
+import { CommonModule } from '@angular/common';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { WebLinksAddon } from '@xterm/addon-web-links';
-import { ServerMessage, ClientMessage, WS_PORT } from '../../../../shared/ws-protocol';
+import { ServerMessage, ClientMessage, WS_PORT, TerminalStatus } from '../../../../shared/ws-protocol';
+import { IPC_CHANNELS } from '../../../../shared/ipc-channels';
 
 /**
  * xterm.js terminal component with WebSocket bridge to PTY process.
@@ -22,11 +24,26 @@ import { ServerMessage, ClientMessage, WS_PORT } from '../../../../shared/ws-pro
 @Component({
   selector: 'app-terminal',
   standalone: true,
-  template: `<div #terminalContainer class="terminal-container"></div>`,
+  template: `
+    <div class="restart-overlay" *ngIf="isRestarting">
+      <div class="restart-indicator">
+        <div class="spinner"></div>
+        <span>Session wird neu gestartet...</span>
+      </div>
+    </div>
+    <div #terminalContainer class="terminal-container" [class.hidden]="isRestarting" (contextmenu)="onContextMenu($event)"></div>
+    <div *ngIf="contextMenuVisible" class="context-menu" [style.left.px]="contextMenuX" [style.top.px]="contextMenuY" (mousedown)="$event.stopPropagation()">
+      <button class="context-menu-item" (click)="restartSession()">Neu starten</button>
+      <button class="context-menu-item danger" (click)="killSession()">Session beenden</button>
+    </div>
+  `,
+  imports: [CommonModule],
   styleUrls: ['./terminal.component.css']
 })
 export class TerminalComponent implements OnInit, OnDestroy {
   @Input() sessionId!: string;
+  @Output() sessionExited = new EventEmitter<string>();
+  @Output() statusChanged = new EventEmitter<{ sessionId: string; status: TerminalStatus }>();
   @ViewChild('terminalContainer', { static: true }) terminalContainer!: ElementRef<HTMLDivElement>;
 
   private term!: Terminal;
@@ -37,9 +54,50 @@ export class TerminalComponent implements OnInit, OnDestroy {
   private reconnectAttempts = 0;
   private maxReconnectDelay = 30000;
   private destroyed = false;
-  private isBuffering = false; // True during buffer replay, suppresses scroll-to-bottom
+  private isBuffering = false;
+  private inputDisposable: any = null; // Tracks term.onData listener to prevent leaks
+
+  contextMenuVisible = false;
+  contextMenuX = 0;
+  contextMenuY = 0;
+  isRestarting = false;
 
   constructor(private ngZone: NgZone) {}
+
+  @HostListener('document:mousedown')
+  onDocumentMouseDown(): void {
+    this.contextMenuVisible = false;
+  }
+
+  onContextMenu(event: MouseEvent): void {
+    event.preventDefault();
+    this.contextMenuX = event.clientX;
+    this.contextMenuY = event.clientY;
+    this.contextMenuVisible = true;
+  }
+
+  async restartSession(): Promise<void> {
+    this.contextMenuVisible = false;
+    this.isRestarting = true;
+
+    // Close current WebSocket — the old PTY will be killed server-side
+    this.socket?.close();
+
+    const result = await window.electronAPI.invoke(IPC_CHANNELS.PTY_RESTART, this.sessionId, this.term.cols, this.term.rows);
+    if (result?.success) {
+      // Reset terminal before reconnecting so old content is gone
+      this.term.reset();
+      this.ngZone.runOutsideAngular(() => this.connectWebSocket());
+    } else {
+      this.isRestarting = false;
+      this.term.write(`\r\n[Restart failed: ${result?.error}]\r\n`);
+    }
+  }
+
+  killSession(): void {
+    this.contextMenuVisible = false;
+    window.electronAPI.invoke(IPC_CHANNELS.PTY_KILL, this.sessionId);
+  }
 
   ngOnInit(): void {
     // Run everything outside Angular zone to avoid change detection storms
@@ -152,6 +210,10 @@ export class TerminalComponent implements OnInit, OnDestroy {
     this.socket.onopen = () => {
       this.reconnectAttempts = 0;
       console.log(`[Terminal] WebSocket connected for session ${this.sessionId}`);
+
+      // Send actual terminal dimensions so PTY matches our display
+      const msg: ClientMessage = { type: 'resize', cols: this.term.cols, rows: this.term.rows };
+      this.socket.send(JSON.stringify(msg));
     };
 
     this.socket.onmessage = (event: MessageEvent) => {
@@ -169,18 +231,32 @@ export class TerminalComponent implements OnInit, OnDestroy {
           case 'buffered':
             // Buffer replay complete
             this.isBuffering = false;
+            if (this.isRestarting) {
+              this.isRestarting = false;
+              this.fitAddon.fit();
+            }
             console.log('[Terminal] Buffer replay complete');
             break;
 
           case 'output':
             // PTY output data
             this.term.write(msg.data);
+            // Show terminal on first output after restart (if no buffer replay)
+            if (this.isRestarting && !this.isBuffering) {
+              this.isRestarting = false;
+              this.fitAddon.fit();
+            }
             break;
 
           case 'exit':
-            // PTY process exited
+            if (this.isRestarting) break; // Ignore exit during restart
             this.term.write(`\r\n[Process exited with code ${msg.exitCode}]\r\n`);
-            // Do NOT reconnect after exit
+            this.ngZone.run(() => this.sessionExited.emit(this.sessionId));
+            break;
+
+          case 'status':
+            // Forward status changes to parent component
+            this.ngZone.run(() => this.statusChanged.emit({ sessionId: this.sessionId, status: msg.status }));
             break;
         }
       } catch (error) {
@@ -202,8 +278,9 @@ export class TerminalComponent implements OnInit, OnDestroy {
       // onclose fires after onerror
     };
 
-    // Forward user input to WebSocket
-    this.term.onData((data: string) => {
+    // Forward user input to WebSocket (dispose previous listener to prevent leaks)
+    this.inputDisposable?.dispose();
+    this.inputDisposable = this.term.onData((data: string) => {
       if (this.socket?.readyState === WebSocket.OPEN) {
         const msg: ClientMessage = { type: 'input', data };
         this.socket.send(JSON.stringify(msg));
