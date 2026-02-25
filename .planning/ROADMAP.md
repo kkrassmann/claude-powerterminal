@@ -97,14 +97,14 @@ Plans:
   4. Session list syncs automatically between Electron and remote browsers
   5. Terminal output streams cleanly without glitches during rapid output
   6. Session creation works from remote browsers over HTTP
-**Plans**: 5 plans in 1 wave
+**Plans**: 5 plans in 2 waves
 
 Plans:
-- [x] 05-01-PLAN.md — Backend network infrastructure (WS 0.0.0.0 binding, HTTP static server for Angular build, LAN IP discovery, LAN URL display)
-- [x] 05-02-PLAN.md — Frontend LAN compatibility + responsive CSS (dynamic WS URL, electronAPI guards, mobile/tablet breakpoints)
-- [ ] 05-03-PLAN.md — Session list synchronization (Fix /api/sessions endpoint, add polling for remote browsers)
-- [ ] 05-04-PLAN.md — Terminal buffer resync (Periodic buffer replay to prevent xterm.js glitches)
-- [ ] 05-05-PLAN.md — Remote session creation (crypto.randomUUID polyfill, POST /api/sessions endpoint, HTTP API routing)
+- [x] 05-01-PLAN.md — Backend network infrastructure (WS 0.0.0.0 binding, HTTP static server for Angular build, LAN IP discovery, LAN URL display) [Wave 1]
+- [x] 05-02-PLAN.md — Frontend LAN compatibility + responsive CSS (dynamic WS URL, electronAPI guards, mobile/tablet breakpoints) [Wave 1]
+- [ ] 05-03-PLAN.md — Session list synchronization (Fix /api/sessions endpoint, add polling for remote browsers) [Wave 1]
+- [ ] 05-04-PLAN.md — Terminal buffer resync (Periodic buffer replay to prevent xterm.js glitches) [Wave 1]
+- [ ] 05-05-PLAN.md — Remote session creation (crypto.randomUUID polyfill, POST /api/sessions endpoint, HTTP API routing) [Wave 2, depends on 05-03]
 
 ## Progress
 
@@ -135,4 +135,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-02-24*
-*Last updated: 2026-02-25 after Phase 5 UAT gap closure planning*
+*Last updated: 2026-02-25 after Phase 5 UAT gap closure planning (revised)*
