@@ -46,6 +46,15 @@ function createWindow(): void {
 
   if (fs.existsSync(builtFilePath)) {
     mainWindow.loadFile(builtFilePath);
+
+    // Intercept navigation (e.g. Ctrl+R reload) to always serve index.html
+    // Angular's file:// routing loses the index.html suffix after navigation
+    mainWindow.webContents.on('will-navigate', (event, url) => {
+      if (url.startsWith('file://') && !url.endsWith('index.html')) {
+        event.preventDefault();
+        mainWindow!.loadFile(builtFilePath);
+      }
+    });
   } else {
     mainWindow.loadURL(devServerUrl);
   }
