@@ -83,6 +83,12 @@ export class TerminalComponent implements OnInit, OnDestroy {
     // Close current WebSocket — the old PTY will be killed server-side
     this.socket?.close();
 
+    if (!window.electronAPI) {
+      this.isRestarting = false;
+      this.term.write('\r\n[Restart not available in remote browser]\r\n');
+      return;
+    }
+
     const result = await window.electronAPI.invoke(IPC_CHANNELS.PTY_RESTART, this.sessionId, this.term.cols, this.term.rows);
     if (result?.success) {
       // Reset terminal before reconnecting so old content is gone
@@ -96,6 +102,7 @@ export class TerminalComponent implements OnInit, OnDestroy {
 
   killSession(): void {
     this.contextMenuVisible = false;
+    if (!window.electronAPI) return;
     window.electronAPI.invoke(IPC_CHANNELS.PTY_KILL, this.sessionId);
   }
 
@@ -205,7 +212,8 @@ export class TerminalComponent implements OnInit, OnDestroy {
    * Connect to WebSocket server and setup message handlers.
    */
   private connectWebSocket(): void {
-    this.socket = new WebSocket(`ws://localhost:${WS_PORT}/terminal/${this.sessionId}`);
+    const wsHost = window.location.hostname || 'localhost';
+    this.socket = new WebSocket(`ws://${wsHost}:${WS_PORT}/terminal/${this.sessionId}`);
 
     this.socket.onopen = () => {
       this.reconnectAttempts = 0;

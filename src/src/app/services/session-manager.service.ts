@@ -40,6 +40,7 @@ export class SessionManagerService {
    * @throws Error if IPC communication fails or file write fails
    */
   async saveSession(session: SessionMetadata): Promise<void> {
+    if (!window.electronAPI) return;
     try {
       await window.electronAPI.invoke(IPC_CHANNELS.SESSION_SAVE, session);
     } catch (error) {
@@ -56,6 +57,7 @@ export class SessionManagerService {
    * @throws Error if IPC communication fails
    */
   async deleteSession(sessionId: string): Promise<void> {
+    if (!window.electronAPI) return;
     try {
       await window.electronAPI.invoke(IPC_CHANNELS.SESSION_DELETE, sessionId);
     } catch (error) {
@@ -71,6 +73,7 @@ export class SessionManagerService {
    * @returns Empty array if no sessions exist or if file read fails
    */
   async loadSessions(): Promise<SessionMetadata[]> {
+    if (!window.electronAPI) return [];
     try {
       const result = await window.electronAPI.invoke(IPC_CHANNELS.SESSION_LOAD);
       return result?.sessions || [];
@@ -87,6 +90,7 @@ export class SessionManagerService {
    * @returns Promise that resolves with the session or undefined if not found
    */
   async getSession(sessionId: string): Promise<SessionMetadata | undefined> {
+    if (!window.electronAPI) return undefined;
     try {
       const session = await window.electronAPI.invoke(IPC_CHANNELS.SESSION_GET, sessionId);
       return session;

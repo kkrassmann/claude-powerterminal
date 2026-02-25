@@ -50,6 +50,9 @@ export class PtyManagerService {
    * }
    */
   async spawnSession(options: PTYSpawnOptions): Promise<{ success: boolean; pid?: number; error?: string }> {
+    if (!window.electronAPI) {
+      return { success: false, error: 'Not available in remote browser' };
+    }
     try {
       const result = await window.electronAPI.invoke(IPC_CHANNELS.PTY_SPAWN, options);
       return result;
@@ -76,6 +79,9 @@ export class PtyManagerService {
    * }
    */
   async killSession(sessionId: string): Promise<{ success: boolean; error?: string }> {
+    if (!window.electronAPI) {
+      return { success: false, error: 'Not available in remote browser' };
+    }
     try {
       const result = await window.electronAPI.invoke(IPC_CHANNELS.PTY_KILL, sessionId);
       return result;
@@ -100,6 +106,9 @@ export class PtyManagerService {
    * );
    */
   async writeToSession(sessionId: string, data: string): Promise<{ success: boolean; error?: string }> {
+    if (!window.electronAPI) {
+      return { success: false, error: 'Not available in remote browser' };
+    }
     try {
       const result = await window.electronAPI.invoke(IPC_CHANNELS.PTY_WRITE, { sessionId, data });
       return result;
@@ -125,6 +134,7 @@ export class PtyManagerService {
    * });
    */
   listenForOutput(callback: (data: { sessionId: string; data: string }) => void): void {
+    if (!window.electronAPI) return;
     window.electronAPI.on(IPC_CHANNELS.PTY_DATA, callback);
   }
 
@@ -144,6 +154,7 @@ export class PtyManagerService {
    * });
    */
   listenForExit(callback: (data: { sessionId: string; exitCode: number; signal?: number }) => void): void {
+    if (!window.electronAPI) return;
     window.electronAPI.on(IPC_CHANNELS.PTY_EXIT, callback);
   }
 
@@ -153,6 +164,7 @@ export class PtyManagerService {
    * @param callback - The callback function to remove
    */
   removeOutputListener(callback: (data: { sessionId: string; data: string }) => void): void {
+    if (!window.electronAPI) return;
     window.electronAPI.removeListener(IPC_CHANNELS.PTY_DATA, callback);
   }
 
@@ -162,6 +174,7 @@ export class PtyManagerService {
    * @param callback - The callback function to remove
    */
   removeExitListener(callback: (data: { sessionId: string; exitCode: number; signal?: number }) => void): void {
+    if (!window.electronAPI) return;
     window.electronAPI.removeListener(IPC_CHANNELS.PTY_EXIT, callback);
   }
 }

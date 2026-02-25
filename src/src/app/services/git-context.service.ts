@@ -165,6 +165,7 @@ export class GitContextService implements OnDestroy {
    */
   private async pollSingleSession(sessionId: string, cwd: string): Promise<void> {
     try {
+      if (!window.electronAPI) return;
       const context = await window.electronAPI.invoke(IPC_CHANNELS.GIT_CONTEXT, cwd);
 
       // Update contexts map

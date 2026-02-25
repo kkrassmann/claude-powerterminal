@@ -132,6 +132,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
    */
   private async fetchHomeDir(): Promise<void> {
     try {
+      if (!window.electronAPI) {
+        this.homeDir = '';
+        return;
+      }
       this.homeDir = await window.electronAPI.invoke(IPC_CHANNELS.APP_HOME_DIR);
     } catch (error) {
       console.error('[Dashboard] Failed to fetch home directory:', error);
@@ -304,6 +308,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
       return;
     }
 
+    if (!window.electronAPI) return;
+
     try {
       // Use PTY_RESTART handler which handles kill + respawn
       const result = await window.electronAPI.invoke(IPC_CHANNELS.PTY_RESTART, sessionId, 80, 24);
@@ -321,6 +327,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
    * @param sessionId - ID of session to kill
    */
   async killSession(sessionId: string): Promise<void> {
+    if (!window.electronAPI) return;
     try {
       await window.electronAPI.invoke(IPC_CHANNELS.PTY_KILL, sessionId);
     } catch (error) {
