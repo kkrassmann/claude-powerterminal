@@ -35,6 +35,8 @@ export class PtyManagerService {
   /**
    * Spawn a new PTY process for a Claude CLI session.
    *
+   * Routes to IPC (Electron mode) or HTTP API (remote browser mode) automatically.
+   *
    * @param options - PTY spawn options (sessionId, cwd, flags)
    * @returns Promise resolving to spawn result with success status and PID
    * @throws Error if IPC communication fails or spawn fails
@@ -50,14 +52,39 @@ export class PtyManagerService {
    * }
    */
   async spawnSession(options: PTYSpawnOptions): Promise<{ success: boolean; pid?: number; error?: string }> {
-    if (!window.electronAPI) {
-      return { success: false, error: 'Not available in remote browser' };
+    // Electron mode: use IPC
+    if (window.electronAPI) {
+      try {
+        const result = await window.electronAPI.invoke(IPC_CHANNELS.PTY_SPAWN, options);
+        return result;
+      } catch (error) {
+        console.error('Failed to spawn PTY session:', error);
+        return { success: false, error: String(error) };
+      }
     }
+
+    // Remote browser mode: use HTTP API
     try {
-      const result = await window.electronAPI.invoke(IPC_CHANNELS.PTY_SPAWN, options);
+      const response = await fetch(`http://${window.location.hostname}:9801/api/sessions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sessionId: options.sessionId,
+          cwd: options.cwd,
+          flags: options.flags,
+          resume: options.resume
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        return { success: false, error: error.error || `HTTP ${response.status}` };
+      }
+
+      const result = await response.json();
       return result;
     } catch (error) {
-      console.error('Failed to spawn PTY session:', error);
+      console.error('Failed to spawn PTY via HTTP:', error);
       return { success: false, error: String(error) };
     }
   }
