@@ -132,3 +132,30 @@
 .git-deleted {
   color: #f38ba8; /* Catppuccin red */
 }
+
+/* Mobile: larger touch targets, compact layout */
+@media (max-width: 600px) {
+  .tile-header {
+    padding: 4px 8px;
+    min-height: 40px;
+  }
+
+  .header-btn {
+    width: 28px;
+    height: 28px;
+    font-size: 16px;
+  }
+
+  .working-dir {
+    font-size: 12px;
+  }
+
+  .header-line-2 {
+    font-size: 11px;
+  }
+
+  .status-dot {
+    width: 10px;
+    height: 10px;
+  }
+}
