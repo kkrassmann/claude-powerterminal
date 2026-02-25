@@ -94,11 +94,17 @@ Plans:
   1. App binds to 0.0.0.0 and is accessible from other devices on the local network
   2. UI is fully functional on mobile/tablet viewports (tested on phone and tablet)
   3. App displays its local network URL on startup for easy access from other devices
-**Plans**: 2 plans in 1 wave
+  4. Session list syncs automatically between Electron and remote browsers
+  5. Terminal output streams cleanly without glitches during rapid output
+  6. Session creation works from remote browsers over HTTP
+**Plans**: 5 plans in 1 wave
 
 Plans:
-- [ ] 05-01-PLAN.md — Backend network infrastructure (WS 0.0.0.0 binding, HTTP static server for Angular build, LAN IP discovery, LAN URL display)
-- [ ] 05-02-PLAN.md — Frontend LAN compatibility + responsive CSS (dynamic WS URL, electronAPI guards, mobile/tablet breakpoints)
+- [x] 05-01-PLAN.md — Backend network infrastructure (WS 0.0.0.0 binding, HTTP static server for Angular build, LAN IP discovery, LAN URL display)
+- [x] 05-02-PLAN.md — Frontend LAN compatibility + responsive CSS (dynamic WS URL, electronAPI guards, mobile/tablet breakpoints)
+- [ ] 05-03-PLAN.md — Session list synchronization (Fix /api/sessions endpoint, add polling for remote browsers)
+- [ ] 05-04-PLAN.md — Terminal buffer resync (Periodic buffer replay to prevent xterm.js glitches)
+- [ ] 05-05-PLAN.md — Remote session creation (crypto.randomUUID polyfill, POST /api/sessions endpoint, HTTP API routing)
 
 ## Progress
 
@@ -111,7 +117,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 2. WebSocket Bridge & UI | 1/2 | In Progress | - |
 | 3. Dashboard Grid | 2/2 | Complete   | 2026-02-25 |
 | 4. Status Detection & Alerts | 2/2 | Complete | 2026-02-25 |
-| 5. Network Access | 0/2 | Not started | - |
+| 5. Network Access | 2/5 | In Progress | - |
 | 6. Session Log Analysis | 0/? | Not started | - |
 
 ### Phase 6: Session Log Analysis
@@ -129,4 +135,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-02-24*
-*Last updated: 2026-02-25 after 03-02 completion (Dashboard grid UI)*
+*Last updated: 2026-02-25 after Phase 5 UAT gap closure planning*
