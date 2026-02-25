@@ -1,5 +1,5 @@
 ---
-status: complete
+status: diagnosed
 phase: 05-network-access
 source: [05-01-SUMMARY.md, 05-02-SUMMARY.md]
 started: 2026-02-25T14:30:00Z
@@ -67,27 +67,43 @@ skipped: 0
   reason: "User reported: session count mismatch (phone shows 2, Electron shows 1), new sessions don't appear without reload"
   severity: major
   test: 4
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
+  root_cause: "/api/sessions returns raw PTY map entries which may include stale sessions. No polling or WebSocket event for session list updates — remote browser loads once and never refreshes."
+  artifacts:
+    - path: "electron/http/static-server.ts"
+      issue: "/api/sessions returns getPtyProcesses() without cross-referencing saved sessions"
+    - path: "src/src/app/app.component.ts"
+      issue: "loadRemoteSessions() runs once on init with retry interval, but no ongoing sync"
+  missing:
+    - "Cross-reference PTY map with saved sessions in /api/sessions endpoint"
+    - "Add polling interval or WebSocket session-list-changed event for remote browsers"
 
 - truth: "Terminal output streams cleanly to phone browser"
   status: failed
   reason: "User reported: output is sometimes glitchy, suggested periodic buffer refresh to self-correct"
   severity: minor
   test: 5
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
+  root_cause: "xterm.js ANSI escape sequences get out of sync during rapid WebSocket streaming. No periodic buffer resync mechanism exists."
+  artifacts:
+    - path: "src/src/app/components/terminal/terminal.component.ts"
+      issue: "No periodic scrollback buffer refresh to resync terminal state"
+    - path: "electron/websocket/ws-server.ts"
+      issue: "No mechanism to re-send full scrollback on request"
+  missing:
+    - "Add periodic buffer resync (e.g. every 30s request full scrollback replay)"
+    - "Or add client-side 'refresh' button that requests buffer re-send"
 
 - truth: "Session creation works on remote browser over HTTP"
   status: failed
   reason: "User reported: crypto.randomUUID is not a function — requires HTTPS secure context. User explicitly requests remote session creation to work."
   severity: major
   test: 7
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
+  root_cause: "crypto.randomUUID() requires Secure Context (HTTPS or localhost). Remote HTTP browsers don't have it. Additionally, session creation uses IPC (window.electronAPI) which is unavailable in remote browsers — needs HTTP API route."
+  artifacts:
+    - path: "src/src/app/components/session-create/session-create.component.ts"
+      issue: "Uses crypto.randomUUID() which fails on non-HTTPS"
+    - path: "electron/http/static-server.ts"
+      issue: "No POST /api/sessions endpoint for remote session creation"
+  missing:
+    - "Replace crypto.randomUUID() with fallback (crypto.getRandomValues-based polyfill)"
+    - "Add POST /api/sessions HTTP endpoint that spawns PTY and returns session metadata"
+    - "Frontend: detect remote mode and use HTTP API instead of IPC for session creation"
