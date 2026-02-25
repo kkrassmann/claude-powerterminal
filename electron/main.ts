@@ -5,13 +5,22 @@ import * as pty from 'node-pty';
 import { registerPtyHandlers, getPtyProcesses, setShuttingDown, isShuttingDown, isSessionRestarting } from './ipc/pty-handlers';
 import { registerSessionHandlers } from './ipc/session-handlers';
 import { registerGitHandlers } from './ipc/git-handlers';
-import { startWebSocketServer, stopWebSocketServer, getScrollbackBuffers } from './websocket/ws-server';
+import { startWebSocketServer, stopWebSocketServer, getScrollbackBuffers, getStatusDetectors, broadcastStatus } from './websocket/ws-server';
 import { ScrollbackBuffer } from '../src/src/app/services/scrollback-buffer.service';
 import { deleteSessionFromDisk } from './ipc/session-handlers';
 import { IPC_CHANNELS } from '../src/shared/ipc-channels';
 import { killPtyProcess } from './utils/process-cleanup';
+import { StatusDetector } from './status/status-detector';
 
 let mainWindow: BrowserWindow | null = null;
+
+// Prevent unhandled exceptions from crashing Electron (e.g. node-pty AttachConsole failures)
+process.on('uncaughtException', (error) => {
+  console.error('[Uncaught Exception]', error.message);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[Unhandled Rejection]', reason);
+});
 
 /**
  * Create the main application window.
@@ -181,9 +190,20 @@ function registerRestoredPty(session: SessionMetadata, ptyProcess: pty.IPty): vo
   ptyProcesses.set(session.sessionId, ptyProcess);
   getScrollbackBuffers().set(session.sessionId, new ScrollbackBuffer(10000));
 
+  // Create status detector for restored session
+  const statusDetector = new StatusDetector(session.sessionId, (sid, status) => {
+    broadcastStatus(sid, status);
+  });
+  getStatusDetectors().set(session.sessionId, statusDetector);
+
   ptyProcess.onData((data) => {
     const buffer = getScrollbackBuffers().get(session.sessionId);
     if (buffer) buffer.append(data);
+
+    // Feed to status detector
+    const detector = getStatusDetectors().get(session.sessionId);
+    if (detector) detector.processOutput(data);
+
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send(IPC_CHANNELS.PTY_DATA, { sessionId: session.sessionId, data });
     }
@@ -192,6 +212,15 @@ function registerRestoredPty(session: SessionMetadata, ptyProcess: pty.IPty): vo
   ptyProcess.onExit(({ exitCode, signal }) => {
     if (isSessionRestarting(session.sessionId)) return;
     console.log(`[Auto-Restore] Session ${session.sessionId} exited with code ${exitCode}`);
+
+    // Notify status detector of exit
+    const detector = getStatusDetectors().get(session.sessionId);
+    if (detector) {
+      detector.processExit();
+      detector.destroy();
+      getStatusDetectors().delete(session.sessionId);
+    }
+
     if (mainWindow && !mainWindow.isDestroyed()) {
       mainWindow.webContents.send(IPC_CHANNELS.PTY_EXIT, { sessionId: session.sessionId, exitCode, signal });
     }
