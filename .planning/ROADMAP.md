@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Core PTY Infrastructure** - Spawn Claude CLI in PTY with Windows workarounds, session persistence
 - [x] **Phase 2: WebSocket Bridge & UI** - Stream PTY to browser via xterm.js with real-time I/O
-- [ ] **Phase 3: Dashboard Grid** - Multi-terminal grid layout with context headers
+- [x] **Phase 3: Dashboard Grid** - Multi-terminal grid layout with context headers (completed 2026-02-25)
 - [ ] **Phase 4: Status Detection & Alerts** - Pattern-based status detection with audio notifications
 - [ ] **Phase 5: Network Access** - Mobile-responsive UI with LAN accessibility
 
@@ -67,7 +67,7 @@ Plans:
 
 Plans:
 - [x] 03-01-PLAN.md — Git context pipeline (GitContext model, IPC handler for git branch/status, GitContextService with 30s polling)
-- [ ] 03-02-PLAN.md — Dashboard grid UI (CSS Grid layout, CDK drag-drop, tile headers with path/git/actions, maximize toggle, app wiring)
+- [x] 03-02-PLAN.md — Dashboard grid UI (CSS Grid layout, CDK drag-drop, tile headers with path/git/actions, maximize toggle, app wiring)
 
 ### Phase 4: Status Detection & Alerts
 **Goal**: Detect terminal status (working/waiting/done) via pattern matching and idle heuristics, with audio alerts on state changes
@@ -106,10 +106,10 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Core PTY Infrastructure | 3/3 | Complete | 2026-02-24 |
 | 2. WebSocket Bridge & UI | 1/2 | In Progress | - |
-| 3. Dashboard Grid | 1/3 | In Progress | - |
+| 3. Dashboard Grid | 2/2 | Complete   | 2026-02-25 |
 | 4. Status Detection & Alerts | 0/? | Not started | - |
 | 5. Network Access | 0/? | Not started | - |
 
 ---
 *Roadmap created: 2026-02-24*
-*Last updated: 2026-02-24 after 03-01 completion (Git context data pipeline)*
+*Last updated: 2026-02-25 after 03-02 completion (Dashboard grid UI)*
