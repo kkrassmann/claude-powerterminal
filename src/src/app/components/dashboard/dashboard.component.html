@@ -7,7 +7,8 @@
 
   <!-- Active session tiles -->
   <div *ngFor="let session of sessions; trackBy: trackBySessionId"
-       class="tile" cdkDrag>
+       class="tile" cdkDrag
+       [style.height.px]="tileHeights[session.metadata.sessionId] || null">
     <!-- Use cdkDragHandle on tile-header to restrict drag to header only -->
     <app-tile-header
       [session]="session"
@@ -24,6 +25,9 @@
       [sessionId]="session.metadata.sessionId"
       (sessionExited)="onSessionExited($event)">
     </app-terminal>
+    <div class="resize-handle"
+         (mousedown)="onResizeStart($event, session.metadata.sessionId)">
+    </div>
   </div>
 
   <!-- Pending resume placeholders -->

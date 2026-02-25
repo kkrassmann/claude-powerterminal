@@ -33,38 +33,28 @@ export class TileHeaderComponent {
   @Output() kill = new EventEmitter<void>();
 
   /**
-   * Shorten path by abbreviating all segments except the last one.
-   * Replace home directory prefix with ~.
+   * Shorten path: show drive + first dir, last 2 segments, ellipsis in between.
    *
    * Examples:
-   * - C:\Users\Konstantin\projects\my-app → ~/p/my-app
-   * - /home/user/code/project → ~/c/project
-   * - D:\projects\test → D:/p/test
+   * - C:\Dev\api-slot-3           → C/Dev/api-slot-3
+   * - C:\Dev\Konsti\System\projects\api → C/Dev/.../projects/api
+   * - C:\Users\Konstantin\projects\app  → C/Users/.../projects/app
    */
   get shortenedPath(): string {
     let path = this.session.metadata.workingDirectory;
-
-    // Normalize backslashes to forward slashes
     path = path.replace(/\\/g, '/');
 
-    // Replace home directory prefix with ~
-    if (this.homeDir) {
-      const normalizedHome = this.homeDir.replace(/\\/g, '/');
-      if (path.startsWith(normalizedHome)) {
-        path = '~' + path.substring(normalizedHome.length);
-      }
-    }
-
-    // Split by / and abbreviate all segments except last
+    // Split and remove empty segments (leading slash on unix produces empty first)
     const segments = path.split('/').filter(s => s.length > 0);
-    if (segments.length <= 1) {
-      return path; // No shortening needed
+
+    if (segments.length <= 3) {
+      return segments.join('/');
     }
 
-    const abbreviated = segments.slice(0, -1).map(seg => seg[0]);
-    const lastSegment = segments[segments.length - 1];
-
-    return abbreviated.join('/') + '/' + lastSegment;
+    // Drive + first dir + ... + parent + target
+    const head = segments.slice(0, 2);
+    const tail = segments.slice(-2);
+    return head.join('/') + '/.../' + tail.join('/');
   }
 
   /**

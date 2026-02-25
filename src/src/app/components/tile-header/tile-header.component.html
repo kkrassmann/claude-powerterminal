@@ -14,7 +14,7 @@
   <!-- Line 2: Git branch + change counts (only if git repo) -->
   <div class="header-line-2" *ngIf="gitContext?.isGitRepo">
     <span class="git-branch">
-      <span class="git-icon">&#xE0A0;</span>
+      <span class="git-icon">&#x2387;</span>
       <span class="git-branch-name">{{ gitContext?.branch || 'unknown' }}</span>
     </span>
     <span class="git-changes" [class.highlight]="isChanged">

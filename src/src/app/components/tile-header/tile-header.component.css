@@ -6,11 +6,13 @@
 .tile-header {
   display: flex;
   flex-direction: column;
-  padding: 4px 8px;
+  padding: 6px 10px;
+  min-height: 48px;
   background: #181825;
   border-bottom: 1px solid #313244;
   cursor: default;
   user-select: none;
+  font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
 }
 
 /* Line 1: Working directory + action buttons */
@@ -23,7 +25,7 @@
 }
 
 .working-dir {
-  font-size: 12px;
+  font-size: 13px;
   color: #cdd6f4;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -71,8 +73,8 @@
   flex-direction: row;
   align-items: center;
   gap: 8px;
-  font-size: 11px;
-  padding-top: 2px;
+  font-size: 12px;
+  padding-top: 3px;
 }
 
 .git-branch {

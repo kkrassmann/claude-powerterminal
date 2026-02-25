@@ -31,14 +31,18 @@ function createWindow(): void {
     },
   });
 
-  // In development, load from Angular dev server
-  const isDev = !app.isPackaged;
-  if (isDev) {
-    mainWindow.loadURL('http://localhost:4800');
-    mainWindow.webContents.openDevTools();
+  // Load Angular UI: prefer built files, fall back to dev server
+  const devServerUrl = 'http://localhost:4800';
+  const builtFilePath = path.join(__dirname, '../../src/dist/claude-powerterminal-angular/browser/index.html');
+
+  if (fs.existsSync(builtFilePath)) {
+    mainWindow.loadFile(builtFilePath);
   } else {
-    // In production, load from built Angular files
-    mainWindow.loadFile(path.join(__dirname, '../src/dist/browser/index.html'));
+    mainWindow.loadURL(devServerUrl);
+  }
+
+  if (!app.isPackaged) {
+    mainWindow.webContents.openDevTools();
   }
 
   mainWindow.on('closed', () => {

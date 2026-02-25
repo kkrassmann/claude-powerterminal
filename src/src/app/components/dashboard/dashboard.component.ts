@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, OnInit, OnDestroy, NgZone } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, OnDestroy, NgZone, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 import { Subscription } from 'rxjs';
@@ -56,16 +56,26 @@ export class DashboardComponent implements OnInit, OnDestroy {
    */
   homeDir: string = '';
 
-  /**
-   * Subscription to sessions$ observable.
-   */
+  /** Per-tile heights set by resize. Key = sessionId, value = px. */
+  tileHeights: Record<string, number> = {};
+
   private sessionsSubscription: Subscription | null = null;
+
+  /** Resize state */
+  private resizing = false;
+  private resizeSessionId: string | null = null;
+  private resizeStartY = 0;
+  private resizeStartHeight = 0;
+  private resizeRowSessionIds: string[] = [];
+  private boundOnResizeMove: ((e: MouseEvent) => void) | null = null;
+  private boundOnResizeEnd: ((e: MouseEvent) => void) | null = null;
 
   constructor(
     private sessionStateService: SessionStateService,
     public gitContextService: GitContextService,
     private sessionManagerService: SessionManagerService,
-    private ngZone: NgZone
+    private ngZone: NgZone,
+    private elementRef: ElementRef
   ) {}
 
   ngOnInit(): void {
@@ -223,9 +233,79 @@ export class DashboardComponent implements OnInit, OnDestroy {
   async killSession(sessionId: string): Promise<void> {
     try {
       await window.electronAPI.invoke(IPC_CHANNELS.PTY_KILL, sessionId);
-      // Session exit event will be handled by terminal component's WebSocket onclose
     } catch (error) {
       console.error('[Dashboard] Failed to kill session:', error);
     }
+  }
+
+  /**
+   * Start row-based resize. Finds all tiles in the same row and tracks them.
+   */
+  onResizeStart(event: MouseEvent, sessionId: string): void {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const tileEl = (event.target as HTMLElement).closest('.tile') as HTMLElement;
+    if (!tileEl) return;
+
+    this.resizing = true;
+    this.resizeSessionId = sessionId;
+    this.resizeStartY = event.clientY;
+    this.resizeStartHeight = tileEl.offsetHeight;
+
+    // Find all tiles in the same row (same offsetTop)
+    const allTiles = this.elementRef.nativeElement.querySelectorAll('.tile:not(.pending-tile)') as NodeListOf<HTMLElement>;
+    const rowTop = tileEl.offsetTop;
+    this.resizeRowSessionIds = [];
+
+    allTiles.forEach((el: HTMLElement, i: number) => {
+      if (Math.abs(el.offsetTop - rowTop) < 5 && i < this.sessions.length) {
+        this.resizeRowSessionIds.push(this.sessions[i].metadata.sessionId);
+      }
+    });
+
+    // Bind move/end listeners outside Angular zone for performance
+    this.boundOnResizeMove = this.onResizeMove.bind(this);
+    this.boundOnResizeEnd = this.onResizeEnd.bind(this);
+
+    this.ngZone.runOutsideAngular(() => {
+      document.addEventListener('mousemove', this.boundOnResizeMove!);
+      document.addEventListener('mouseup', this.boundOnResizeEnd!);
+    });
+
+    document.body.style.cursor = 'ns-resize';
+    document.body.style.userSelect = 'none';
+  }
+
+  private onResizeMove(event: MouseEvent): void {
+    if (!this.resizing) return;
+
+    const delta = event.clientY - this.resizeStartY;
+    const newHeight = Math.max(200, this.resizeStartHeight + delta);
+
+    // Apply to all tiles in the same row
+    this.ngZone.run(() => {
+      for (const sid of this.resizeRowSessionIds) {
+        this.tileHeights[sid] = newHeight;
+      }
+    });
+  }
+
+  private onResizeEnd(_event: MouseEvent): void {
+    this.resizing = false;
+    this.resizeSessionId = null;
+    this.resizeRowSessionIds = [];
+
+    if (this.boundOnResizeMove) {
+      document.removeEventListener('mousemove', this.boundOnResizeMove);
+    }
+    if (this.boundOnResizeEnd) {
+      document.removeEventListener('mouseup', this.boundOnResizeEnd);
+    }
+    this.boundOnResizeMove = null;
+    this.boundOnResizeEnd = null;
+
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
   }
 }
