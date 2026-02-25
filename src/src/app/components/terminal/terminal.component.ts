@@ -56,6 +56,7 @@ export class TerminalComponent implements OnInit, OnDestroy {
   private destroyed = false;
   private isBuffering = false;
   private inputDisposable: any = null; // Tracks term.onData listener to prevent leaks
+  private resyncInterval?: any; // Periodic buffer resync for remote browsers
 
   contextMenuVisible = false;
   contextMenuX = 0;
@@ -222,6 +223,22 @@ export class TerminalComponent implements OnInit, OnDestroy {
       // Send actual terminal dimensions so PTY matches our display
       const msg: ClientMessage = { type: 'resize', cols: this.term.cols, rows: this.term.rows };
       this.socket.send(JSON.stringify(msg));
+
+      // Periodic buffer resync for remote browsers (prevents xterm.js desync)
+      // Only run for remote browsers — Electron has lower latency and no network issues
+      if (!window.electronAPI && this.socket.readyState === WebSocket.OPEN) {
+        // Clear any existing interval (in case of reconnect)
+        if (this.resyncInterval) {
+          clearInterval(this.resyncInterval);
+        }
+
+        this.resyncInterval = setInterval(() => {
+          if (this.socket && this.socket.readyState === WebSocket.OPEN) {
+            console.log('[Terminal] Requesting buffer resync');
+            this.socket.send(JSON.stringify({ type: 'buffer-replay' }));
+          }
+        }, 30000); // 30-second interval
+      }
     };
 
     this.socket.onmessage = (event: MessageEvent) => {
@@ -244,6 +261,19 @@ export class TerminalComponent implements OnInit, OnDestroy {
               this.fitAddon.fit();
             }
             console.log('[Terminal] Buffer replay complete');
+            break;
+
+          case 'buffer-clear':
+            // Server requested terminal clear (before buffer replay)
+            this.term.clear();
+            console.log('[Terminal] Cleared terminal for buffer replay');
+            break;
+
+          case 'buffer-replay':
+            // Server sent full buffer replay
+            this.term.clear();
+            this.term.write(msg.data);
+            console.log('[Terminal] Buffer replay received');
             break;
 
           case 'output':
@@ -342,6 +372,9 @@ export class TerminalComponent implements OnInit, OnDestroy {
 
     // Clean up everything to prevent memory leaks
     clearTimeout(this.resizeTimeout);
+    if (this.resyncInterval) {
+      clearInterval(this.resyncInterval);
+    }
     this.resizeObserver?.disconnect();
     this.socket?.close();
     this.term?.dispose();
