@@ -63,6 +63,13 @@ export class AppComponent implements OnInit {
       });
     }, 3000);
     setTimeout(() => clearInterval(retryInterval), 30000);
+
+    // Poll for session updates when in remote browser mode
+    if (!window.electronAPI) {
+      setInterval(() => {
+        this.loadRemoteSessions();
+      }, 5000); // 5-second polling
+    }
   }
 
   onSessionExited(sessionId: string): void {
@@ -71,10 +78,9 @@ export class AppComponent implements OnInit {
 
   private async loadRestoredSessions(): Promise<number> {
     try {
-      // Guard electronAPI for remote browser compatibility
+      // Remote browser: load sessions via HTTP API
       if (!window.electronAPI) {
-        console.warn('[App] electronAPI not available (remote browser mode)');
-        return 0;
+        return this.loadRemoteSessions();
       }
 
       const [savedSessions, activePtys] = await Promise.all([
@@ -99,6 +105,34 @@ export class AppComponent implements OnInit {
       return added;
     } catch (error) {
       console.error('[App] Failed to load restored sessions:', error);
+      return 0;
+    }
+  }
+
+  private async loadRemoteSessions(): Promise<number> {
+    try {
+      const resp = await fetch(`http://${window.location.hostname}:9801/api/sessions`);
+      const activePtys: { sessionId: string; pid: number }[] = await resp.json();
+      let added = 0;
+
+      for (const pty of activePtys) {
+        if (!this.sessionStateService.hasSession(pty.sessionId)) {
+          this.sessionStateService.addSession({
+            sessionId: pty.sessionId,
+            workingDirectory: '',
+            cliFlags: [],
+            createdAt: new Date().toISOString(),
+          }, pty.pid);
+          added++;
+        }
+      }
+
+      if (added > 0) {
+        console.log(`[App] Remote: loaded ${added} session(s) via HTTP API`);
+      }
+      return added;
+    } catch (error) {
+      console.error('[App] Failed to load remote sessions:', error);
       return 0;
     }
   }
