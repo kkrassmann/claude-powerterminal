@@ -15,12 +15,12 @@
   <div class="header-line-2" *ngIf="gitContext?.isGitRepo">
     <span class="git-branch">
       <span class="git-icon">&#xE0A0;</span>
-      <span class="git-branch-name">{{ gitContext.branch || 'unknown' }}</span>
+      <span class="git-branch-name">{{ gitContext?.branch || 'unknown' }}</span>
     </span>
     <span class="git-changes" [class.highlight]="isChanged">
-      <span class="git-added">+{{ gitContext.added }}</span>
-      <span class="git-modified">~{{ gitContext.modified }}</span>
-      <span class="git-deleted">-{{ gitContext.deleted }}</span>
+      <span class="git-added">+{{ gitContext?.added }}</span>
+      <span class="git-modified">~{{ gitContext?.modified }}</span>
+      <span class="git-deleted">-{{ gitContext?.deleted }}</span>
     </span>
   </div>
 </div>

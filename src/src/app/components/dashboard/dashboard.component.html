@@ -2,7 +2,6 @@
 <div class="dashboard-grid"
      *ngIf="!maximizedSessionId"
      cdkDropList
-     cdkDropListOrientation="mixed"
      [cdkDropListData]="sessions"
      (cdkDropListDropped)="onDrop($event)">
 
