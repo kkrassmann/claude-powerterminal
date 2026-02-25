@@ -8,6 +8,7 @@
   <!-- Active session tiles -->
   <div *ngFor="let session of sessions; trackBy: trackBySessionId"
        class="tile" cdkDrag
+       [ngClass]="getStatusClass(session.metadata.sessionId)"
        [style.height.px]="tileHeights[session.metadata.sessionId] || null">
     <!-- Use cdkDragHandle on tile-header to restrict drag to header only -->
     <app-tile-header
@@ -16,6 +17,7 @@
       [isChanged]="gitContextService.changedSessions.has(session.metadata.sessionId)"
       [isMaximized]="false"
       [homeDir]="homeDir"
+      [status]="sessionStatuses[session.metadata.sessionId] || 'WORKING'"
       (maximize)="toggleMaximize(session.metadata.sessionId)"
       (restart)="restartSession(session.metadata.sessionId)"
       (kill)="killSession(session.metadata.sessionId)"
@@ -23,7 +25,8 @@
     </app-tile-header>
     <app-terminal
       [sessionId]="session.metadata.sessionId"
-      (sessionExited)="onSessionExited($event)">
+      (sessionExited)="onSessionExited($event)"
+      (statusChanged)="onStatusChanged($event)">
     </app-terminal>
     <div class="resize-handle"
          (mousedown)="onResizeStart($event, session.metadata.sessionId)">
@@ -54,12 +57,14 @@
     [isChanged]="gitContextService.changedSessions.has(maximizedSessionId)"
     [isMaximized]="true"
     [homeDir]="homeDir"
+    [status]="sessionStatuses[maximizedSessionId] || 'WORKING'"
     (maximize)="toggleMaximize(maximizedSessionId)"
     (restart)="restartSession(maximizedSessionId)"
     (kill)="killSession(maximizedSessionId)">
   </app-tile-header>
   <app-terminal
     [sessionId]="maximizedSessionId"
-    (sessionExited)="onSessionExited($event)">
+    (sessionExited)="onSessionExited($event)"
+    (statusChanged)="onStatusChanged($event)">
   </app-terminal>
 </div>

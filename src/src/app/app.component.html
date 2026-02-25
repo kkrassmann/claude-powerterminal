@@ -1,16 +1,14 @@
 <div class="app-container">
   <header class="app-header">
     <h1>Claude PowerTerminal</h1>
+    <button class="mute-btn" (click)="audioAlertService.toggleMute()" [title]="audioAlertService.isMuted ? 'Ton aktivieren' : 'Ton deaktivieren'">
+      {{ audioAlertService.isMuted ? '🔇' : '🔊' }}
+    </button>
     <app-session-create></app-session-create>
   </header>
-  <div class="terminals-container">
-    <div *ngFor="let session of sessions" class="terminal-wrapper" style="height: 500px; margin: 8px;">
-      <app-terminal [sessionId]="session.metadata.sessionId"></app-terminal>
-    </div>
-    <div *ngIf="sessions.length === 0" class="no-sessions">
-      <p>No active sessions. Create one above to get started.</p>
-    </div>
-  </div>
-</div>
 
-<router-outlet />
+  <app-dashboard
+    [pendingSessions]="pendingSessions"
+    (sessionExited)="onSessionExited($event)">
+  </app-dashboard>
+</div>

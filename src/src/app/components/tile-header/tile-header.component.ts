@@ -2,6 +2,7 @@ import { Component, Input, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActiveSession } from '../../services/session-state.service';
 import { GitContext } from '../../models/git-context.model';
+import { TerminalStatus, STATUS_COLORS, STATUS_LABELS } from '../../models/terminal-status.model';
 
 /**
  * Terminal tile header component displaying working directory, git context, and action buttons.
@@ -27,10 +28,25 @@ export class TileHeaderComponent {
   @Input() isChanged: boolean = false;
   @Input() isMaximized: boolean = false;
   @Input() homeDir: string = '';
+  @Input() status: TerminalStatus = 'WORKING';
 
   @Output() maximize = new EventEmitter<void>();
   @Output() restart = new EventEmitter<void>();
   @Output() kill = new EventEmitter<void>();
+
+  /**
+   * Get status color for the status dot.
+   */
+  get statusColor(): string {
+    return STATUS_COLORS[this.status];
+  }
+
+  /**
+   * Get status label for tooltip.
+   */
+  get statusLabel(): string {
+    return STATUS_LABELS[this.status];
+  }
 
   /**
    * Shorten path: show drive + first dir, last 2 segments, ellipsis in between.

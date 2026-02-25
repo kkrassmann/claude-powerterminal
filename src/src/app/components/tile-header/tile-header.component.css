@@ -24,6 +24,16 @@
   gap: 8px;
 }
 
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  display: inline-block;
+  transition: background-color 0.3s ease;
+  margin-right: 2px;
+}
+
 .working-dir {
   font-size: 13px;
   color: #cdd6f4;

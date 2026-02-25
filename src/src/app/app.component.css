@@ -12,13 +12,35 @@
   border-bottom: 1px solid #313244;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 12px;
 }
 
 .app-header h1 {
   font-size: 16px;
   margin: 0;
   font-weight: 500;
+}
+
+.mute-btn {
+  background: transparent;
+  border: 1px solid #313244;
+  color: #cdd6f4;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background-color 0.15s ease;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.mute-btn:hover {
+  background: #313244;
+}
+
+/* Session create moves to right */
+app-session-create {
+  margin-left: auto;
 }
 
 /* Dashboard component fills remaining space */

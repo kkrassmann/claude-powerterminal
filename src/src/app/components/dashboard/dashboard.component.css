@@ -30,6 +30,32 @@
   position: relative;
 }
 
+/* Smooth transitions for box-shadow changes on all tiles except ERROR (which has animation) */
+.tile:not(.status-error) {
+  transition: box-shadow 0.3s ease;
+}
+
+/* WAITING status: static peach glow */
+.tile.status-waiting {
+  box-shadow:
+    0 0 8px rgba(250, 179, 135, 0.4),
+    0 0 20px rgba(250, 179, 135, 0.2);
+}
+
+/* ERROR status: pulsing red glow */
+.tile.status-error {
+  animation: error-pulse 2s ease-in-out infinite;
+}
+
+@keyframes error-pulse {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(243, 139, 168, 0.3), 0 0 20px rgba(243, 139, 168, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 12px rgba(243, 139, 168, 0.6), 0 0 30px rgba(243, 139, 168, 0.3);
+  }
+}
+
 /* Resize handle at bottom of each tile */
 .resize-handle {
   height: 5px;

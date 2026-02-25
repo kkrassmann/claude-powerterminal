@@ -9,6 +9,8 @@ import { SessionMetadata } from '../../models/session.model';
 import { TerminalComponent } from '../terminal/terminal.component';
 import { TileHeaderComponent } from '../tile-header/tile-header.component';
 import { IPC_CHANNELS } from '../../../../shared/ipc-channels';
+import { TerminalStatus } from '../../models/terminal-status.model';
+import { AudioAlertService } from '../../services/audio-alert.service';
 
 /**
  * Dashboard grid component for displaying and managing multiple terminal sessions.
@@ -59,6 +61,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
   /** Per-tile heights set by resize. Key = sessionId, value = px. */
   tileHeights: Record<string, number> = {};
 
+  /** Per-session status tracking for audio alerts and CSS classes. */
+  sessionStatuses: Record<string, TerminalStatus> = {};
+
   private sessionsSubscription: Subscription | null = null;
 
   /** Resize state */
@@ -75,7 +80,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     public gitContextService: GitContextService,
     private sessionManagerService: SessionManagerService,
     private ngZone: NgZone,
-    private elementRef: ElementRef
+    private elementRef: ElementRef,
+    public audioAlertService: AudioAlertService
   ) {}
 
   ngOnInit(): void {
@@ -200,6 +206,33 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     // Emit to parent for state cleanup
     this.sessionExited.emit(sessionId);
+  }
+
+  /**
+   * Handle status change event from terminal component.
+   * Triggers audio alert if status changed to WAITING, ERROR, or DONE.
+   *
+   * @param event - Status change event with sessionId and status
+   */
+  onStatusChanged(event: { sessionId: string; status: TerminalStatus }): void {
+    const prev = this.sessionStatuses[event.sessionId];
+    this.sessionStatuses[event.sessionId] = event.status;
+
+    // Only alert on new transitions to alert-worthy states
+    if (prev !== event.status && (event.status === 'WAITING' || event.status === 'ERROR' || event.status === 'DONE')) {
+      this.audioAlertService.alert(event.status);
+    }
+  }
+
+  /**
+   * Get CSS class for tile based on current status.
+   *
+   * @param sessionId - Session ID
+   * @returns CSS class name for status
+   */
+  getStatusClass(sessionId: string): string {
+    const status = this.sessionStatuses[sessionId] || 'WORKING';
+    return `status-${status.toLowerCase()}`;
   }
 
   /**
