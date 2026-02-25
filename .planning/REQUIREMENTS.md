@@ -39,7 +39,7 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Network Access
 
 - [x] **NET-01**: App binds to `0.0.0.0` for local network accessibility
-- [ ] **NET-02**: UI is responsive and usable on mobile/tablet viewports
+- [x] **NET-02**: UI is responsive and usable on mobile/tablet viewports
 - [x] **NET-03**: App displays its local network URL on startup for easy phone access
 
 ### Session Log Analysis
@@ -102,7 +102,7 @@ Deferred to future release. Tracked but not in current roadmap.
 | STAT-04 | Phase 4 | Complete |
 | STAT-05 | Phase 4 | Complete |
 | NET-01 | Phase 5 | Complete |
-| NET-02 | Phase 5 | Pending |
+| NET-02 | Phase 5 | Complete |
 | NET-03 | Phase 5 | Complete |
 | OPT-01 | Phase 6 | Pending |
 | OPT-02 | Phase 6 | Pending |
