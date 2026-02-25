@@ -4,6 +4,7 @@
     <button class="mute-btn" (click)="audioAlertService.toggleMute()" [title]="audioAlertService.isMuted ? 'Ton aktivieren' : 'Ton deaktivieren'">
       {{ audioAlertService.isMuted ? '🔇' : '🔊' }}
     </button>
+    <span class="lan-url" *ngIf="lanUrl">{{ lanUrl }}</span>
     <app-session-create></app-session-create>
   </header>
 

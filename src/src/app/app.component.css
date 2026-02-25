@@ -38,6 +38,16 @@
   background: #313244;
 }
 
+.lan-url {
+  font-size: 12px;
+  color: #6c7086;
+  font-family: 'Courier New', monospace;
+  padding: 4px 8px;
+  background: #11111b;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
 /* Session create moves to right */
 app-session-create {
   margin-left: auto;
@@ -50,4 +60,28 @@ app-dashboard {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+}
+
+/* Mobile: compact header */
+@media (max-width: 600px) {
+  .app-header {
+    padding: 6px 10px;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .app-header h1 {
+    font-size: 14px;
+  }
+
+  .mute-btn {
+    font-size: 14px;
+    padding: 4px 6px;
+  }
+
+  .lan-url {
+    font-size: 10px;
+    order: 10;
+    flex-basis: 100%;
+  }
 }

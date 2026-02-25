@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu } from 'electron';
+import { app, BrowserWindow, Menu, ipcMain } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as pty from 'node-pty';
@@ -11,8 +11,11 @@ import { deleteSessionFromDisk } from './ipc/session-handlers';
 import { IPC_CHANNELS } from '../src/shared/ipc-channels';
 import { killPtyProcess } from './utils/process-cleanup';
 import { StatusDetector } from './status/status-detector';
+import { startStaticServer } from './http/static-server';
+import { getLocalNetworkAddress } from './utils/network-info';
 
 let mainWindow: BrowserWindow | null = null;
+let lanUrl: string | null = null;
 
 // Prevent unhandled exceptions from crashing Electron (e.g. node-pty AttachConsole failures)
 process.on('uncaughtException', (error) => {
@@ -294,6 +297,21 @@ app.whenReady().then(async () => {
 
   // Start WebSocket server before creating window
   startWebSocketServer();
+
+  // Start HTTP static server for LAN access
+  startStaticServer(9801);
+
+  // Discover LAN IP and log access URL
+  const lanIp = getLocalNetworkAddress();
+  if (lanIp) {
+    lanUrl = `http://${lanIp}:9801`;
+    console.log(`\n  LAN access: ${lanUrl}\n`);
+  } else {
+    console.log('\n  LAN access: not available\n');
+  }
+
+  // Register IPC handler for LAN URL
+  ipcMain.handle('app:lan-url', () => lanUrl);
 
   createWindow();
 

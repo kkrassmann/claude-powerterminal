@@ -19,6 +19,7 @@ import { AudioAlertService } from './services/audio-alert.service';
 export class AppComponent implements OnInit {
   title = 'Claude PowerTerminal';
   pendingSessions: SessionMetadata[] = [];
+  lanUrl: string | null = null;
 
   constructor(
     private sessionStateService: SessionStateService,
@@ -27,6 +28,15 @@ export class AppComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
+    // Fetch LAN URL if running in Electron
+    if (window.electronAPI) {
+      window.electronAPI.invoke('app:lan-url').then((url: string | null) => {
+        this.lanUrl = url;
+      }).catch((err: any) => {
+        console.error('[App] Failed to fetch LAN URL:', err);
+      });
+    }
+
     // Step 1: Show pending placeholders FIRST, then start resolving
     this.sessionManager.loadSessions().then(saved => {
       if (saved.length > 0) {
@@ -38,11 +48,13 @@ export class AppComponent implements OnInit {
       setTimeout(() => this.loadRestoredSessions(), 100);
     });
 
-    // Load restored sessions when main process signals restore is complete
-    window.electronAPI.on(IPC_CHANNELS.SESSION_RESTORE_COMPLETE, () => {
-      console.log('[App] Received restore-complete signal');
-      this.loadRestoredSessions();
-    });
+    // Load restored sessions when main process signals restore is complete (guard electronAPI)
+    if (window.electronAPI) {
+      window.electronAPI.on(IPC_CHANNELS.SESSION_RESTORE_COMPLETE, () => {
+        console.log('[App] Received restore-complete signal');
+        this.loadRestoredSessions();
+      });
+    }
 
     // Retry loading at intervals to handle timing issues with auto-restore
     const retryInterval = setInterval(() => {
@@ -59,6 +71,12 @@ export class AppComponent implements OnInit {
 
   private async loadRestoredSessions(): Promise<number> {
     try {
+      // Guard electronAPI for remote browser compatibility
+      if (!window.electronAPI) {
+        console.warn('[App] electronAPI not available (remote browser mode)');
+        return 0;
+      }
+
       const [savedSessions, activePtys] = await Promise.all([
         this.sessionManager.loadSessions(),
         window.electronAPI.invoke(IPC_CHANNELS.PTY_LIST) as Promise<{ sessionId: string; pid: number }[]>

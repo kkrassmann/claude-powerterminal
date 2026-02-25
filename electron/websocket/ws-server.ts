@@ -75,9 +75,9 @@ export function broadcastStatus(sessionId: string, status: TerminalStatus): void
  * @returns WebSocketServer instance
  */
 export function startWebSocketServer(): WebSocketServer {
-  wss = new WebSocketServer({ port: WS_PORT });
+  wss = new WebSocketServer({ host: '0.0.0.0', port: WS_PORT });
 
-  console.log(`[WebSocket] Server listening on port ${WS_PORT}`);
+  console.log(`[WebSocket] Server listening on 0.0.0.0:${WS_PORT}`);
 
   // Heartbeat: Detect dead connections every 30 seconds
   heartbeatInterval = setInterval(() => {
