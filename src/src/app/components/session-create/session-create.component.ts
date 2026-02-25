@@ -93,6 +93,34 @@ export class SessionCreateComponent {
   }
 
   /**
+   * Generate a UUID v4, with fallback for insecure contexts (HTTP).
+   *
+   * crypto.randomUUID() requires secure context (HTTPS or localhost).
+   * For remote HTTP browsers, use crypto.getRandomValues() which works in all contexts.
+   *
+   * @returns RFC 4122 version 4 UUID string
+   */
+  private generateUUID(): string {
+    // Try native crypto.randomUUID first (HTTPS or localhost)
+    if (crypto.randomUUID) {
+      return crypto.randomUUID();
+    }
+
+    // Fallback for HTTP contexts: use crypto.getRandomValues
+    // Format: xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+
+    // Set version (4) and variant bits
+    bytes[6] = (bytes[6] & 0x0f) | 0x40; // version 4
+    bytes[8] = (bytes[8] & 0x3f) | 0x80; // variant 10
+
+    // Convert to hex string with dashes
+    const hex = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+    return `${hex.slice(0,8)}-${hex.slice(8,12)}-${hex.slice(12,16)}-${hex.slice(16,20)}-${hex.slice(20)}`;
+  }
+
+  /**
    * Set working directory from dropdown selection.
    *
    * @param dir - Directory path from dropdown
@@ -128,7 +156,7 @@ export class SessionCreateComponent {
 
     try {
       // Step 1: Use provided session ID or generate UUID
-      const sessionId = this.sessionId.trim() || crypto.randomUUID();
+      const sessionId = this.sessionId.trim() || this.generateUUID();
 
       // Step 2: Combine flags
       const flags = this.combineFlags();
