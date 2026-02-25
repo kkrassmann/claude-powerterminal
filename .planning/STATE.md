@@ -5,16 +5,20 @@
 See: .planning/PROJECT.md (updated 2026-02-24)
 
 **Core value:** Never lose track of which terminal needs attention — instant visibility into the status of every running Claude instance, with alerts that pull you back when action is needed.
-**Current focus:** Phase 4 - Status Detection & Alerts
+**Current focus:** Phase 5 - Network Access
 
 ## Current Position
 
-Phase: 4 of 5 (Status Detection & Alerts)
-Plan: 2 of 2 in current phase
-Status: Complete (Phase 4 finished)
-Last activity: 2026-02-25 — Completed 04-02-PLAN.md (Status Visualization Frontend)
+Phase: 5 of 6 (Network Access)
+Plan: 0 of 2 in current phase
+Status: Planned (ready to execute)
+Last activity: 2026-02-25 — Phase 4 UAT complete (9/10 passed), Phase 5 planned, Phase 6 added
 
-Progress: [███████░░░] 53%
+Progress: [███████░░░] 67%
+
+### Roadmap Evolution
+
+- Phase 6 added: Session Log Analysis — on-demand Claude CLI analysis of terminal logs for optimization recommendations
 
 ## Performance Metrics
 

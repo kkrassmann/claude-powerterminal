@@ -42,6 +42,12 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **NET-02**: UI is responsive and usable on mobile/tablet viewports
 - [ ] **NET-03**: App displays its local network URL on startup for easy phone access
 
+### Session Log Analysis
+
+- [ ] **OPT-01**: User can trigger a log analysis from the UI for any active terminal session
+- [ ] **OPT-02**: Analysis runs in a dedicated Claude CLI process (no API key needed), reading the terminal's scrollback buffer
+- [ ] **OPT-03**: Results are displayed in the UI with actionable optimization recommendations (context window usage, agent suggestions, workflow improvements)
+
 ## v2 Requirements
 
 Deferred to future release. Tracked but not in current roadmap.
@@ -60,8 +66,8 @@ Deferred to future release. Tracked but not in current roadmap.
 
 ### Optimization
 
-- **OPTM-01**: App analyzes terminal logs for Claude usage patterns
-- **OPTM-02**: App suggests workflow improvements (agents, skills, hooks)
+- **OPTM-01**: App analyzes terminal logs for Claude usage patterns (moved to v1 Phase 6)
+- **OPTM-02**: App suggests workflow improvements (agents, skills, hooks) (moved to v1 Phase 6)
 
 ## Out of Scope
 
@@ -98,10 +104,13 @@ Deferred to future release. Tracked but not in current roadmap.
 | NET-01 | Phase 5 | Pending |
 | NET-02 | Phase 5 | Pending |
 | NET-03 | Phase 5 | Pending |
+| OPT-01 | Phase 6 | Pending |
+| OPT-02 | Phase 6 | Pending |
+| OPT-03 | Phase 6 | Pending |
 
 **Coverage:**
-- v1 requirements: 20 total
-- Mapped to phases: 20
+- v1 requirements: 23 total
+- Mapped to phases: 23
 - Unmapped: 0 ✓
 
 ---

@@ -17,6 +17,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: Dashboard Grid** - Multi-terminal grid layout with context headers (completed 2026-02-25)
 - [x] **Phase 4: Status Detection & Alerts** - Pattern-based status detection with audio notifications (completed 2026-02-25)
 - [ ] **Phase 5: Network Access** - Mobile-responsive UI with LAN accessibility
+- [ ] **Phase 6: Session Log Analysis** - On-demand Claude CLI analysis of terminal logs for optimization recommendations
 
 ## Phase Details
 
@@ -102,7 +103,7 @@ Plans:
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
@@ -111,6 +112,20 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 3. Dashboard Grid | 2/2 | Complete   | 2026-02-25 |
 | 4. Status Detection & Alerts | 2/2 | Complete | 2026-02-25 |
 | 5. Network Access | 0/2 | Not started | - |
+| 6. Session Log Analysis | 0/? | Not started | - |
+
+### Phase 6: Session Log Analysis
+**Goal**: On-demand optimization analysis of terminal session logs — user clicks a button, a new Claude CLI process reads the scrollback buffer and analyzes: context window utilization, recommendations for specialized agents/orchestrator skills, workflow difficulties, and optimization potential
+**Depends on**: Phase 5
+**Requirements**: OPT-01, OPT-02, OPT-03
+**Success Criteria** (what must be TRUE):
+  1. User can trigger a log analysis from the UI for any active terminal session
+  2. Analysis runs in a dedicated Claude CLI process (no API key needed)
+  3. Results are displayed in the UI with actionable optimization recommendations
+**Plans**: TBD
+
+Plans:
+- [ ] TBD (will be created during phase planning)
 
 ---
 *Roadmap created: 2026-02-24*
