@@ -9,7 +9,8 @@
   <div *ngFor="let session of sessions; trackBy: trackBySessionId"
        class="tile" cdkDrag
        [ngClass]="getStatusClass(session.metadata.sessionId)"
-       [style.height.px]="tileHeights[session.metadata.sessionId] || null">
+       [style.height.px]="tileHeights[session.metadata.sessionId] || null"
+       (click)="onTileClick(session.metadata.sessionId)">
     <!-- Use cdkDragHandle on tile-header to restrict drag to header only -->
     <app-tile-header
       [session]="session"
@@ -21,6 +22,7 @@
       (maximize)="toggleMaximize(session.metadata.sessionId)"
       (restart)="restartSession(session.metadata.sessionId)"
       (kill)="killSession(session.metadata.sessionId)"
+      (acknowledged)="onTileClick(session.metadata.sessionId)"
       cdkDragHandle>
     </app-tile-header>
     <app-terminal
@@ -60,7 +62,8 @@
     [status]="sessionStatuses[maximizedSessionId] || 'WORKING'"
     (maximize)="toggleMaximize(maximizedSessionId)"
     (restart)="restartSession(maximizedSessionId)"
-    (kill)="killSession(maximizedSessionId)">
+    (kill)="killSession(maximizedSessionId)"
+    (acknowledged)="onTileClick(maximizedSessionId)">
   </app-tile-header>
   <app-terminal
     [sessionId]="maximizedSessionId"

@@ -25,6 +25,11 @@ export interface PTYSpawnOptions {
    * Example: ['--verbose', '--model=opus']
    */
   readonly flags: string[];
+
+  /**
+   * If true, use --resume instead of --session-id to attach to an existing CLI session.
+   */
+  readonly resume?: boolean;
 }
 
 /**

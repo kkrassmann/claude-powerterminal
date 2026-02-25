@@ -33,6 +33,7 @@ export class TileHeaderComponent {
   @Output() maximize = new EventEmitter<void>();
   @Output() restart = new EventEmitter<void>();
   @Output() kill = new EventEmitter<void>();
+  @Output() acknowledged = new EventEmitter<void>();
 
   /**
    * Get status color for the status dot.
@@ -71,6 +72,13 @@ export class TileHeaderComponent {
     const head = segments.slice(0, 2);
     const tail = segments.slice(-2);
     return head.join('/') + '/.../' + tail.join('/');
+  }
+
+  /**
+   * Handle click on header — acknowledge (dismiss) alert glow.
+   */
+  onHeaderClick(): void {
+    this.acknowledged.emit();
   }
 
   /**

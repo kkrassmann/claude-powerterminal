@@ -31,20 +31,23 @@ import { SessionMetadata } from '../../models/session.model';
 })
 export class SessionCreateComponent {
   /**
+   * Whether the create dialog is open.
+   */
+  isDialogOpen: boolean = false;
+
+  /**
    * Current working directory for the new session.
    * Can be set via dropdown selection or freetext input.
    */
   workingDirectory: string = '';
 
   /**
-   * List of recently used directories for dropdown selection.
-   * TODO: Load from config/localStorage in future iteration.
+   * List of recently used directories, loaded from localStorage.
    */
-  recentDirectories: string[] = [
-    'C:\\Users\\Konstantin\\projects',
-    'C:\\Dev',
-    'C:\\Users\\Konstantin\\Documents'
-  ];
+  recentDirectories: string[] = [];
+
+  private static readonly RECENT_DIRS_KEY = 'recentDirectories';
+  private static readonly MAX_RECENT_DIRS = 10;
 
   /**
    * Common CLI flags with checkbox toggles.
@@ -54,6 +57,11 @@ export class SessionCreateComponent {
     '--verbose': false,
     '--dangerously-skip-permissions': false,
   };
+
+  /**
+   * Optional session ID. If empty, a UUID is auto-generated.
+   */
+  sessionId: string = '';
 
   /**
    * Freetext input for additional custom flags.
@@ -80,7 +88,9 @@ export class SessionCreateComponent {
     private ptyManager: PtyManagerService,
     private sessionManager: SessionManagerService,
     private sessionState: SessionStateService
-  ) {}
+  ) {
+    this.loadRecentDirectories();
+  }
 
   /**
    * Set working directory from dropdown selection.
@@ -117,8 +127,8 @@ export class SessionCreateComponent {
     this.statusType = '';
 
     try {
-      // Step 1: Generate unique session ID
-      const sessionId = crypto.randomUUID();
+      // Step 1: Use provided session ID or generate UUID
+      const sessionId = this.sessionId.trim() || crypto.randomUUID();
 
       // Step 2: Combine flags
       const flags = this.combineFlags();
@@ -131,11 +141,12 @@ export class SessionCreateComponent {
         createdAt: new Date().toISOString()
       };
 
-      // Step 4: Spawn PTY process
+      // Step 4: Spawn PTY process (resume if user provided a session ID)
       const spawnResult = await this.ptyManager.spawnSession({
         sessionId,
         cwd: this.workingDirectory,
-        flags
+        flags,
+        resume: !!this.sessionId.trim()
       });
 
       if (!spawnResult.success) {
@@ -150,9 +161,10 @@ export class SessionCreateComponent {
       // Step 6: Add to active session state
       this.sessionState.addSession(metadata, pid);
 
-      // Step 7: Clear form and show success
+      // Step 7: Save directory to recent list, clear form, close dialog
+      this.saveRecentDirectory(this.workingDirectory);
       this.clearForm();
-      this.showSuccess(`Session created successfully (PID: ${pid})`);
+      this.isDialogOpen = false;
 
       console.log(`✓ Session created: ${sessionId} at ${this.workingDirectory} with PID ${pid}`);
     } catch (error) {
@@ -196,6 +208,7 @@ export class SessionCreateComponent {
    */
   private clearForm(): void {
     this.workingDirectory = '';
+    this.sessionId = '';
     this.selectedFlags = {
       '--verbose': false,
       '--dangerously-skip-permissions': false,
@@ -240,5 +253,26 @@ export class SessionCreateComponent {
    */
   objectKeys(obj: any): string[] {
     return Object.keys(obj);
+  }
+
+  private loadRecentDirectories(): void {
+    try {
+      const stored = localStorage.getItem(SessionCreateComponent.RECENT_DIRS_KEY);
+      this.recentDirectories = stored ? JSON.parse(stored) : [];
+    } catch {
+      this.recentDirectories = [];
+    }
+  }
+
+  private saveRecentDirectory(dir: string): void {
+    const normalized = dir.trim();
+    if (!normalized) return;
+
+    // Move to front, remove duplicates, cap at max
+    const dirs = [normalized, ...this.recentDirectories.filter(d => d !== normalized)]
+      .slice(0, SessionCreateComponent.MAX_RECENT_DIRS);
+
+    this.recentDirectories = dirs;
+    localStorage.setItem(SessionCreateComponent.RECENT_DIRS_KEY, JSON.stringify(dirs));
   }
 }

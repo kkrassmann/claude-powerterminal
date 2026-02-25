@@ -72,11 +72,11 @@ export class SessionManagerService {
    */
   async loadSessions(): Promise<SessionMetadata[]> {
     try {
-      const sessions = await window.electronAPI.invoke(IPC_CHANNELS.SESSION_LOAD);
-      return sessions || [];
+      const result = await window.electronAPI.invoke(IPC_CHANNELS.SESSION_LOAD);
+      return result?.sessions || [];
     } catch (error) {
       console.error('Failed to load sessions:', error);
-      return []; // Graceful degradation - return empty array on error
+      return [];
     }
   }
 

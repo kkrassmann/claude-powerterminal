@@ -2,14 +2,89 @@
   display: block;
   width: 100%;
   height: 100%;
+  position: relative;
 }
 
 .terminal-container {
   width: 100%;
   height: 100%;
   background: #1e1e2e;
+  border-radius: 4px;
+  overflow: hidden;
 }
 
 .terminal-container .xterm {
   padding: 4px;
+}
+
+.terminal-container.hidden {
+  visibility: hidden;
+}
+
+.restart-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #1e1e2e;
+  z-index: 10;
+}
+
+.restart-indicator {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: #a6adc8;
+  font-size: 13px;
+}
+
+.restart-indicator .spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid #313244;
+  border-top-color: #cba6f7;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.context-menu {
+  position: fixed;
+  z-index: 10000;
+  background: #313244;
+  border: 1px solid #45475a;
+  border-radius: 4px;
+  padding: 4px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.context-menu-item {
+  display: block;
+  width: 100%;
+  padding: 6px 16px;
+  border: none;
+  background: none;
+  color: #cdd6f4;
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+.context-menu-item:hover {
+  background: #585b70;
+}
+
+.context-menu-item.danger:hover {
+  background: #f38ba8;
+  color: #1e1e2e;
 }

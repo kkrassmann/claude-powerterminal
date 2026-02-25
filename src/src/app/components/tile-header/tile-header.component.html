@@ -1,4 +1,4 @@
-<div class="tile-header" (dblclick)="onHeaderDblClick()">
+<div class="tile-header" (click)="onHeaderClick()" (dblclick)="onHeaderDblClick()">
   <!-- Line 1: Working directory + action buttons -->
   <div class="header-line-1">
     <span class="status-dot" [style.backgroundColor]="statusColor" [title]="statusLabel"></span>

@@ -64,6 +64,21 @@ export class DashboardComponent implements OnInit, OnDestroy {
   /** Per-session status tracking for audio alerts and CSS classes. */
   sessionStatuses: Record<string, TerminalStatus> = {};
 
+  /** Whether the glow is active per session (set on genuine alert, cleared on click/WORKING). */
+  private glowActive: Record<string, boolean> = {};
+
+  /** Whether this session has ever fired an alert (to allow the first one unconditionally). */
+  private hasAlertedOnce: Record<string, boolean> = {};
+
+  /** Whether sustained WORKING (>=3s) occurred since the last alert for this session. */
+  private sustainedWorkSinceAlert: Record<string, boolean> = {};
+
+  /** Timestamp when each session entered WORKING state. */
+  private workStartTimestamps: Record<string, number> = {};
+
+  /** Minimum WORKING duration (ms) to count as "sustained" (real Claude output, not click noise). */
+  private static readonly MIN_SUSTAINED_WORK_MS = 3000;
+
   private sessionsSubscription: Subscription | null = null;
 
   /** Resize state */
@@ -209,18 +224,56 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * Dismiss glow on a tile when the user clicks it (acknowledge).
+   */
+  onTileClick(sessionId: string): void {
+    this.glowActive[sessionId] = false;
+  }
+
+  /**
    * Handle status change event from terminal component.
-   * Triggers audio alert if status changed to WAITING, ERROR, or DONE.
    *
-   * @param event - Status change event with sessionId and status
+   * Alert logic: Only fire sound+glow on genuine new alerts.
+   * A "genuine" alert requires either:
+   *   - First alert for this session (no prior alert), OR
+   *   - Sustained WORKING (>=3s) since the last alert (real Claude output, not click noise)
+   *
+   * This prevents re-alerting when the user clicks into a WAITING terminal,
+   * which causes a brief WORKING→THINKING→WAITING oscillation.
    */
   onStatusChanged(event: { sessionId: string; status: TerminalStatus }): void {
     const prev = this.sessionStatuses[event.sessionId];
     this.sessionStatuses[event.sessionId] = event.status;
+    const sid = event.sessionId;
 
-    // Only alert on new transitions to alert-worthy states
-    if (prev !== event.status && (event.status === 'WAITING' || event.status === 'ERROR' || event.status === 'DONE')) {
-      this.audioAlertService.alert(event.status);
+    // Track when sessions enter WORKING
+    if (event.status === 'WORKING' && prev !== 'WORKING') {
+      this.workStartTimestamps[sid] = Date.now();
+      // Entering WORKING = user interacted or Claude started — dismiss glow
+      this.glowActive[sid] = false;
+    }
+
+    // When leaving WORKING, check if it was sustained (real work vs click noise)
+    if (prev === 'WORKING' && event.status !== 'WORKING') {
+      const duration = Date.now() - (this.workStartTimestamps[sid] || Date.now());
+      if (duration >= DashboardComponent.MIN_SUSTAINED_WORK_MS) {
+        this.sustainedWorkSinceAlert[sid] = true;
+      }
+    }
+
+    // Alert on transitions to alert-worthy states
+    const isAlertWorthy = event.status === 'WAITING' || event.status === 'ERROR' || event.status === 'DONE';
+    if (prev !== event.status && isAlertWorthy) {
+      const isFirstAlert = !this.hasAlertedOnce[sid];
+      const hadRealWork = this.sustainedWorkSinceAlert[sid] === true;
+
+      if (isFirstAlert || hadRealWork) {
+        this.audioAlertService.alert(event.status);
+        this.glowActive[sid] = true;
+        this.hasAlertedOnce[sid] = true;
+        this.sustainedWorkSinceAlert[sid] = false;
+      }
+      // Otherwise: returning to alert state after brief interaction — skip sound+glow
     }
   }
 
@@ -232,6 +285,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
    */
   getStatusClass(sessionId: string): string {
     const status = this.sessionStatuses[sessionId] || 'WORKING';
+    // Only show glow when a genuine alert fired (not after brief interaction noise)
+    if ((status === 'WAITING' || status === 'ERROR') && !this.glowActive[sessionId]) {
+      return 'status-working';
+    }
     return `status-${status.toLowerCase()}`;
   }
 

@@ -72,6 +72,31 @@ function saveSessionsToDisk(sessions: SessionMetadata[]): void {
 }
 
 /**
+ * Get a session's metadata from disk by ID.
+ */
+export function getSessionFromDisk(sessionId: string): SessionMetadata | undefined {
+  const sessions = loadSessionsFromDisk();
+  return sessions.find((s) => s.sessionId === sessionId);
+}
+
+/**
+ * Delete a session from disk by ID.
+ * Called by pty-handlers when a PTY process exits.
+ */
+export function deleteSessionFromDisk(sessionId: string): void {
+  try {
+    const sessions = loadSessionsFromDisk();
+    const filtered = sessions.filter((s) => s.sessionId !== sessionId);
+    if (filtered.length < sessions.length) {
+      saveSessionsToDisk(filtered);
+      console.log(`[Session Handlers] Removed exited session ${sessionId} from disk`);
+    }
+  } catch (error: any) {
+    console.error(`[Session Handlers] Failed to remove session ${sessionId} from disk:`, error.message);
+  }
+}
+
+/**
  * Register all session persistence IPC handlers.
  * Call this once during app initialization in main.ts.
  */
