@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-24)
 
 **Core value:** Never lose track of which terminal needs attention — instant visibility into the status of every running Claude instance, with alerts that pull you back when action is needed.
-**Current focus:** Phase 3 - Dashboard Grid
+**Current focus:** Phase 4 - Status Detection & Alerts
 
 ## Current Position
 
-Phase: 3 of 5 (Dashboard Grid)
-Plan: 2 of 3 in current phase
+Phase: 4 of 5 (Status Detection & Alerts)
+Plan: 1 of 2 in current phase
 Status: Completed
-Last activity: 2026-02-25 — Completed 03-02-PLAN.md (Dashboard Grid UI)
+Last activity: 2026-02-25 — Completed 04-01-PLAN.md (Status Detection Backend)
 
-Progress: [█████░░░░░] 40%
+Progress: [██████░░░░] 47%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 6
-- Average duration: 6.7 minutes
-- Total execution time: 0.67 hours
+- Total plans completed: 7
+- Average duration: 5.9 minutes
+- Total execution time: 0.68 hours
 
 **By Phase:**
 
@@ -30,10 +30,11 @@ Progress: [█████░░░░░] 40%
 | 01 | 3 | 32 min | 10.7 min |
 | 02 | 1 | 3 min | 3.0 min |
 | 03 | 2 | 6 min | 3.0 min |
+| 04 | 1 | 3 min | 3.0 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-03 (25min), 02-01 (3min), 03-01 (4min), 03-02 (2min)
-- Trend: Fast (UI component plans are quick)
+- Last 5 plans: 02-01 (3min), 03-01 (4min), 03-02 (2min), 04-01 (3min)
+- Trend: Consistently fast (backend plans are efficient)
 
 *Updated after each plan completion*
 
@@ -48,6 +49,7 @@ Progress: [█████░░░░░] 40%
 | Phase 02 P01 | 3 | 2 tasks | 5 files |
 | Phase 03 P01 | 4 | 2 tasks | 5 files |
 | Phase 03 P02 | 2 | 2 tasks | 9 files |
+| Phase 04 P01 | 3 | 2 tasks | 5 files |
 
 ## Accumulated Context
 
@@ -81,6 +83,8 @@ Recent decisions affecting current work:
 - [Phase 03]: Remove cdkDropListOrientation="mixed" - not supported in CDK 17.3.10
 - [Phase 03]: Dashboard uses CSS Grid auto-fill with minmax(400px) for responsive columns
 - [Phase 03]: Maximize toggle uses *ngIf swap, terminal WebSocket reconnects on component recreation
+- [Phase 04]: Use inline ANSI regex instead of strip-ansi npm package (ESM-only, incompatible with CommonJS)
+- [Phase 04]: Sliding window approach (500 chars) prevents stale pattern matches from scrollback
 
 ### Pending Todos
 
@@ -95,5 +99,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-25 (plan execution)
-Stopped at: Completed 03-02-PLAN.md (Dashboard Grid UI)
+Stopped at: Completed 04-01-PLAN.md (Status Detection Backend)
 Resume file: None

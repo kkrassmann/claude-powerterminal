@@ -18,8 +18,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Status Detection & Alerts
 
-- [ ] **STAT-01**: App detects terminal status (working/waiting for input/done) via PTY output pattern matching
-- [ ] **STAT-02**: App uses idle-timeout heuristic as fallback when pattern matching is inconclusive
+- [x] **STAT-01**: App detects terminal status (working/waiting for input/done) via PTY output pattern matching
+- [x] **STAT-02**: App uses idle-timeout heuristic as fallback when pattern matching is inconclusive
 - [ ] **STAT-03**: Each terminal tile displays a color-coded visual indicator reflecting its current status
 - [ ] **STAT-04**: App plays an audio notification when a terminal transitions to "waiting for input" or "done"
 - [ ] **STAT-05**: User can mute/unmute audio notifications globally
@@ -90,8 +90,8 @@ Deferred to future release. Tracked but not in current roadmap.
 | CTXT-01 | Phase 3 | Complete |
 | CTXT-02 | Phase 3 | Complete |
 | CTXT-03 | Phase 3 | Complete |
-| STAT-01 | Phase 4 | Pending |
-| STAT-02 | Phase 4 | Pending |
+| STAT-01 | Phase 4 | Complete |
+| STAT-02 | Phase 4 | Complete |
 | STAT-03 | Phase 4 | Pending |
 | STAT-04 | Phase 4 | Pending |
 | STAT-05 | Phase 4 | Pending |

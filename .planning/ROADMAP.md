@@ -108,7 +108,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. Core PTY Infrastructure | 3/3 | Complete | 2026-02-24 |
 | 2. WebSocket Bridge & UI | 1/2 | In Progress | - |
 | 3. Dashboard Grid | 2/2 | Complete   | 2026-02-25 |
-| 4. Status Detection & Alerts | 0/2 | Not started | - |
+| 4. Status Detection & Alerts | 1/2 | In Progress|  |
 | 5. Network Access | 0/? | Not started | - |
 
 ---
