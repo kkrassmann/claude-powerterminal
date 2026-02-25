@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Core PTY Infrastructure** - Spawn Claude CLI in PTY with Windows workarounds, session persistence
 - [x] **Phase 2: WebSocket Bridge & UI** - Stream PTY to browser via xterm.js with real-time I/O
 - [x] **Phase 3: Dashboard Grid** - Multi-terminal grid layout with context headers (completed 2026-02-25)
-- [ ] **Phase 4: Status Detection & Alerts** - Pattern-based status detection with audio notifications
+- [x] **Phase 4: Status Detection & Alerts** - Pattern-based status detection with audio notifications (completed 2026-02-25)
 - [ ] **Phase 5: Network Access** - Mobile-responsive UI with LAN accessibility
 
 ## Phase Details
@@ -82,8 +82,8 @@ Plans:
 **Plans**: 2 plans in 2 waves
 
 Plans:
-- [ ] 04-01-PLAN.md — StatusDetector backend engine (ANSI stripping, pattern matching state machine, WebSocket protocol extension, PTY handler + WS server wiring)
-- [ ] 04-02-PLAN.md — Frontend status UI (status dot in tile header, box-shadow glow, Web Audio API alerts with debounce, global mute toggle)
+- [x] 04-01-PLAN.md — StatusDetector backend engine (ANSI stripping, pattern matching state machine, WebSocket protocol extension, PTY handler + WS server wiring)
+- [x] 04-02-PLAN.md — Frontend status UI (status dot in tile header, box-shadow glow, Web Audio API alerts with debounce, global mute toggle)
 
 ### Phase 5: Network Access
 **Goal**: Enable mobile/tablet access via local network with responsive UI and automatic network discovery
@@ -108,7 +108,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. Core PTY Infrastructure | 3/3 | Complete | 2026-02-24 |
 | 2. WebSocket Bridge & UI | 1/2 | In Progress | - |
 | 3. Dashboard Grid | 2/2 | Complete   | 2026-02-25 |
-| 4. Status Detection & Alerts | 1/2 | In Progress|  |
+| 4. Status Detection & Alerts | 2/2 | Complete | 2026-02-25 |
 | 5. Network Access | 0/? | Not started | - |
 
 ---
