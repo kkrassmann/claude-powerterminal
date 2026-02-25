@@ -8,6 +8,38 @@
 import * as http from 'http';
 import * as fs from 'fs';
 import * as path from 'path';
+import { getPtyProcesses } from '../ipc/pty-handlers';
+import { app } from 'electron';
+
+/**
+ * SessionMetadata interface (matches src/app/models/session.model.ts)
+ */
+interface SessionMetadata {
+  sessionId: string;
+  workingDirectory: string;
+  cliFlags: string[];
+  createdAt: string;
+}
+
+/**
+ * Load sessions from disk.
+ * Returns empty array if file doesn't exist or is invalid.
+ */
+function loadSessionsFromDisk(): SessionMetadata[] {
+  try {
+    const userDataPath = app.getPath('userData');
+    const filePath = path.join(userDataPath, 'sessions.json');
+    if (!fs.existsSync(filePath)) {
+      return [];
+    }
+    const data = fs.readFileSync(filePath, 'utf-8');
+    const sessions = JSON.parse(data);
+    return sessions;
+  } catch (error: any) {
+    console.error('[Static Server] Error loading sessions:', error.message);
+    return [];
+  }
+}
 
 /**
  * MIME type mapping for common file extensions.
@@ -37,9 +69,27 @@ const MIME_TYPES: Record<string, string> = {
  * @returns http.Server instance
  */
 export function startStaticServer(port: number): http.Server {
-  const buildDir = path.join(__dirname, '../../src/dist/claude-powerterminal-angular/browser');
+  const buildDir = path.join(__dirname, '../../../src/dist/claude-powerterminal-angular/browser');
 
   const server = http.createServer((req, res) => {
+    // API endpoint: return saved sessions for remote browsers
+    if (req.url === '/api/sessions') {
+      const savedSessions = loadSessionsFromDisk();
+      const ptyProcesses = getPtyProcesses();
+
+      // Cross-reference: only return sessions that have active PTY processes
+      const activeSessions = savedSessions
+        .filter(session => ptyProcesses.has(session.sessionId))
+        .map(session => ({
+          sessionId: session.sessionId,
+          pid: ptyProcesses.get(session.sessionId)!.pid,
+        }));
+
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.end(JSON.stringify(activeSessions));
+      return;
+    }
+
     // Default to index.html for root requests
     let filePath = req.url === '/' ? '/index.html' : req.url || '/index.html';
 
