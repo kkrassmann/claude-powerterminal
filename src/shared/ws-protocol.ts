@@ -5,12 +5,16 @@
  * Defines message types for bidirectional terminal communication.
  */
 
+// Terminal status enum
+export type TerminalStatus = 'WORKING' | 'THINKING' | 'WAITING' | 'ERROR' | 'DONE';
+
 // Server -> Client messages
 export type ServerMessage =
   | { type: 'output'; data: string }      // PTY output chunk
   | { type: 'exit'; exitCode: number }     // PTY process exited
   | { type: 'buffering'; total: number }   // Buffer replay starting (line count)
   | { type: 'buffered' }                   // Buffer replay complete
+  | { type: 'status'; status: TerminalStatus }  // Terminal status update
 
 // Client -> Server messages
 export type ClientMessage =
