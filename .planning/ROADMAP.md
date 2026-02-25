@@ -93,10 +93,11 @@ Plans:
   1. App binds to 0.0.0.0 and is accessible from other devices on the local network
   2. UI is fully functional on mobile/tablet viewports (tested on phone and tablet)
   3. App displays its local network URL on startup for easy access from other devices
-**Plans**: TBD
+**Plans**: 2 plans in 1 wave
 
 Plans:
-- [ ] TBD (will be created during phase planning)
+- [ ] 05-01-PLAN.md — Backend network infrastructure (WS 0.0.0.0 binding, HTTP static server for Angular build, LAN IP discovery, LAN URL display)
+- [ ] 05-02-PLAN.md — Frontend LAN compatibility + responsive CSS (dynamic WS URL, electronAPI guards, mobile/tablet breakpoints)
 
 ## Progress
 
@@ -109,7 +110,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 2. WebSocket Bridge & UI | 1/2 | In Progress | - |
 | 3. Dashboard Grid | 2/2 | Complete   | 2026-02-25 |
 | 4. Status Detection & Alerts | 2/2 | Complete | 2026-02-25 |
-| 5. Network Access | 0/? | Not started | - |
+| 5. Network Access | 0/2 | Not started | - |
 
 ---
 *Roadmap created: 2026-02-24*
