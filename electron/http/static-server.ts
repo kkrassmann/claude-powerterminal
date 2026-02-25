@@ -10,6 +10,8 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { getPtyProcesses } from '../ipc/pty-handlers';
 import { app } from 'electron';
+import { ptyManager } from '../managers/pty-manager';
+import { sessionManager } from '../managers/session-manager';
 
 /**
  * SessionMetadata interface (matches src/app/models/session.model.ts)
@@ -71,9 +73,60 @@ const MIME_TYPES: Record<string, string> = {
 export function startStaticServer(port: number): http.Server {
   const buildDir = path.join(__dirname, '../../../src/dist/claude-powerterminal-angular/browser');
 
+  // CORS headers for API endpoints
+  const corsHeaders = {
+    'Access-Control-Allow-Origin': '*',
+    'Content-Type': 'application/json'
+  };
+
   const server = http.createServer((req, res) => {
-    // API endpoint: return saved sessions for remote browsers
-    if (req.url === '/api/sessions') {
+    const url = new URL(req.url || '/', `http://${req.headers.host}`);
+    const pathname = url.pathname;
+
+    // POST /api/sessions - Create new session via HTTP API
+    if (req.method === 'POST' && pathname === '/api/sessions') {
+      let body = '';
+      req.on('data', chunk => body += chunk);
+      req.on('end', async () => {
+        try {
+          const { sessionId, cwd, flags, resume } = JSON.parse(body);
+
+          // Validate inputs
+          if (!sessionId || !cwd) {
+            res.writeHead(400, corsHeaders);
+            res.end(JSON.stringify({ error: 'Missing sessionId or cwd' }));
+            return;
+          }
+
+          // Spawn PTY (same logic as IPC handler)
+          const ptyProcess = ptyManager.spawnPty(sessionId, cwd, flags || [], resume || false);
+
+          // Save session metadata
+          sessionManager.saveSession({
+            sessionId,
+            workingDirectory: cwd,
+            cliFlags: flags || [],
+            createdAt: new Date().toISOString()
+          });
+
+          // Return success with PID
+          res.writeHead(201, corsHeaders);
+          res.end(JSON.stringify({
+            success: true,
+            pid: ptyProcess.pid,
+            sessionId
+          }));
+        } catch (error) {
+          console.error('[HTTP] POST /api/sessions error:', error);
+          res.writeHead(500, corsHeaders);
+          res.end(JSON.stringify({ success: false, error: String(error) }));
+        }
+      });
+      return; // Important: prevent fallthrough to GET handler
+    }
+
+    // GET /api/sessions - Return saved sessions for remote browsers
+    if (req.method === 'GET' && pathname === '/api/sessions') {
       const savedSessions = loadSessionsFromDisk();
       const ptyProcesses = getPtyProcesses();
 
@@ -85,7 +138,7 @@ export function startStaticServer(port: number): http.Server {
           pid: ptyProcesses.get(session.sessionId)!.pid,
         }));
 
-      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' });
+      res.writeHead(200, corsHeaders);
       res.end(JSON.stringify(activeSessions));
       return;
     }
