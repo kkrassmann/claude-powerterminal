@@ -1,14 +1,21 @@
 ---
-status: diagnosed
+status: testing
 phase: 05-network-access
-source: [05-01-SUMMARY.md, 05-02-SUMMARY.md]
+source: [05-01-SUMMARY.md, 05-02-SUMMARY.md, 05-03-SUMMARY.md, 05-04-SUMMARY.md, 05-05-SUMMARY.md]
 started: 2026-02-25T14:30:00Z
-updated: 2026-02-25T14:45:00Z
+updated: 2026-02-26T12:00:00Z
+round: 2
 ---
 
 ## Current Test
 
-[testing complete]
+number: 10
+name: Session Count Matches
+expected: |
+  Oeffne die App in Electron UND im Handy-Browser (http://<lan-ip>:9801).
+  Beide zeigen exakt die gleiche Anzahl Sessions.
+  Keine Geister-Sessions, keine fehlenden.
+awaiting: user response
 
 ## Tests
 
@@ -52,12 +59,34 @@ result: pass
 expected: Desktop Electron app works as before — no regressions from network changes
 result: pass
 
+### --- Round 2: Gap Re-Verification ---
+
+### 10. Session Count Matches (Re-test Gap 1)
+expected: Electron und Handy-Browser zeigen exakt die gleiche Anzahl Sessions. Keine Geister-Sessions, keine fehlenden.
+result: [pending]
+
+### 11. New Session Auto-Sync (Re-test Gap 1)
+expected: Erstelle eine neue Session in Electron. Innerhalb von 5 Sekunden erscheint sie auf dem Handy-Browser OHNE manuellen Reload.
+result: [pending]
+
+### 12. Terminal Output bei Heavy Output (Re-test Gap 2)
+expected: Fuehre in Electron einen Befehl mit viel Output aus (z.B. `for i in {1..100}; do echo "Line $i"; done`). Die Ausgabe auf dem Handy ist lesbar und konsistent — keine kaputten Zeichen oder Farb-Glitches.
+result: [pending]
+
+### 13. Terminal Selbst-Korrektur (Re-test Gap 2)
+expected: Falls waehrend der Ausgabe kurzzeitig Glitches auftreten, korrigieren sie sich innerhalb von 30 Sekunden automatisch (Buffer-Resync). Terminal sieht danach identisch zum Electron-Terminal aus.
+result: [pending]
+
+### 14. Session erstellen vom Handy (Re-test Gap 3)
+expected: Oeffne den Handy-Browser. Klicke "New Session". Waehle ein Verzeichnis und klicke Create. Kein JavaScript-Fehler (kein "crypto.randomUUID is not a function"). Die Session erscheint auf dem Handy UND in Electron.
+result: [pending]
+
 ## Summary
 
-total: 9
+total: 14
 passed: 7
 issues: 2
-pending: 0
+pending: 5
 skipped: 0
 
 ## Gaps

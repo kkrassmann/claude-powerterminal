@@ -13,6 +13,7 @@ import { killPtyProcess } from './utils/process-cleanup';
 import { StatusDetector } from './status/status-detector';
 import { startStaticServer } from './http/static-server';
 import { getLocalNetworkAddress } from './utils/network-info';
+import { sanitizeEnvForClaude } from './utils/env-sanitize';
 
 let mainWindow: BrowserWindow | null = null;
 let lanUrl: string | null = null;
@@ -43,23 +44,42 @@ function createWindow(): void {
     },
   });
 
-  // Load Angular UI: prefer built files, fall back to dev server
+  // Load Angular UI: prefer dev server in dev mode, fall back to built files
   const devServerUrl = 'http://localhost:4800';
   const builtFilePath = path.join(__dirname, '../../src/dist/claude-powerterminal-angular/browser/index.html');
 
-  if (fs.existsSync(builtFilePath)) {
+  if (!app.isPackaged) {
+    // Dev mode: wait for Angular dev server, then load it
+    const waitForDevServer = async (url: string, maxRetries = 30, interval = 1000): Promise<boolean> => {
+      for (let i = 0; i < maxRetries; i++) {
+        try {
+          const http = await import('http');
+          await new Promise<void>((resolve, reject) => {
+            http.get(url, (res) => { res.resume(); resolve(); }).on('error', reject);
+          });
+          return true;
+        } catch { await new Promise(r => setTimeout(r, interval)); }
+      }
+      return false;
+    };
+
+    waitForDevServer(devServerUrl).then((ready) => {
+      if (ready) {
+        mainWindow!.loadURL(devServerUrl);
+      } else if (fs.existsSync(builtFilePath)) {
+        mainWindow!.loadFile(builtFilePath);
+      }
+    });
+  } else if (fs.existsSync(builtFilePath)) {
     mainWindow.loadFile(builtFilePath);
 
     // Intercept navigation (e.g. Ctrl+R reload) to always serve index.html
-    // Angular's file:// routing loses the index.html suffix after navigation
     mainWindow.webContents.on('will-navigate', (event, url) => {
       if (url.startsWith('file://') && !url.endsWith('index.html')) {
         event.preventDefault();
         mainWindow!.loadFile(builtFilePath);
       }
     });
-  } else {
-    mainWindow.loadURL(devServerUrl);
   }
 
   if (!app.isPackaged) {
@@ -121,10 +141,7 @@ async function spawnPtyWithResume(session: SessionMetadata): Promise<pty.IPty> {
   return new Promise((resolve, reject) => {
     console.log(`[Auto-Restore] Attempting --resume for session ${session.sessionId}`);
 
-    // Environment sanitization
-    const env = { ...process.env };
-    delete env.CLAUDECODE;
-    delete env.CLAUDECODE_SESSION_ID;
+    const env = sanitizeEnvForClaude();
 
     // Spawn with --resume flag via cmd.exe for PATH resolution on Windows
     const shell = process.platform === 'win32' ? 'cmd.exe' : '/bin/bash';
@@ -167,13 +184,10 @@ async function spawnPtyWithResume(session: SessionMetadata): Promise<pty.IPty> {
  * @param session - Session metadata for the session to start fresh
  * @returns The spawned PTY process
  */
-function spawnPtyFresh(session: SessionMetadata): pty.IPty {
+async function spawnPtyFresh(session: SessionMetadata): Promise<pty.IPty> {
   console.log(`[Auto-Restore] Starting fresh session for ${session.sessionId}`);
 
-  // Environment sanitization
-  const env = { ...process.env };
-  delete env.CLAUDECODE;
-  delete env.CLAUDECODE_SESSION_ID;
+  const env = sanitizeEnvForClaude();
 
   // Spawn with --session-id flag (fresh session) via cmd.exe for PATH resolution on Windows
   const shell = process.platform === 'win32' ? 'cmd.exe' : '/bin/bash';
@@ -246,7 +260,8 @@ function registerRestoredPty(session: SessionMetadata, ptyProcess: pty.IPty): vo
 
 /**
  * Restore all saved sessions on app startup.
- * Spawns all sessions in parallel for fast startup.
+ * Sessions are spawned sequentially with delays to prevent concurrent writes
+ * to Claude CLI's shared config file (~/.claude.json) which causes corruption.
  */
 async function restoreAllSessions(): Promise<void> {
   console.log('[Auto-Restore] Starting session auto-restore');
@@ -260,24 +275,47 @@ async function restoreAllSessions(): Promise<void> {
 
   console.log(`[Auto-Restore] Found ${sessions.length} sessions to restore`);
 
-  // Spawn all sessions in parallel
-  const restorePromises = sessions.map(async (session) => {
+  // Deduplicate by working directory: only one session per cwd allowed
+  // (multiple Claude CLI instances in the same dir corrupt .claude.json)
+  const seenCwds = new Set<string>();
+  const deduped: SessionMetadata[] = [];
+  for (const session of sessions) {
+    const normalizedCwd = path.resolve(session.workingDirectory);
+    if (seenCwds.has(normalizedCwd)) {
+      console.warn(`[Auto-Restore] Skipping duplicate cwd session ${session.sessionId} (${normalizedCwd})`);
+      deleteSessionFromDisk(session.sessionId);
+      continue;
+    }
+    seenCwds.add(normalizedCwd);
+    deduped.push(session);
+  }
+
+  if (deduped.length < sessions.length) {
+    console.log(`[Auto-Restore] Deduplicated: ${sessions.length} → ${deduped.length} sessions`);
+  }
+
+  // Spawn sessions sequentially with delay to prevent .claude.json write races
+  for (const session of deduped) {
     try {
       let ptyProcess: pty.IPty;
       try {
         ptyProcess = await spawnPtyWithResume(session);
       } catch {
         console.warn(`[Auto-Restore] Resume failed for ${session.sessionId}, starting fresh`);
-        ptyProcess = spawnPtyFresh(session);
+        ptyProcess = await spawnPtyFresh(session);
       }
       registerRestoredPty(session, ptyProcess);
       console.log(`[Auto-Restore] Session ${session.sessionId} restored`);
+
+      // Wait for Claude CLI to finish initializing before starting next session
+      if (sessions.indexOf(session) < sessions.length - 1) {
+        await new Promise(r => setTimeout(r, 3000));
+      }
     } catch (error) {
       console.error(`[Auto-Restore] Failed to restore session ${session.sessionId}:`, error);
     }
-  });
+  }
 
-  await Promise.all(restorePromises);
   console.log('[Auto-Restore] All sessions restored');
 
   if (mainWindow && !mainWindow.isDestroyed()) {

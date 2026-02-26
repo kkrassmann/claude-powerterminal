@@ -53,6 +53,34 @@
   to { transform: rotate(360deg); }
 }
 
+.refresh-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 5;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: rgba(49, 50, 68, 0.6);
+  color: #6c7086;
+  font-size: 14px;
+  line-height: 24px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s, background 0.15s, color 0.15s;
+}
+
+:host:hover .refresh-btn {
+  opacity: 1;
+}
+
+.refresh-btn:hover {
+  background: #45475a;
+  color: #cdd6f4;
+}
+
 .context-menu {
   position: fixed;
   z-index: 10000;

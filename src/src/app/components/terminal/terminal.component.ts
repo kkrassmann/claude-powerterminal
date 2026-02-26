@@ -32,6 +32,7 @@ import { IPC_CHANNELS } from '../../../../shared/ipc-channels';
       </div>
     </div>
     <div #terminalContainer class="terminal-container" [class.hidden]="isRestarting" (contextmenu)="onContextMenu($event)"></div>
+    <button class="refresh-btn" title="Terminal auffrischen" (click)="refreshBuffer()">&#x21bb;</button>
     <div *ngIf="contextMenuVisible" class="context-menu" [style.left.px]="contextMenuX" [style.top.px]="contextMenuY" (mousedown)="$event.stopPropagation()">
       <button class="context-menu-item" (click)="restartSession()">Neu starten</button>
       <button class="context-menu-item danger" (click)="killSession()">Session beenden</button>
@@ -105,6 +106,11 @@ export class TerminalComponent implements OnInit, OnDestroy {
     this.contextMenuVisible = false;
     if (!window.electronAPI) return;
     window.electronAPI.invoke(IPC_CHANNELS.PTY_KILL, this.sessionId);
+  }
+
+  refreshBuffer(): void {
+    // Re-render all visible rows — fixes rendering glitches without resize flicker
+    this.term.refresh(0, this.term.rows - 1);
   }
 
   ngOnInit(): void {
@@ -224,21 +230,15 @@ export class TerminalComponent implements OnInit, OnDestroy {
       const msg: ClientMessage = { type: 'resize', cols: this.term.cols, rows: this.term.rows };
       this.socket.send(JSON.stringify(msg));
 
-      // Periodic buffer resync for remote browsers (prevents xterm.js desync)
-      // Only run for remote browsers — Electron has lower latency and no network issues
-      if (!window.electronAPI && this.socket.readyState === WebSocket.OPEN) {
-        // Clear any existing interval (in case of reconnect)
-        if (this.resyncInterval) {
-          clearInterval(this.resyncInterval);
-        }
-
-        this.resyncInterval = setInterval(() => {
-          if (this.socket && this.socket.readyState === WebSocket.OPEN) {
-            console.log('[Terminal] Requesting buffer resync');
-            this.socket.send(JSON.stringify({ type: 'buffer-replay' }));
-          }
-        }, 30000); // 30-second interval
+      // Periodic silent refresh to fix xterm.js rendering glitches
+      if (this.resyncInterval) {
+        clearInterval(this.resyncInterval);
       }
+      this.resyncInterval = setInterval(() => {
+        if (!this.destroyed && this.term) {
+          this.term.refresh(0, this.term.rows - 1);
+        }
+      }, 10000);
     };
 
     this.socket.onmessage = (event: MessageEvent) => {

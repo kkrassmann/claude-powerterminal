@@ -8,10 +8,14 @@
 import * as http from 'http';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as pty from 'node-pty';
 import { getPtyProcesses } from '../ipc/pty-handlers';
 import { app } from 'electron';
-import { ptyManager } from '../managers/pty-manager';
-import { sessionManager } from '../managers/session-manager';
+import { getScrollbackBuffers, getStatusDetectors, broadcastStatus } from '../websocket/ws-server';
+import { ScrollbackBuffer } from '../../src/src/app/services/scrollback-buffer.service';
+import { StatusDetector } from '../status/status-detector';
+import { deleteSessionFromDisk } from '../ipc/session-handlers';
+import { sanitizeEnvForClaude } from '../utils/env-sanitize';
 
 /**
  * SessionMetadata interface (matches src/app/models/session.model.ts)
@@ -40,6 +44,22 @@ function loadSessionsFromDisk(): SessionMetadata[] {
   } catch (error: any) {
     console.error('[Static Server] Error loading sessions:', error.message);
     return [];
+  }
+}
+
+/**
+ * Save a new session to disk (append to sessions.json).
+ */
+function saveSessionToDisk(session: SessionMetadata): void {
+  try {
+    const sessions = loadSessionsFromDisk();
+    sessions.push(session);
+    const userDataPath = app.getPath('userData');
+    const filePath = path.join(userDataPath, 'sessions.json');
+    fs.writeFileSync(filePath, JSON.stringify(sessions, null, 2), 'utf-8');
+    console.log(`[Static Server] Saved session ${session.sessionId} to disk`);
+  } catch (error: any) {
+    console.error('[Static Server] Error saving session:', error.message);
   }
 }
 
@@ -98,31 +118,92 @@ export function startStaticServer(port: number): http.Server {
             return;
           }
 
-          // Spawn PTY (same logic as IPC handler)
-          const ptyProcess = ptyManager.spawnPty(sessionId, cwd, flags || [], resume || false);
+          const resolvedCwd = path.resolve(cwd);
+          if (!fs.existsSync(resolvedCwd) || !fs.statSync(resolvedCwd).isDirectory()) {
+            res.writeHead(400, corsHeaders);
+            res.end(JSON.stringify({ error: `Directory does not exist: ${resolvedCwd}` }));
+            return;
+          }
 
-          // Save session metadata
-          sessionManager.saveSession({
+          // Check for duplicate cwd (multiple CLI instances in same dir corrupt .claude.json)
+          const activePtys = getPtyProcesses();
+          const savedSessions = loadSessionsFromDisk();
+          for (const [existingId] of activePtys) {
+            const existing = savedSessions.find(s => s.sessionId === existingId);
+            if (existing && path.resolve(existing.workingDirectory) === resolvedCwd) {
+              res.writeHead(409, corsHeaders);
+              res.end(JSON.stringify({ error: 'Directory already has an active session' }));
+              return;
+            }
+          }
+
+          const env = sanitizeEnvForClaude();
+
+          // Spawn PTY (mirrors IPC PTY_SPAWN handler logic)
+          const claudeExe = process.platform === 'win32' ? 'claude.exe' : 'claude';
+          const sessionFlag = resume ? '--resume' : '--session-id';
+          const claudeArgs = [sessionFlag, sessionId, ...(flags || [])];
+
+          const ptyProcess = pty.spawn(claudeExe, claudeArgs, {
+            name: 'xterm-256color',
+            cols: 80,
+            rows: 30,
+            cwd: resolvedCwd,
+            env,
+            useConpty: true,
+          });
+
+          // Register in PTY processes map
+          activePtys.set(sessionId, ptyProcess);
+
+          // Create scrollback buffer for WebSocket replay
+          getScrollbackBuffers().set(sessionId, new ScrollbackBuffer(10000));
+
+          // Create status detector
+          const statusDetector = new StatusDetector(sessionId, (sid, status) => {
+            broadcastStatus(sid, status);
+          });
+          getStatusDetectors().set(sessionId, statusDetector);
+
+          // Wire up PTY event handlers
+          ptyProcess.onData((data) => {
+            const buffer = getScrollbackBuffers().get(sessionId);
+            if (buffer) buffer.append(data);
+            const detector = getStatusDetectors().get(sessionId);
+            if (detector) detector.processOutput(data);
+          });
+
+          ptyProcess.onExit(({ exitCode }) => {
+            console.log(`[HTTP] Session ${sessionId} exited (code ${exitCode})`);
+            const detector = getStatusDetectors().get(sessionId);
+            if (detector) {
+              detector.processExit();
+              detector.destroy();
+              getStatusDetectors().delete(sessionId);
+            }
+            getPtyProcesses().delete(sessionId);
+            getScrollbackBuffers().delete(sessionId);
+            deleteSessionFromDisk(sessionId);
+          });
+
+          // Save session metadata to disk
+          saveSessionToDisk({
             sessionId,
             workingDirectory: cwd,
             cliFlags: flags || [],
             createdAt: new Date().toISOString()
           });
 
-          // Return success with PID
+          console.log(`[HTTP] Session ${sessionId} spawned (PID ${ptyProcess.pid})`);
           res.writeHead(201, corsHeaders);
-          res.end(JSON.stringify({
-            success: true,
-            pid: ptyProcess.pid,
-            sessionId
-          }));
+          res.end(JSON.stringify({ success: true, pid: ptyProcess.pid, sessionId }));
         } catch (error) {
           console.error('[HTTP] POST /api/sessions error:', error);
           res.writeHead(500, corsHeaders);
           res.end(JSON.stringify({ success: false, error: String(error) }));
         }
       });
-      return; // Important: prevent fallthrough to GET handler
+      return;
     }
 
     // GET /api/sessions - Return saved sessions for remote browsers

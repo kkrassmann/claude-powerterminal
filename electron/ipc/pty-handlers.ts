@@ -8,6 +8,7 @@
 import * as pty from 'node-pty';
 import * as fs from 'fs';
 import * as path from 'path';
+import { execSync } from 'child_process';
 import { ipcMain } from 'electron';
 import { IPC_CHANNELS } from '../../src/shared/ipc-channels';
 import { killPtyProcess } from '../utils/process-cleanup';
@@ -15,6 +16,7 @@ import { getScrollbackBuffers, getStatusDetectors, broadcastStatus } from '../we
 import { ScrollbackBuffer } from '../../src/src/app/services/scrollback-buffer.service';
 import { deleteSessionFromDisk, getSessionFromDisk } from './session-handlers';
 import { StatusDetector } from '../status/status-detector';
+import { sanitizeEnvForClaude } from '../utils/env-sanitize';
 
 /**
  * Map of session IDs to active PTY processes.
@@ -91,10 +93,31 @@ export function registerPtyHandlers(): void {
         return { success: false, error: `Directory does not exist: ${resolvedCwd}` };
       }
 
-      // Environment sanitization: Remove CLAUDECODE vars to prevent nested session conflicts
-      const env = { ...process.env };
-      delete env.CLAUDECODE;
-      delete env.CLAUDECODE_SESSION_ID;
+      // Prevent duplicate sessions in the same directory (causes .claude.json corruption)
+      // Check 1: Our own managed sessions
+      for (const [existingId] of ptyProcesses) {
+        if (existingId !== sessionId) {
+          const existingSession = getSessionFromDisk(existingId);
+          if (existingSession && path.resolve(existingSession.workingDirectory) === resolvedCwd) {
+            console.warn(`[PTY Handlers] Blocked: directory ${resolvedCwd} already has active session ${existingId}`);
+            return { success: false, error: `Directory already has an active session. Only one Claude session per directory is allowed.` };
+          }
+        }
+      }
+
+      // Check 2: External claude.exe processes (e.g. user's terminal CLI session)
+      try {
+        const out = execSync('wmic process where "name=\'claude.exe\'" get processid,commandline /format:csv', { encoding: 'utf-8', timeout: 3000 });
+        const externalCount = out.split('\n').filter(l => l.includes('claude.exe')).length;
+        // Subtract our own managed sessions
+        const ownCount = ptyProcesses.size;
+        if (externalCount > ownCount) {
+          console.warn(`[PTY Handlers] Warning: ${externalCount - ownCount} external claude.exe process(es) detected. Spawning in ${resolvedCwd} may cause config corruption if an external session uses the same directory.`);
+        }
+      } catch { /* wmic not available or timeout — skip check */ }
+
+      // Environment sanitization: remove Electron and Claude nesting vars
+      const env = sanitizeEnvForClaude();
 
       // On Windows, spawn claude.exe directly with full path resolution
       const claudeExe = process.platform === 'win32' ? 'claude.exe' : 'claude';
@@ -274,9 +297,7 @@ export function registerPtyHandlers(): void {
     ptyProcesses.delete(sessionId);
 
     // Spawn new PTY with --resume
-    const env = { ...process.env };
-    delete env.CLAUDECODE;
-    delete env.CLAUDECODE_SESSION_ID;
+    const env = sanitizeEnvForClaude();
 
     const claudeExe = process.platform === 'win32' ? 'claude.exe' : 'claude';
     const newPty = pty.spawn(claudeExe, ['--resume', sessionId, ...metadata.cliFlags], {

@@ -115,6 +115,9 @@ export class AppComponent implements OnInit {
       const activePtys: { sessionId: string; pid: number }[] = await resp.json();
       let added = 0;
 
+      const remoteIds = new Set(activePtys.map(p => p.sessionId));
+
+      // Add new sessions
       for (const pty of activePtys) {
         if (!this.sessionStateService.hasSession(pty.sessionId)) {
           this.sessionStateService.addSession({
@@ -124,6 +127,13 @@ export class AppComponent implements OnInit {
             createdAt: new Date().toISOString(),
           }, pty.pid);
           added++;
+        }
+      }
+
+      // Remove sessions no longer on server
+      for (const session of this.sessionStateService.getAllSessions()) {
+        if (!remoteIds.has(session.metadata.sessionId)) {
+          this.sessionStateService.removeSession(session.metadata.sessionId);
         }
       }
 
