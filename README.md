@@ -55,7 +55,7 @@ Run 6-10+ Claude instances in a tiled grid. Each tile shows live terminal output
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/claude-powerterminal.git
+git clone https://github.com/kkrassmann/claude-powerterminal.git
 cd claude-powerterminal
 
 # Install Electron/backend dependencies
