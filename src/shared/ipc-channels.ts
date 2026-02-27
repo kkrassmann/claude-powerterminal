@@ -25,6 +25,10 @@ export const IPC_CHANNELS = {
 
   // App info channels
   APP_HOME_DIR: 'app:home-dir',
+
+  // Log analysis channels
+  LOG_ANALYSIS: 'analysis:logs',
+  LOG_SESSION_SCORE: 'analysis:session-score',
 } as const;
 
 export type IPCChannel = typeof IPC_CHANNELS[keyof typeof IPC_CHANNELS];
