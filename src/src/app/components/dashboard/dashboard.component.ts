@@ -5,12 +5,14 @@ import { Subscription } from 'rxjs';
 import { SessionStateService, ActiveSession } from '../../services/session-state.service';
 import { GitContextService } from '../../services/git-context.service';
 import { SessionManagerService } from '../../services/session-manager.service';
+import { LogAnalysisService } from '../../services/log-analysis.service';
 import { SessionMetadata } from '../../models/session.model';
 import { TerminalComponent } from '../terminal/terminal.component';
 import { TileHeaderComponent } from '../tile-header/tile-header.component';
 import { IPC_CHANNELS } from '../../../../shared/ipc-channels';
 import { TerminalStatus } from '../../models/terminal-status.model';
 import { AudioAlertService } from '../../services/audio-alert.service';
+import type { SessionPracticeScore } from '../../../../shared/analysis-types';
 
 /**
  * Dashboard grid component for displaying and managing multiple terminal sessions.
@@ -64,6 +66,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
   /** Per-tile widths set by resize. Key = sessionId, value = px. */
   tileWidths: Record<string, number> = {};
 
+  /** Per-session practice scores for tile header display. */
+  sessionScores: Map<string, SessionPracticeScore> = new Map();
+
   /** Per-session status tracking for audio alerts and CSS classes. */
   sessionStatuses: Record<string, TerminalStatus> = {};
 
@@ -83,6 +88,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private static readonly MIN_SUSTAINED_WORK_MS = 3000;
 
   private sessionsSubscription: Subscription | null = null;
+  private scoreRefreshInterval: ReturnType<typeof setInterval> | null = null;
 
   /** Height resize state */
   private resizing = false;
@@ -105,6 +111,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     private sessionStateService: SessionStateService,
     public gitContextService: GitContextService,
     private sessionManagerService: SessionManagerService,
+    private logAnalysisService: LogAnalysisService,
     private ngZone: NgZone,
     private elementRef: ElementRef,
     public audioAlertService: AudioAlertService
@@ -130,12 +137,55 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     // Start git context polling
     this.gitContextService.startPolling();
+
+    // Load session scores after a short delay (let sessions load first)
+    setTimeout(() => this.refreshAllScores(), 3000);
+
+    // Refresh scores every 60 seconds
+    this.scoreRefreshInterval = setInterval(() => this.refreshAllScores(), 60000);
   }
 
   ngOnDestroy(): void {
     // Clean up subscriptions and polling
     this.sessionsSubscription?.unsubscribe();
     this.gitContextService.stopPolling();
+    if (this.scoreRefreshInterval) {
+      clearInterval(this.scoreRefreshInterval);
+      this.scoreRefreshInterval = null;
+    }
+  }
+
+  /**
+   * Refresh practice scores for all active sessions.
+   * Loads each score in parallel and updates the sessionScores map.
+   */
+  private async refreshAllScores(): Promise<void> {
+    if (this.sessions.length === 0) return;
+
+    const scorePromises = this.sessions.map(async (session) => {
+      const score = await this.logAnalysisService.loadSessionScore(session.metadata.sessionId);
+      this.sessionScores.set(session.metadata.sessionId, score);
+    });
+
+    await Promise.all(scorePromises);
+    // Trigger change detection by replacing the map reference
+    this.sessionScores = new Map(this.sessionScores);
+  }
+
+  /**
+   * Get practice score for a session (used in template).
+   */
+  getSessionScore(sessionId: string): number | null {
+    const score = this.sessionScores.get(sessionId);
+    return score ? score.score : null;
+  }
+
+  /**
+   * Get badges for a session (used in template).
+   */
+  getSessionBadges(sessionId: string): string[] {
+    const score = this.sessionScores.get(sessionId);
+    return score ? score.badges : [];
   }
 
   /**
