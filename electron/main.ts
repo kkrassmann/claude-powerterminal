@@ -5,6 +5,7 @@ import * as pty from 'node-pty';
 import { registerPtyHandlers, getPtyProcesses, setShuttingDown, isShuttingDown, isSessionRestarting } from './ipc/pty-handlers';
 import { registerSessionHandlers } from './ipc/session-handlers';
 import { registerGitHandlers } from './ipc/git-handlers';
+import { registerAnalysisHandlers } from './ipc/analysis-handlers';
 import { startWebSocketServer, stopWebSocketServer, getScrollbackBuffers, getStatusDetectors, broadcastStatus } from './websocket/ws-server';
 import { ScrollbackBuffer } from '../src/src/app/services/scrollback-buffer.service';
 import { deleteSessionFromDisk } from './ipc/session-handlers';
@@ -14,6 +15,8 @@ import { StatusDetector } from './status/status-detector';
 import { startStaticServer } from './http/static-server';
 import { getLocalNetworkAddress } from './utils/network-info';
 import { sanitizeEnvForClaude } from './utils/env-sanitize';
+
+import { setMainWindow } from './utils/window-ref';
 
 let mainWindow: BrowserWindow | null = null;
 let lanUrl: string | null = null;
@@ -43,6 +46,8 @@ function createWindow(): void {
       sandbox: false, // Required for node-pty integration
     },
   });
+
+  setMainWindow(mainWindow);
 
   // Load Angular UI: prefer dev server in dev mode, fall back to built files
   const devServerUrl = 'http://localhost:4800';
@@ -88,6 +93,7 @@ function createWindow(): void {
 
   mainWindow.on('closed', () => {
     mainWindow = null;
+    setMainWindow(null);
   });
 }
 
@@ -332,6 +338,7 @@ app.whenReady().then(async () => {
   registerPtyHandlers();
   registerSessionHandlers();
   registerGitHandlers();
+  registerAnalysisHandlers();
 
   // Start WebSocket server before creating window
   startWebSocketServer();
