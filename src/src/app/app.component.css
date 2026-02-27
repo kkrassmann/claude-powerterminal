@@ -38,6 +38,33 @@
   background: #313244;
 }
 
+.analysis-btn {
+  background: transparent;
+  border: 1px solid #313244;
+  color: #89b4fa;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 10px;
+  border-radius: 4px;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+  font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  flex-shrink: 0;
+}
+
+.analysis-btn:hover {
+  background: #313244;
+}
+
+.analysis-btn.active {
+  background: rgba(137, 180, 250, 0.15);
+  border-color: #89b4fa;
+}
+
+/* Analysis panel slot */
+app-analysis-panel {
+  flex-shrink: 0;
+}
+
 .lan-url {
   font-size: 12px;
   color: #6c7086;
@@ -76,6 +103,11 @@ app-dashboard {
 
   .mute-btn {
     font-size: 14px;
+    padding: 4px 6px;
+  }
+
+  .analysis-btn {
+    font-size: 11px;
     padding: 4px 6px;
   }
 

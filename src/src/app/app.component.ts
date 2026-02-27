@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { RouterOutlet } from '@angular/router';
 import { SessionCreateComponent } from './components/session-create/session-create.component';
 import { DashboardComponent } from './components/dashboard/dashboard.component';
+import { AnalysisPanelComponent } from './components/analysis-panel/analysis-panel.component';
 import { SessionStateService } from './services/session-state.service';
 import { SessionManagerService } from './services/session-manager.service';
 import { SessionMetadata } from './models/session.model';
@@ -12,7 +13,7 @@ import { AudioAlertService } from './services/audio-alert.service';
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, SessionCreateComponent, DashboardComponent],
+  imports: [CommonModule, RouterOutlet, SessionCreateComponent, DashboardComponent, AnalysisPanelComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.css'
 })
@@ -20,6 +21,7 @@ export class AppComponent implements OnInit {
   title = 'Claude PowerTerminal';
   pendingSessions: SessionMetadata[] = [];
   lanUrl: string | null = null;
+  showAnalysis = false;
 
   constructor(
     private sessionStateService: SessionStateService,
