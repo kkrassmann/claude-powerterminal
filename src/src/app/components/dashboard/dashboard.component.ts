@@ -61,6 +61,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
   /** Per-tile heights set by resize. Key = sessionId, value = px. */
   tileHeights: Record<string, number> = {};
 
+  /** Per-tile widths set by resize. Key = sessionId, value = px. */
+  tileWidths: Record<string, number> = {};
+
   /** Per-session status tracking for audio alerts and CSS classes. */
   sessionStatuses: Record<string, TerminalStatus> = {};
 
@@ -81,7 +84,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   private sessionsSubscription: Subscription | null = null;
 
-  /** Resize state */
+  /** Height resize state */
   private resizing = false;
   private resizeSessionId: string | null = null;
   private resizeStartY = 0;
@@ -89,6 +92,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
   private resizeRowSessionIds: string[] = [];
   private boundOnResizeMove: ((e: MouseEvent) => void) | null = null;
   private boundOnResizeEnd: ((e: MouseEvent) => void) | null = null;
+
+  /** Width resize state */
+  private widthResizing = false;
+  private widthResizeSessionId: string | null = null;
+  private widthResizeStartX = 0;
+  private widthResizeStartWidth = 0;
+  private boundOnWidthResizeMove: ((e: MouseEvent) => void) | null = null;
+  private boundOnWidthResizeEnd: ((e: MouseEvent) => void) | null = null;
 
   constructor(
     private sessionStateService: SessionStateService,
@@ -401,6 +412,61 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
     this.boundOnResizeMove = null;
     this.boundOnResizeEnd = null;
+
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+  }
+
+  /**
+   * Start width resize on right edge drag.
+   */
+  onWidthResizeStart(event: MouseEvent, sessionId: string): void {
+    event.preventDefault();
+    event.stopPropagation();
+
+    const tileEl = (event.target as HTMLElement).closest('.tile') as HTMLElement;
+    if (!tileEl) return;
+
+    this.widthResizing = true;
+    this.widthResizeSessionId = sessionId;
+    this.widthResizeStartX = event.clientX;
+    this.widthResizeStartWidth = tileEl.offsetWidth;
+
+    this.boundOnWidthResizeMove = this.onWidthResizeMove.bind(this);
+    this.boundOnWidthResizeEnd = this.onWidthResizeEnd.bind(this);
+
+    this.ngZone.runOutsideAngular(() => {
+      document.addEventListener('mousemove', this.boundOnWidthResizeMove!);
+      document.addEventListener('mouseup', this.boundOnWidthResizeEnd!);
+    });
+
+    document.body.style.cursor = 'ew-resize';
+    document.body.style.userSelect = 'none';
+  }
+
+  private onWidthResizeMove(event: MouseEvent): void {
+    if (!this.widthResizing || !this.widthResizeSessionId) return;
+
+    const delta = event.clientX - this.widthResizeStartX;
+    const newWidth = Math.max(300, this.widthResizeStartWidth + delta);
+
+    this.ngZone.run(() => {
+      this.tileWidths[this.widthResizeSessionId!] = newWidth;
+    });
+  }
+
+  private onWidthResizeEnd(_event: MouseEvent): void {
+    this.widthResizing = false;
+    this.widthResizeSessionId = null;
+
+    if (this.boundOnWidthResizeMove) {
+      document.removeEventListener('mousemove', this.boundOnWidthResizeMove);
+    }
+    if (this.boundOnWidthResizeEnd) {
+      document.removeEventListener('mouseup', this.boundOnWidthResizeEnd);
+    }
+    this.boundOnWidthResizeMove = null;
+    this.boundOnWidthResizeEnd = null;
 
     document.body.style.cursor = '';
     document.body.style.userSelect = '';

@@ -112,7 +112,7 @@ export class AppComponent implements OnInit {
   private async loadRemoteSessions(): Promise<number> {
     try {
       const resp = await fetch(`http://${window.location.hostname}:9801/api/sessions`);
-      const activePtys: { sessionId: string; pid: number }[] = await resp.json();
+      const activePtys: { sessionId: string; pid: number; workingDirectory?: string }[] = await resp.json();
       let added = 0;
 
       const remoteIds = new Set(activePtys.map(p => p.sessionId));
@@ -122,7 +122,7 @@ export class AppComponent implements OnInit {
         if (!this.sessionStateService.hasSession(pty.sessionId)) {
           this.sessionStateService.addSession({
             sessionId: pty.sessionId,
-            workingDirectory: '',
+            workingDirectory: pty.workingDirectory || '',
             cliFlags: [],
             createdAt: new Date().toISOString(),
           }, pty.pid);

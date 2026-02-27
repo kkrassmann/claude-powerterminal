@@ -10,6 +10,7 @@
        class="tile" cdkDrag
        [ngClass]="getStatusClass(session.metadata.sessionId)"
        [style.height.px]="tileHeights[session.metadata.sessionId] || null"
+       [style.flex]="tileWidths[session.metadata.sessionId] ? '0 0 ' + tileWidths[session.metadata.sessionId] + 'px' : null"
        (click)="onTileClick(session.metadata.sessionId)">
     <!-- Use cdkDragHandle on tile-header to restrict drag to header only -->
     <app-tile-header
@@ -32,6 +33,9 @@
     </app-terminal>
     <div class="resize-handle"
          (mousedown)="onResizeStart($event, session.metadata.sessionId)">
+    </div>
+    <div class="resize-handle-right"
+         (mousedown)="onWidthResizeStart($event, session.metadata.sessionId)">
     </div>
   </div>
 

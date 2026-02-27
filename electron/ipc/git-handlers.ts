@@ -9,6 +9,7 @@ import { ipcMain } from 'electron';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
 import { IPC_CHANNELS } from '../../src/shared/ipc-channels';
+import { parseGitStatus } from '../utils/git-status-parser';
 
 const execFileAsync = promisify(execFile);
 
@@ -22,47 +23,6 @@ interface GitContext {
   readonly modified: number;
   readonly deleted: number;
   readonly isGitRepo: boolean;
-}
-
-/**
- * Parse git status --porcelain output to count changes.
- * Format: XY PATH, where X is index status, Y is working tree status.
- *
- * Examples:
- *   ?? file.txt  -> untracked (added)
- *   A  file.txt  -> staged new file (added)
- *   M  file.txt  -> modified in index
- *    M file.txt  -> modified in working tree
- *   D  file.txt  -> deleted
- */
-function parseGitStatus(porcelain: string): { added: number; modified: number; deleted: number } {
-  const lines = porcelain.trim().split('\n').filter(line => line.length > 0);
-
-  let added = 0;
-  let modified = 0;
-  let deleted = 0;
-
-  for (const line of lines) {
-    if (line.length < 2) continue;
-
-    const x = line[0]; // Index status
-    const y = line[1]; // Working tree status
-
-    // Untracked or added files
-    if (x === '?' || y === '?' || x === 'A' || y === 'A') {
-      added++;
-    }
-    // Modified files (in either index or working tree)
-    else if (x === 'M' || y === 'M') {
-      modified++;
-    }
-    // Deleted files
-    else if (x === 'D' || y === 'D') {
-      deleted++;
-    }
-  }
-
-  return { added, modified, deleted };
 }
 
 /**

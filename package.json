@@ -10,7 +10,7 @@
     "start:electron": "npm run build:electron && electron .",
     "start:angular": "cd src && npm start",
     "dev": "concurrently \"npm run start:angular\" \"npm run start:electron\"",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "vitest run"
   },
   "keywords": [
     "electron",
@@ -34,6 +34,7 @@
     "@types/node": "^25.3.0",
     "@types/ws": "^8.18.1",
     "concurrently": "^9.2.1",
-    "electron-builder": "^26.8.1"
+    "electron-builder": "^26.8.1",
+    "vitest": "^4.0.18"
   }
 }

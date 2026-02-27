@@ -9,6 +9,8 @@ import * as http from 'http';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as pty from 'node-pty';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import { getPtyProcesses } from '../ipc/pty-handlers';
 import { app } from 'electron';
 import { getScrollbackBuffers, getStatusDetectors, broadcastStatus } from '../websocket/ws-server';
@@ -16,6 +18,9 @@ import { ScrollbackBuffer } from '../../src/src/app/services/scrollback-buffer.s
 import { StatusDetector } from '../status/status-detector';
 import { deleteSessionFromDisk } from '../ipc/session-handlers';
 import { sanitizeEnvForClaude } from '../utils/env-sanitize';
+import { getMainWindow } from '../utils/window-ref';
+import { parseGitStatus } from '../utils/git-status-parser';
+import { IPC_CHANNELS } from '../../src/shared/ipc-channels';
 
 /**
  * SessionMetadata interface (matches src/app/models/session.model.ts)
@@ -63,6 +68,8 @@ function saveSessionToDisk(session: SessionMetadata): void {
   }
 }
 
+const execFileAsync = promisify(execFile);
+
 /**
  * MIME type mapping for common file extensions.
  */
@@ -94,14 +101,26 @@ export function startStaticServer(port: number): http.Server {
   const buildDir = path.join(__dirname, '../../../src/dist/claude-powerterminal-angular/browser');
 
   // CORS headers for API endpoints
-  const corsHeaders = {
+  const corsHeaders: Record<string, string> = {
     'Access-Control-Allow-Origin': '*',
     'Content-Type': 'application/json'
   };
 
-  const server = http.createServer((req, res) => {
+  const server = http.createServer(async (req, res) => {
     const url = new URL(req.url || '/', `http://${req.headers.host}`);
     const pathname = url.pathname;
+
+    // Handle CORS preflight for API endpoints
+    if (req.method === 'OPTIONS' && pathname.startsWith('/api/')) {
+      res.writeHead(204, {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Max-Age': '86400',
+      });
+      res.end();
+      return;
+    }
 
     // POST /api/sessions - Create new session via HTTP API
     if (req.method === 'POST' && pathname === '/api/sessions') {
@@ -184,6 +203,12 @@ export function startStaticServer(port: number): http.Server {
             getPtyProcesses().delete(sessionId);
             getScrollbackBuffers().delete(sessionId);
             deleteSessionFromDisk(sessionId);
+
+            // Notify Electron renderer to remove the exited session
+            const win = getMainWindow();
+            if (win && !win.isDestroyed()) {
+              win.webContents.send(IPC_CHANNELS.PTY_EXIT, { sessionId, exitCode });
+            }
           });
 
           // Save session metadata to disk
@@ -195,6 +220,13 @@ export function startStaticServer(port: number): http.Server {
           });
 
           console.log(`[HTTP] Session ${sessionId} spawned (PID ${ptyProcess.pid})`);
+
+          // Notify Electron renderer so it picks up the new session
+          const win = getMainWindow();
+          if (win && !win.isDestroyed()) {
+            win.webContents.send(IPC_CHANNELS.SESSION_RESTORE_COMPLETE);
+          }
+
           res.writeHead(201, corsHeaders);
           res.end(JSON.stringify({ success: true, pid: ptyProcess.pid, sessionId }));
         } catch (error) {
@@ -217,10 +249,46 @@ export function startStaticServer(port: number): http.Server {
         .map(session => ({
           sessionId: session.sessionId,
           pid: ptyProcesses.get(session.sessionId)!.pid,
+          workingDirectory: session.workingDirectory,
         }));
 
       res.writeHead(200, corsHeaders);
       res.end(JSON.stringify(activeSessions));
+      return;
+    }
+
+    // GET /api/git-context?cwd=<path> - Get git context for a directory
+    if (req.method === 'GET' && pathname === '/api/git-context') {
+      const cwd = url.searchParams.get('cwd');
+      if (!cwd) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ error: 'Missing cwd parameter' }));
+        return;
+      }
+
+      try {
+        const [branchResult, statusResult] = await Promise.all([
+          execFileAsync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
+            cwd,
+            timeout: 5000,
+            windowsHide: true,
+          }),
+          execFileAsync('git', ['status', '--porcelain'], {
+            cwd,
+            timeout: 5000,
+            windowsHide: true,
+          }),
+        ]);
+
+        const branch = branchResult.stdout.trim();
+        const { added, modified, deleted } = parseGitStatus(statusResult.stdout);
+
+        res.writeHead(200, corsHeaders);
+        res.end(JSON.stringify({ branch: branch || null, added, modified, deleted, isGitRepo: true }));
+      } catch (error: any) {
+        res.writeHead(200, corsHeaders);
+        res.end(JSON.stringify({ branch: null, added: 0, modified: 0, deleted: 0, isGitRepo: false }));
+      }
       return;
     }
 

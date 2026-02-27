@@ -70,6 +70,24 @@
   background: #89b4fa;
 }
 
+/* Resize handle at right edge of each tile */
+.resize-handle-right {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 5px;
+  height: 100%;
+  cursor: ew-resize;
+  background: transparent;
+  z-index: 10;
+  transition: background-color 0.15s ease;
+}
+
+.resize-handle-right:hover,
+.resize-handle-right.active {
+  background: #89b4fa;
+}
+
 /* Terminal fills remaining space in tile */
 .tile app-terminal {
   flex: 1;
