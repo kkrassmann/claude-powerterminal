@@ -1,0 +1,473 @@
+/**
+ * Analysis panel styles with Catppuccin Mocha palette.
+ * Pure CSS visualization — no chart libraries.
+ */
+
+.analysis-panel {
+  background: #181825;
+  border-bottom: 1px solid #313244;
+  max-height: 50vh;
+  overflow-y: auto;
+  font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 12px;
+  color: #cdd6f4;
+}
+
+/* Scrollbar styling */
+.analysis-panel::-webkit-scrollbar {
+  width: 6px;
+}
+
+.analysis-panel::-webkit-scrollbar-track {
+  background: #11111b;
+}
+
+.analysis-panel::-webkit-scrollbar-thumb {
+  background: #45475a;
+  border-radius: 3px;
+}
+
+/* Loading / Empty states */
+.panel-loading,
+.panel-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px;
+  color: #6c7086;
+}
+
+.spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid #45475a;
+  border-top-color: #89b4fa;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Panel header */
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-bottom: 1px solid #313244;
+}
+
+.panel-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #cdd6f4;
+}
+
+.refresh-btn {
+  background: transparent;
+  border: 1px solid #45475a;
+  color: #89b4fa;
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 3px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background-color 0.15s ease;
+}
+
+.refresh-btn:hover {
+  background: #313244;
+}
+
+.refresh-btn:disabled {
+  color: #6c7086;
+  cursor: default;
+}
+
+/* Sections */
+.section {
+  border-bottom: 1px solid #1e1e2e;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+  user-select: none;
+  background: #1e1e2e;
+  transition: background-color 0.15s ease;
+}
+
+.section-header:hover {
+  background: #313244;
+}
+
+.section-toggle {
+  color: #6c7086;
+  font-size: 12px;
+  width: 12px;
+  text-align: center;
+}
+
+.section-title {
+  font-weight: 500;
+  color: #cdd6f4;
+}
+
+.section-badge {
+  margin-left: auto;
+  font-size: 10px;
+  color: #6c7086;
+  background: #313244;
+  padding: 1px 6px;
+  border-radius: 8px;
+}
+
+.section-badge.warning {
+  color: #fab387;
+  background: rgba(250, 179, 135, 0.15);
+}
+
+.section-body {
+  padding: 8px 12px;
+}
+
+/* Section 1: Overview stat row */
+.stat-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 60px;
+}
+
+.stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #89b4fa;
+}
+
+.stat-value-small {
+  font-size: 11px;
+  font-weight: 500;
+  color: #89b4fa;
+}
+
+.stat-label {
+  font-size: 10px;
+  color: #6c7086;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Section 2: Tool usage bars */
+.tool-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+}
+
+.tool-name {
+  width: 110px;
+  font-size: 11px;
+  color: #bac2de;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.tool-bar-container {
+  flex: 1;
+  height: 10px;
+  background: #11111b;
+  border-radius: 2px;
+  overflow: hidden;
+  min-width: 40px;
+}
+
+.tool-bar {
+  height: 100%;
+  border-radius: 2px;
+  transition: width 0.3s ease;
+  min-width: 2px;
+}
+
+.tool-count {
+  font-size: 11px;
+  color: #cdd6f4;
+  width: 36px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.tool-pct {
+  font-size: 10px;
+  color: #6c7086;
+  width: 32px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* Section 3: Token usage */
+.token-stats {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cache-ratio-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.cache-label {
+  font-size: 11px;
+  color: #bac2de;
+  width: 130px;
+  flex-shrink: 0;
+}
+
+.cache-bar-container {
+  flex: 1;
+  height: 10px;
+  background: #11111b;
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.cache-bar {
+  height: 100%;
+  background: #94e2d5; /* teal */
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.cache-pct {
+  font-size: 11px;
+  color: #94e2d5;
+  width: 48px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.token-numbers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.token-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 60px;
+}
+
+.token-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #cdd6f4;
+}
+
+.token-label {
+  font-size: 10px;
+  color: #6c7086;
+}
+
+/* Section 4: Problems */
+.problem-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 0;
+}
+
+.problem-type {
+  font-size: 10px;
+  font-weight: 600;
+  color: #1e1e2e;
+  background: #fab387;
+  padding: 1px 5px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.problem-message {
+  font-size: 11px;
+  color: #bac2de;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.problem-count {
+  font-size: 10px;
+  color: #6c7086;
+  flex-shrink: 0;
+}
+
+/* Section 5: Recommendation cards */
+.recommendation-card {
+  padding: 8px;
+  margin-bottom: 6px;
+  border-radius: 4px;
+  border-left: 3px solid transparent;
+  background: #11111b;
+}
+
+.recommendation-card.severity-praise {
+  border-left-color: #a6e3a1;
+  background: rgba(166, 227, 161, 0.08);
+}
+
+.recommendation-card.severity-info {
+  border-left-color: #89b4fa;
+  background: rgba(137, 180, 250, 0.08);
+}
+
+.recommendation-card.severity-warning {
+  border-left-color: #fab387;
+  background: rgba(250, 179, 135, 0.08);
+}
+
+.recommendation-card.severity-critical {
+  border-left-color: #f38ba8;
+  background: rgba(243, 139, 168, 0.08);
+}
+
+.rec-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.rec-severity {
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+
+.severity-praise .rec-severity {
+  color: #a6e3a1;
+  background: rgba(166, 227, 161, 0.2);
+}
+
+.severity-info .rec-severity {
+  color: #89b4fa;
+  background: rgba(137, 180, 250, 0.2);
+}
+
+.severity-warning .rec-severity {
+  color: #fab387;
+  background: rgba(250, 179, 135, 0.2);
+}
+
+.severity-critical .rec-severity {
+  color: #f38ba8;
+  background: rgba(243, 139, 168, 0.2);
+}
+
+.rec-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #cdd6f4;
+}
+
+.rec-description {
+  font-size: 11px;
+  color: #a6adc8;
+  margin: 0;
+  line-height: 1.4;
+}
+
+.rec-metric {
+  display: inline-block;
+  font-size: 10px;
+  color: #6c7086;
+  margin-top: 4px;
+  font-style: italic;
+}
+
+/* Section 6: Practice score */
+.score-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.score-number {
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.score-label {
+  font-size: 14px;
+  color: #6c7086;
+  margin-right: 12px;
+}
+
+.score-bar-container {
+  flex: 1;
+  height: 8px;
+  background: #11111b;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.score-bar {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+/* Responsive: stack on mobile */
+@media (max-width: 600px) {
+  .analysis-panel {
+    max-height: 40vh;
+  }
+
+  .stat-row {
+    gap: 10px;
+  }
+
+  .stat-value {
+    font-size: 14px;
+  }
+
+  .tool-name {
+    width: 80px;
+    font-size: 10px;
+  }
+
+  .tool-count,
+  .tool-pct {
+    font-size: 9px;
+  }
+
+  .token-numbers {
+    gap: 10px;
+  }
+
+  .score-number {
+    font-size: 22px;
+  }
+}
