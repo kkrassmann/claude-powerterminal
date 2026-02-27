@@ -21,6 +21,7 @@ import { sanitizeEnvForClaude } from '../utils/env-sanitize';
 import { getMainWindow } from '../utils/window-ref';
 import { parseGitStatus } from '../utils/git-status-parser';
 import { IPC_CHANNELS } from '../../src/shared/ipc-channels';
+import { analyzeAllSessions, computeSessionScore } from '../analysis/log-analyzer';
 
 /**
  * SessionMetadata interface (matches src/app/models/session.model.ts)
@@ -288,6 +289,40 @@ export function startStaticServer(port: number): http.Server {
       } catch (error: any) {
         res.writeHead(200, corsHeaders);
         res.end(JSON.stringify({ branch: null, added: 0, modified: 0, deleted: 0, isGitRepo: false }));
+      }
+      return;
+    }
+
+    // GET /api/analysis - Full session analysis (tool usage, recommendations, scores)
+    if (req.method === 'GET' && pathname === '/api/analysis') {
+      try {
+        const analysis = await analyzeAllSessions();
+        res.writeHead(200, corsHeaders);
+        res.end(JSON.stringify(analysis));
+      } catch (error: any) {
+        console.error('[HTTP] GET /api/analysis error:', error.message);
+        res.writeHead(500, corsHeaders);
+        res.end(JSON.stringify({ error: 'Analysis failed' }));
+      }
+      return;
+    }
+
+    // GET /api/analysis/session?id=<sessionId> - Per-session practice score
+    if (req.method === 'GET' && pathname === '/api/analysis/session') {
+      const id = url.searchParams.get('id');
+      if (!id) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ error: 'Missing id parameter' }));
+        return;
+      }
+      try {
+        const score = await computeSessionScore(id);
+        res.writeHead(200, corsHeaders);
+        res.end(JSON.stringify(score));
+      } catch (error: any) {
+        console.error(`[HTTP] GET /api/analysis/session error for ${id}:`, error.message);
+        res.writeHead(500, corsHeaders);
+        res.end(JSON.stringify({ error: 'Session score computation failed' }));
       }
       return;
     }
