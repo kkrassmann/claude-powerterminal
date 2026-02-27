@@ -16,7 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: WebSocket Bridge & UI** - Stream PTY to browser via xterm.js with real-time I/O
 - [x] **Phase 3: Dashboard Grid** - Multi-terminal grid layout with context headers (completed 2026-02-25)
 - [x] **Phase 4: Status Detection & Alerts** - Pattern-based status detection with audio notifications (completed 2026-02-25)
-- [ ] **Phase 5: Network Access** - Mobile-responsive UI with LAN accessibility
+- [x] **Phase 5: Network Access** - Mobile-responsive UI with LAN accessibility
 - [ ] **Phase 6: Session Log Analysis** - On-demand Claude CLI analysis of terminal logs for optimization recommendations
 
 ## Phase Details
@@ -102,9 +102,9 @@ Plans:
 Plans:
 - [x] 05-01-PLAN.md — Backend network infrastructure (WS 0.0.0.0 binding, HTTP static server for Angular build, LAN IP discovery, LAN URL display) [Wave 1]
 - [x] 05-02-PLAN.md — Frontend LAN compatibility + responsive CSS (dynamic WS URL, electronAPI guards, mobile/tablet breakpoints) [Wave 1]
-- [ ] 05-03-PLAN.md — Session list synchronization (Fix /api/sessions endpoint, add polling for remote browsers) [Wave 1]
-- [ ] 05-04-PLAN.md — Terminal buffer resync (Periodic buffer replay to prevent xterm.js glitches) [Wave 1]
-- [ ] 05-05-PLAN.md — Remote session creation (crypto.randomUUID polyfill, POST /api/sessions endpoint, HTTP API routing) [Wave 2, depends on 05-03]
+- [x] 05-03-PLAN.md — Session list synchronization (Fix /api/sessions endpoint, add polling for remote browsers) [Wave 1]
+- [x] 05-04-PLAN.md — Terminal buffer resync (Periodic buffer replay to prevent xterm.js glitches) [Wave 1]
+- [x] 05-05-PLAN.md — Remote session creation (crypto.randomUUID polyfill, POST /api/sessions endpoint, HTTP API routing) [Wave 2, depends on 05-03]
 
 ## Progress
 
@@ -117,21 +117,25 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 2. WebSocket Bridge & UI | 1/2 | In Progress | - |
 | 3. Dashboard Grid | 2/2 | Complete   | 2026-02-25 |
 | 4. Status Detection & Alerts | 2/2 | Complete | 2026-02-25 |
-| 5. Network Access | 2/5 | In Progress | - |
-| 6. Session Log Analysis | 0/? | Not started | - |
+| 5. Network Access | 5/5 | Complete | 2026-02-27 |
+| 6. Session Log Analysis | 0/2 | Not started | - |
 
 ### Phase 6: Session Log Analysis
-**Goal**: On-demand optimization analysis of terminal session logs — user clicks a button, a new Claude CLI process reads the scrollback buffer and analyzes: context window utilization, recommendations for specialized agents/orchestrator skills, workflow difficulties, and optimization potential
+**Goal**: Analyze Claude CLI JSONL session logs to display tool statistics, token efficiency, workflow recommendations (praise + improvements), and per-session live practice scores with badges in the dashboard
 **Depends on**: Phase 5
 **Requirements**: OPT-01, OPT-02, OPT-03
 **Success Criteria** (what must be TRUE):
-  1. User can trigger a log analysis from the UI for any active terminal session
-  2. Analysis runs in a dedicated Claude CLI process (no API key needed)
-  3. Results are displayed in the UI with actionable optimization recommendations
-**Plans**: TBD
+  1. User can open an analysis panel from the dashboard header showing tool usage, token stats, and recommendations
+  2. Recommendation engine produces both praise (good practices) and improvement suggestions based on Claude best-practice rules
+  3. Each active session tile shows a practice score (0-100) and earned badges in its header
+  4. Analysis reads existing Claude CLI JSONL logs, stats-cache.json, and history.jsonl (read-only, no own logging)
+  5. Works in both Electron app and remote browser (via HTTP API)
+  6. Panel opens in <3 seconds, streaming parser never loads entire files into RAM
+**Plans**: 2 plans in 2 waves
 
 Plans:
-- [ ] TBD (will be created during phase planning)
+- [ ] 06-01-PLAN.md — Backend engine (shared types, streaming JSONL parser, recommendation engine, per-session scoring, IPC handlers, HTTP endpoints, unit tests) [Wave 1]
+- [ ] 06-02-PLAN.md — Frontend UI (Angular service, analysis panel component, tile-header scores + badges, dashboard wiring, app integration) [Wave 2, depends on 06-01]
 
 ---
 *Roadmap created: 2026-02-24*

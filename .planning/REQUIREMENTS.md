@@ -44,9 +44,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Session Log Analysis
 
-- [ ] **OPT-01**: User can trigger a log analysis from the UI for any active terminal session
-- [ ] **OPT-02**: Analysis runs in a dedicated Claude CLI process (no API key needed), reading the terminal's scrollback buffer
-- [ ] **OPT-03**: Results are displayed in the UI with actionable optimization recommendations (context window usage, agent suggestions, workflow improvements)
+- [x] **OPT-01**: User can trigger a log analysis from the UI for any active terminal session
+- [x] **OPT-02**: Analysis runs in a dedicated Claude CLI process (no API key needed), reading the terminal's scrollback buffer
+- [x] **OPT-03**: Results are displayed in the UI with actionable optimization recommendations (context window usage, agent suggestions, workflow improvements)
 
 ## v2 Requirements
 
@@ -104,9 +104,9 @@ Deferred to future release. Tracked but not in current roadmap.
 | NET-01 | Phase 5 | Complete |
 | NET-02 | Phase 5 | Complete |
 | NET-03 | Phase 5 | Complete |
-| OPT-01 | Phase 6 | Pending |
-| OPT-02 | Phase 6 | Pending |
-| OPT-03 | Phase 6 | Pending |
+| OPT-01 | Phase 6 | Complete |
+| OPT-02 | Phase 6 | Complete |
+| OPT-03 | Phase 6 | Complete |
 
 **Coverage:**
 - v1 requirements: 23 total
