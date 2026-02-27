@@ -83,9 +83,9 @@
           <div class="cache-ratio-row">
             <span class="cache-label">Cache-Trefferquote</span>
             <div class="cache-bar-container">
-              <div class="cache-bar" [style.width.%]="analysis.tokenUsage.cacheHitRatio * 100"></div>
+              <div class="cache-bar" [style.width.%]="analysis.tokenUsage.cacheHitRatio"></div>
             </div>
-            <span class="cache-pct">{{ (analysis.tokenUsage.cacheHitRatio * 100).toFixed(1) }}%</span>
+            <span class="cache-pct">{{ analysis.tokenUsage.cacheHitRatio.toFixed(1) }}%</span>
           </div>
           <div class="token-numbers">
             <div class="token-item">
