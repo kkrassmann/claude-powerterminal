@@ -133,6 +133,41 @@
   color: #f38ba8; /* Catppuccin red */
 }
 
+/* Practice score (small number next to git info) */
+.practice-score {
+  font-size: 11px;
+  font-weight: 600;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+/* Badge chips (tiny colored labels) */
+.badge {
+  font-size: 9px;
+  font-weight: 600;
+  padding: 1px 4px;
+  border-radius: 3px;
+  color: #1e1e2e;
+  background: #89b4fa;
+  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+/* Alternate badge colors for variety */
+.badge:nth-child(odd) {
+  background: #cba6f7; /* mauve */
+}
+
+.badge:nth-child(3n) {
+  background: #94e2d5; /* teal */
+}
+
+.badge:nth-child(4n) {
+  background: #f9e2af; /* yellow */
+  color: #1e1e2e;
+}
+
 /* Mobile: larger touch targets, compact layout */
 @media (max-width: 600px) {
   .tile-header {

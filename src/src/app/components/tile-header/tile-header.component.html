@@ -23,5 +23,14 @@
       <span class="git-modified">~{{ gitContext?.modified }}</span>
       <span class="git-deleted">-{{ gitContext?.deleted }}</span>
     </span>
+    <!-- Practice score + badges inline with git info -->
+    <span class="practice-score" *ngIf="practiceScore !== null" [style.color]="scoreColor">{{ practiceScore }}</span>
+    <span class="badge" *ngFor="let badge of badges">{{ badge }}</span>
+  </div>
+
+  <!-- Line 2 fallback: show score + badges even without git context -->
+  <div class="header-line-2" *ngIf="!gitContext?.isGitRepo && (practiceScore !== null || badges.length > 0)">
+    <span class="practice-score" *ngIf="practiceScore !== null" [style.color]="scoreColor">{{ practiceScore }}</span>
+    <span class="badge" *ngFor="let badge of badges">{{ badge }}</span>
   </div>
 </div>

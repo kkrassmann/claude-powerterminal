@@ -29,11 +29,24 @@ export class TileHeaderComponent {
   @Input() isMaximized: boolean = false;
   @Input() homeDir: string = '';
   @Input() status: TerminalStatus = 'WORKING';
+  @Input() practiceScore: number | null = null;
+  @Input() badges: string[] = [];
 
   @Output() maximize = new EventEmitter<void>();
   @Output() restart = new EventEmitter<void>();
   @Output() kill = new EventEmitter<void>();
   @Output() acknowledged = new EventEmitter<void>();
+
+  /**
+   * Get color for the practice score based on value.
+   * Green (>70), yellow (>40), red (<=40).
+   */
+  get scoreColor(): string {
+    if (this.practiceScore === null) return '#6c7086';
+    if (this.practiceScore > 70) return '#a6e3a1'; // green
+    if (this.practiceScore > 40) return '#f9e2af'; // yellow
+    return '#f38ba8'; // red
+  }
 
   /**
    * Get status color for the status dot.
