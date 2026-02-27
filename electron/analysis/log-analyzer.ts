@@ -603,7 +603,7 @@ export async function analyzeAllSessions(): Promise<SessionAnalysis> {
 
   // 3. Parse history for skill patterns
   const historySkills = await parseHistory();
-  for (const [cmd, count] of historySkills) {
+  for (const [cmd, count] of Array.from(historySkills)) {
     const existing = stats.skillCounts.get(cmd) || 0;
     stats.skillCounts.set(cmd, existing + count);
   }
