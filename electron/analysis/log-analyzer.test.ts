@@ -201,8 +201,8 @@ describe('token aggregation', () => {
   it('should aggregate token usage from usage fields', async () => {
     const filePath = path.join(tmpDir, 'tokens.jsonl');
     writeJsonl(filePath, [
-      { type: 'assistant', usage: { input_tokens: 100, output_tokens: 50, cache_read_input_tokens: 200, cache_creation_input_tokens: 30 } },
-      { type: 'assistant', usage: { input_tokens: 150, output_tokens: 75, cache_read_input_tokens: 100, cache_creation_input_tokens: 20 } },
+      { type: 'assistant', message: { usage: { input_tokens: 100, output_tokens: 50, cache_read_input_tokens: 200, cache_creation_input_tokens: 30 } } },
+      { type: 'assistant', message: { usage: { input_tokens: 150, output_tokens: 75, cache_read_input_tokens: 100, cache_creation_input_tokens: 20 } } },
     ]);
 
     const stats = emptyStats();
@@ -217,8 +217,8 @@ describe('token aggregation', () => {
   it('should handle missing usage fields gracefully', async () => {
     const filePath = path.join(tmpDir, 'partial-tokens.jsonl');
     writeJsonl(filePath, [
-      { type: 'assistant', usage: { input_tokens: 100 } },
-      { type: 'assistant', usage: {} },
+      { type: 'assistant', message: { usage: { input_tokens: 100 } } },
+      { type: 'assistant', message: { usage: {} } },
       { type: 'human', message: { content: 'no usage' } },
     ]);
 
@@ -359,13 +359,11 @@ describe('computeSessionScore', () => {
     writeJsonl(filePath, [
       {
         type: 'assistant',
-        message: { content: [{ type: 'tool_use', name: 'Read', id: '1' }] },
-        usage: { input_tokens: 100, output_tokens: 50, cache_read_input_tokens: 800, cache_creation_input_tokens: 100 },
+        message: { content: [{ type: 'tool_use', name: 'Read', id: '1' }], usage: { input_tokens: 100, output_tokens: 50, cache_read_input_tokens: 800, cache_creation_input_tokens: 100 } },
       },
       {
         type: 'assistant',
-        message: { content: [{ type: 'tool_use', name: 'Grep', id: '2' }] },
-        usage: { input_tokens: 50, output_tokens: 25, cache_read_input_tokens: 400, cache_creation_input_tokens: 50 },
+        message: { content: [{ type: 'tool_use', name: 'Grep', id: '2' }], usage: { input_tokens: 50, output_tokens: 25, cache_read_input_tokens: 400, cache_creation_input_tokens: 50 } },
       },
       {
         type: 'assistant',
@@ -397,8 +395,7 @@ describe('computeSessionScore', () => {
     for (let i = 0; i < 20; i++) {
       lines.push({
         type: 'assistant',
-        message: { content: [{ type: 'tool_use', name: 'Read', id: `r${i}` }] },
-        usage: { input_tokens: 10, output_tokens: 5, cache_read_input_tokens: 90, cache_creation_input_tokens: 0 },
+        message: { content: [{ type: 'tool_use', name: 'Read', id: `r${i}` }], usage: { input_tokens: 10, output_tokens: 5, cache_read_input_tokens: 90, cache_creation_input_tokens: 0 } },
       });
     }
     for (let i = 0; i < 10; i++) {
@@ -429,8 +426,7 @@ describe('computeSessionScore', () => {
     for (let i = 0; i < 10; i++) {
       lines.push({
         type: 'assistant',
-        message: { content: [{ type: 'tool_use', name: 'Read', id: `r${i}` }] },
-        usage: { input_tokens: 10, output_tokens: 5, cache_read_input_tokens: 900, cache_creation_input_tokens: 10 },
+        message: { content: [{ type: 'tool_use', name: 'Read', id: `r${i}` }], usage: { input_tokens: 10, output_tokens: 5, cache_read_input_tokens: 900, cache_creation_input_tokens: 10 } },
       });
     }
 

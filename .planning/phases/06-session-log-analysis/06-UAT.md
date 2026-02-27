@@ -1,5 +1,5 @@
 ---
-status: complete
+status: diagnosed
 phase: 06-session-log-analysis
 source: [06-01-SUMMARY.md, 06-02-SUMMARY.md]
 started: 2026-02-27T20:07:00Z
@@ -65,11 +65,14 @@ skipped: 0
 ## Gaps
 
 - truth: "Cache-Trefferquote als Prozentzahl angezeigt (z.B. 68.0%)"
-  status: failed
+  status: fixed
   reason: "User reported: zeigt nur 0 an"
   severity: major
   test: 4
-  root_cause: ""
-  artifacts: []
-  missing: []
-  debug_session: ""
+  root_cause: "parsed.usage statt parsed.message?.usage - Feldpfad-Mismatch im JSONL-Parser"
+  artifacts:
+    - path: "electron/analysis/log-analyzer.ts"
+      issue: "Line 180: parsed.usage should be parsed.message?.usage"
+  missing:
+    - "Usage data is nested under message.usage in JSONL, not top-level usage"
+  debug_session: ".planning/debug/cache-hit-ratio-zero.md"

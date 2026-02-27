@@ -176,12 +176,13 @@ export async function parseJsonlFile(filePath: string, stats: ParsedStats): Prom
         }
       }
 
-      // Detect token usage (usage field on assistant messages)
-      if (parsed.usage) {
-        stats.tokenInput += parsed.usage.input_tokens || 0;
-        stats.tokenOutput += parsed.usage.output_tokens || 0;
-        stats.tokenCacheRead += parsed.usage.cache_read_input_tokens || 0;
-        stats.tokenCacheCreation += parsed.usage.cache_creation_input_tokens || 0;
+      // Detect token usage (nested inside message on assistant messages)
+      const usage = parsed.message?.usage;
+      if (usage) {
+        stats.tokenInput += usage.input_tokens || 0;
+        stats.tokenOutput += usage.output_tokens || 0;
+        stats.tokenCacheRead += usage.cache_read_input_tokens || 0;
+        stats.tokenCacheCreation += usage.cache_creation_input_tokens || 0;
       }
 
       // Detect skill/slash commands in user messages
