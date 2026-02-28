@@ -67,6 +67,7 @@ Progress: [██████████] 100%
 | Phase 06 P02 | 8 | 5 tasks | 13 files |
 | Phase 07 P01 | 6 | 3 tasks | 3 files |
 | Phase 07 P02 | 3 | 3 tasks | 4 files |
+| Phase 07 P03 | 7 | 3 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -130,6 +131,8 @@ Recent decisions affecting current work:
 - [Phase 07]: HistoryEntry kept local to score-history.ts to avoid Electron main process depending on Angular shared types
 - [Phase 07]: 5-minute detail cache in analysis-handlers.ts prevents re-parsing for repeated session detail views
 - [Phase 07]: Score history appended on every LOG_SESSION_SCORE (not just LOG_SESSION_DETAIL) to ensure trends accumulate
+- [Phase 07]: Session detail panel uses fixed position overlay (not routed) to avoid URL management complexity
+- [Phase 07]: sparklineDimensions computed as getter to avoid per-change-detection recalculation in Angular
 
 ### Pending Todos
 
