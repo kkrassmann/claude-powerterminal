@@ -15,6 +15,7 @@
     <!-- Use cdkDragHandle on tile-header to restrict drag to header only -->
     <app-tile-header
       [session]="session"
+      [sessionId]="session.metadata.sessionId"
       [gitContext]="gitContextService.getContext(session.metadata.sessionId)"
       [isChanged]="gitContextService.changedSessions.has(session.metadata.sessionId)"
       [isMaximized]="false"
@@ -26,6 +27,7 @@
       (restart)="restartSession(session.metadata.sessionId)"
       (kill)="killSession(session.metadata.sessionId)"
       (acknowledged)="onTileClick(session.metadata.sessionId)"
+      (sessionSelected)="onSessionSelected($event)"
       cdkDragHandle>
     </app-tile-header>
     <app-terminal
@@ -61,6 +63,7 @@
 <div class="maximized-view" *ngIf="maximizedSessionId">
   <app-tile-header
     [session]="getSession(maximizedSessionId)!"
+    [sessionId]="maximizedSessionId"
     [gitContext]="gitContextService.getContext(maximizedSessionId)"
     [isChanged]="gitContextService.changedSessions.has(maximizedSessionId)"
     [isMaximized]="true"
@@ -71,7 +74,8 @@
     (maximize)="toggleMaximize(maximizedSessionId)"
     (restart)="restartSession(maximizedSessionId)"
     (kill)="killSession(maximizedSessionId)"
-    (acknowledged)="onTileClick(maximizedSessionId)">
+    (acknowledged)="onTileClick(maximizedSessionId)"
+    (sessionSelected)="onSessionSelected($event)">
   </app-tile-header>
   <app-terminal
     [sessionId]="maximizedSessionId"

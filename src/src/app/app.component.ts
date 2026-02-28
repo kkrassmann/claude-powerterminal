@@ -4,6 +4,7 @@ import { RouterOutlet } from '@angular/router';
 import { SessionCreateComponent } from './components/session-create/session-create.component';
 import { DashboardComponent } from './components/dashboard/dashboard.component';
 import { AnalysisPanelComponent } from './components/analysis-panel/analysis-panel.component';
+import { SessionDetailComponent } from './components/session-detail/session-detail.component';
 import { SessionStateService } from './services/session-state.service';
 import { SessionManagerService } from './services/session-manager.service';
 import { SessionMetadata } from './models/session.model';
@@ -13,7 +14,7 @@ import { AudioAlertService } from './services/audio-alert.service';
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, SessionCreateComponent, DashboardComponent, AnalysisPanelComponent],
+  imports: [CommonModule, RouterOutlet, SessionCreateComponent, DashboardComponent, AnalysisPanelComponent, SessionDetailComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.css'
 })
@@ -22,6 +23,9 @@ export class AppComponent implements OnInit {
   pendingSessions: SessionMetadata[] = [];
   lanUrl: string | null = null;
   showAnalysis = false;
+
+  /** ID of the session whose detail panel is currently open, or null if closed. */
+  selectedSessionId: string | null = null;
 
   constructor(
     private sessionStateService: SessionStateService,
@@ -76,6 +80,20 @@ export class AppComponent implements OnInit {
 
   onSessionExited(sessionId: string): void {
     this.sessionStateService.removeSession(sessionId);
+  }
+
+  /**
+   * Toggle session detail panel — clicking the same session again closes it.
+   */
+  onSessionSelected(sessionId: string): void {
+    this.selectedSessionId = sessionId === this.selectedSessionId ? null : sessionId;
+  }
+
+  /**
+   * Close the session detail panel.
+   */
+  closeSessionDetail(): void {
+    this.selectedSessionId = null;
   }
 
   private async loadRestoredSessions(): Promise<number> {

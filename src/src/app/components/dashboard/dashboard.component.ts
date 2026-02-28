@@ -45,6 +45,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
   @Output() sessionExited = new EventEmitter<string>();
 
   /**
+   * Emitted when a session score chip is clicked in a tile header.
+   * Bubbles the sessionSelected event from TileHeaderComponent up to AppComponent.
+   */
+  @Output() sessionSelected = new EventEmitter<string>();
+
+  /**
    * Active sessions (with live PTY processes and scrollback buffers).
    * Populated from SessionStateService subscription.
    */
@@ -270,6 +276,15 @@ export class DashboardComponent implements OnInit, OnDestroy {
    */
   getSession(sessionId: string): ActiveSession | undefined {
     return this.sessions.find(s => s.metadata.sessionId === sessionId);
+  }
+
+  /**
+   * Handle sessionSelected event from tile-header — bubble up to app component.
+   *
+   * @param sessionId - ID of the session whose score chip was clicked
+   */
+  onSessionSelected(sessionId: string): void {
+    this.sessionSelected.emit(sessionId);
   }
 
   /**

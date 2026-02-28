@@ -1,7 +1,7 @@
 import { Component, Input, Output, EventEmitter, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { LogAnalysisService } from '../../services/log-analysis.service';
-import type { SessionScoreDetail, AntiPatternOccurrence, Recommendation } from '../../../../../shared/analysis-types';
+import type { SessionScoreDetail, AntiPatternOccurrence, Recommendation } from '../../../../shared/analysis-types';
 
 /**
  * Per-session drill-down panel showing score breakdown, anti-patterns, and recommendations.

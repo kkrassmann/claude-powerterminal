@@ -15,6 +15,13 @@
 
   <app-dashboard
     [pendingSessions]="pendingSessions"
-    (sessionExited)="onSessionExited($event)">
+    (sessionExited)="onSessionExited($event)"
+    (sessionSelected)="onSessionSelected($event)">
   </app-dashboard>
+
+  <app-session-detail
+    *ngIf="selectedSessionId"
+    [sessionId]="selectedSessionId"
+    (close)="closeSessionDetail()">
+  </app-session-detail>
 </div>
