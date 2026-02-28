@@ -14,6 +14,7 @@ import {
   discoverSessionFiles,
   readStatsCache,
   clearCache,
+  detectAntiPatterns,
 } from './log-analyzer';
 
 // ── Test helpers ────────────────────────────────────────────────────────
@@ -47,6 +48,16 @@ function emptyStats() {
     earliestDate: '',
     latestDate: '',
     maxMessagesInSession: 0,
+    // Phase 7 fields
+    turnDurations: [] as number[],
+    compactBoundaryCount: 0,
+    modelUsed: null as string | null,
+    sidechainMessages: 0,
+    toolCallSequence: [] as any[],
+    apiErrorCount: 0,
+    serverToolUseCount: 0,
+    cacheCreationTokens: 0,
+    cacheReadTokens: 0,
   };
 }
 
@@ -249,6 +260,357 @@ describe('error detection', () => {
   });
 });
 
+// ── Phase 7: New JSONL field extraction ─────────────────────────────────
+
+describe('Phase 7 field extraction', () => {
+  it('should extract turn_duration from system records', async () => {
+    const filePath = path.join(tmpDir, 'turn-duration.jsonl');
+    writeJsonl(filePath, [
+      { type: 'system', subtype: 'turn_duration', durationMs: 45000, timestamp: '2026-01-01T00:00:00Z' },
+    ]);
+
+    const stats = emptyStats();
+    await parseJsonlFile(filePath, stats);
+
+    expect(stats.turnDurations).toHaveLength(1);
+    expect(stats.turnDurations[0]).toBe(45000);
+  });
+
+  it('should extract compact_boundary count from system records', async () => {
+    const filePath = path.join(tmpDir, 'compact-boundary.jsonl');
+    writeJsonl(filePath, [
+      { type: 'system', subtype: 'compact_boundary', compactMetadata: { trigger: 'auto' }, timestamp: '2026-01-01T00:00:00Z' },
+    ]);
+
+    const stats = emptyStats();
+    await parseJsonlFile(filePath, stats);
+
+    expect(stats.compactBoundaryCount).toBe(1);
+  });
+
+  it('should track last seen model from assistant message.model', async () => {
+    const filePath = path.join(tmpDir, 'model.jsonl');
+    writeJsonl(filePath, [
+      { type: 'assistant', message: { model: 'claude-opus-4-6', content: [] }, timestamp: '2026-01-01T00:00:00Z' },
+    ]);
+
+    const stats = emptyStats();
+    await parseJsonlFile(filePath, stats);
+
+    expect(stats.modelUsed).toBe('claude-opus-4-6');
+  });
+
+  it('should count api_error records', async () => {
+    const filePath = path.join(tmpDir, 'api-error.jsonl');
+    writeJsonl(filePath, [
+      { type: 'api_error', error: { message: 'rate limit exceeded' }, timestamp: '2026-01-01T00:00:00Z' },
+    ]);
+
+    const stats = emptyStats();
+    await parseJsonlFile(filePath, stats);
+
+    expect(stats.apiErrorCount).toBe(1);
+  });
+
+  it('should accumulate cache_creation_input_tokens from assistant message.usage', async () => {
+    const filePath = path.join(tmpDir, 'cache-creation.jsonl');
+    writeJsonl(filePath, [
+      {
+        type: 'assistant',
+        message: { content: [], usage: { input_tokens: 100, output_tokens: 50, cache_creation_input_tokens: 1000, cache_read_input_tokens: 0 } },
+        timestamp: '2026-01-01T00:00:00Z',
+      },
+    ]);
+
+    const stats = emptyStats();
+    await parseJsonlFile(filePath, stats);
+
+    expect(stats.cacheCreationTokens).toBe(1000);
+  });
+
+  it('should count server_tool_use blocks in assistant content', async () => {
+    const filePath = path.join(tmpDir, 'server-tool-use.jsonl');
+    writeJsonl(filePath, [
+      {
+        type: 'assistant',
+        message: { content: [{ type: 'server_tool_use', name: 'web_search', id: '1' }] },
+        timestamp: '2026-01-01T00:00:00Z',
+      },
+    ]);
+
+    const stats = emptyStats();
+    await parseJsonlFile(filePath, stats);
+
+    expect(stats.serverToolUseCount).toBe(1);
+  });
+
+  it('should compute avgTurnDurationMs correctly in computeSessionScore', async () => {
+    const filePath = path.join(tmpDir, 'session-with-duration.jsonl');
+    writeJsonl(filePath, [
+      { type: 'system', subtype: 'turn_duration', durationMs: 30000, timestamp: '2026-01-01T00:00:00Z' },
+      { type: 'system', subtype: 'turn_duration', durationMs: 60000, timestamp: '2026-01-01T00:01:00Z' },
+      { type: 'assistant', message: { content: [{ type: 'tool_use', name: 'Read', id: '1' }] }, timestamp: '2026-01-01T00:02:00Z' },
+    ]);
+
+    const result = await computeSessionScore(filePath);
+
+    expect(result.avgTurnDurationMs).toBe(45000);
+  });
+
+  it('should expose compactBoundaryCount in computeSessionScore', async () => {
+    const filePath = path.join(tmpDir, 'session-compact.jsonl');
+    writeJsonl(filePath, [
+      { type: 'system', subtype: 'compact_boundary', compactMetadata: { trigger: 'auto' }, timestamp: '2026-01-01T00:00:00Z' },
+      { type: 'assistant', message: { content: [{ type: 'tool_use', name: 'Read', id: '1' }] }, timestamp: '2026-01-01T00:01:00Z' },
+    ]);
+
+    const result = await computeSessionScore(filePath);
+
+    expect(result.compactBoundaryCount).toBe(1);
+  });
+
+  it('should expose apiErrorCount in computeSessionScore', async () => {
+    const filePath = path.join(tmpDir, 'session-apierror.jsonl');
+    writeJsonl(filePath, [
+      { type: 'api_error', error: { message: 'timeout' }, timestamp: '2026-01-01T00:00:00Z' },
+      { type: 'assistant', message: { content: [{ type: 'tool_use', name: 'Read', id: '1' }] }, timestamp: '2026-01-01T00:01:00Z' },
+    ]);
+
+    const result = await computeSessionScore(filePath);
+
+    expect(result.apiErrorCount).toBe(1);
+  });
+
+  it('should expose cacheCreationTokens and cacheReadTokens in computeSessionScore', async () => {
+    const filePath = path.join(tmpDir, 'session-cachetokens.jsonl');
+    writeJsonl(filePath, [
+      {
+        type: 'assistant',
+        message: {
+          content: [{ type: 'tool_use', name: 'Read', id: '1' }],
+          usage: { input_tokens: 100, output_tokens: 50, cache_creation_input_tokens: 500, cache_read_input_tokens: 200 },
+        },
+        timestamp: '2026-01-01T00:00:00Z',
+      },
+    ]);
+
+    const result = await computeSessionScore(filePath);
+
+    expect(result.cacheCreationTokens).toBe(500);
+    expect(result.cacheReadTokens).toBe(200);
+  });
+
+  it('should expose serverToolUseCount in computeSessionScore', async () => {
+    const filePath = path.join(tmpDir, 'session-servertool.jsonl');
+    writeJsonl(filePath, [
+      {
+        type: 'assistant',
+        message: { content: [{ type: 'server_tool_use', name: 'web_search', id: '1' }] },
+        timestamp: '2026-01-01T00:00:00Z',
+      },
+    ]);
+
+    const result = await computeSessionScore(filePath);
+
+    expect(result.serverToolUseCount).toBe(1);
+  });
+});
+
+// ── Phase 7: Anti-pattern detection ─────────────────────────────────────
+
+describe('detectAntiPatterns', () => {
+  it('bash-for-file-ops: detects Bash grep command', async () => {
+    const filePath = path.join(tmpDir, 'bash-grep.jsonl');
+    writeJsonl(filePath, [
+      {
+        type: 'assistant',
+        message: {
+          content: [{ type: 'tool_use', name: 'Bash', id: '1', input: { command: 'grep -r foo .' } }],
+        },
+        timestamp: '2026-01-01T00:00:00Z',
+      },
+    ]);
+
+    const result = await computeSessionScore(filePath);
+    const bashOps = result.antiPatterns.filter(ap => ap.pattern === 'bash-for-file-ops');
+
+    expect(bashOps.length).toBeGreaterThan(0);
+    expect(bashOps[0].pattern).toBe('bash-for-file-ops');
+  });
+
+  it('bash-for-file-ops negative: npm run build does not trigger', async () => {
+    const filePath = path.join(tmpDir, 'bash-npm.jsonl');
+    writeJsonl(filePath, [
+      {
+        type: 'assistant',
+        message: {
+          content: [{ type: 'tool_use', name: 'Bash', id: '1', input: { command: 'npm run build' } }],
+        },
+        timestamp: '2026-01-01T00:00:00Z',
+      },
+    ]);
+
+    const result = await computeSessionScore(filePath);
+    const bashOps = result.antiPatterns.filter(ap => ap.pattern === 'bash-for-file-ops');
+
+    expect(bashOps.length).toBe(0);
+  });
+
+  it('correction-loop: 5 Edit events on same file with no Read triggers anti-pattern', async () => {
+    const filePath = path.join(tmpDir, 'correction-loop.jsonl');
+    const lines: any[] = [];
+    for (let i = 0; i < 5; i++) {
+      lines.push({
+        type: 'assistant',
+        message: {
+          content: [{ type: 'tool_use', name: 'Edit', id: `e${i}`, input: { file_path: '/src/app.ts', old_string: `old${i}`, new_string: `new${i}` } }],
+        },
+        timestamp: `2026-01-01T00:0${i}:00Z`,
+      });
+    }
+    writeJsonl(filePath, lines);
+
+    const result = await computeSessionScore(filePath);
+    const correctionLoops = result.antiPatterns.filter(ap => ap.pattern === 'correction-loop');
+
+    expect(correctionLoops.length).toBeGreaterThan(0);
+  });
+
+  it('correction-loop with Read: Read at turn 3 resets counter, no anti-pattern', async () => {
+    const filePath = path.join(tmpDir, 'correction-loop-with-read.jsonl');
+    const lines: any[] = [
+      {
+        type: 'assistant',
+        message: { content: [{ type: 'tool_use', name: 'Edit', id: 'e1', input: { file_path: '/src/app.ts', old_string: 'a', new_string: 'b' } }] },
+        timestamp: '2026-01-01T00:00:00Z',
+      },
+      {
+        type: 'assistant',
+        message: { content: [{ type: 'tool_use', name: 'Edit', id: 'e2', input: { file_path: '/src/app.ts', old_string: 'c', new_string: 'd' } }] },
+        timestamp: '2026-01-01T00:01:00Z',
+      },
+      {
+        type: 'assistant',
+        message: { content: [{ type: 'tool_use', name: 'Read', id: 'r1', input: { file_path: '/src/app.ts' } }] },
+        timestamp: '2026-01-01T00:02:00Z',
+      },
+      {
+        type: 'assistant',
+        message: { content: [{ type: 'tool_use', name: 'Edit', id: 'e3', input: { file_path: '/src/app.ts', old_string: 'e', new_string: 'f' } }] },
+        timestamp: '2026-01-01T00:03:00Z',
+      },
+      {
+        type: 'assistant',
+        message: { content: [{ type: 'tool_use', name: 'Edit', id: 'e4', input: { file_path: '/src/app.ts', old_string: 'g', new_string: 'h' } }] },
+        timestamp: '2026-01-01T00:04:00Z',
+      },
+    ];
+    writeJsonl(filePath, lines);
+
+    const result = await computeSessionScore(filePath);
+    const correctionLoops = result.antiPatterns.filter(ap => ap.pattern === 'correction-loop');
+
+    // Read at turn 3 resets counter, only 2 edits after Read — no correction-loop
+    expect(correctionLoops.length).toBe(0);
+  });
+
+  it('infinite-exploration: 60 Read events and 3 Write events triggers anti-pattern', async () => {
+    const filePath = path.join(tmpDir, 'infinite-exploration.jsonl');
+    const lines: any[] = [];
+    for (let i = 0; i < 60; i++) {
+      lines.push({
+        type: 'assistant',
+        message: { content: [{ type: 'tool_use', name: 'Read', id: `r${i}`, input: { file_path: `/src/file${i}.ts` } }] },
+        timestamp: `2026-01-01T00:00:00Z`,
+      });
+    }
+    for (let i = 0; i < 3; i++) {
+      lines.push({
+        type: 'assistant',
+        message: { content: [{ type: 'tool_use', name: 'Write', id: `w${i}`, input: { file_path: `/src/out${i}.ts`, content: 'test' } }] },
+        timestamp: `2026-01-01T01:00:00Z`,
+      });
+    }
+    writeJsonl(filePath, lines);
+
+    const result = await computeSessionScore(filePath);
+    const exploration = result.antiPatterns.filter(ap => ap.pattern === 'infinite-exploration');
+
+    expect(exploration.length).toBeGreaterThan(0);
+  });
+
+  it('kitchen-sink: 210 tool calls and 7 distinct tool types triggers anti-pattern', () => {
+    // Build a toolCounts map with 7 types totaling 210 calls
+    const toolCounts = new Map<string, number>();
+    const tools = ['Read', 'Write', 'Edit', 'Bash', 'Grep', 'Glob', 'Task'];
+    tools.forEach(t => toolCounts.set(t, 30)); // 7 * 30 = 210
+
+    // Build a minimal sequence (just needs to exist — kitchen-sink checks totals)
+    const sequence: any[] = [];
+
+    const results = detectAntiPatterns(sequence, 210, toolCounts);
+    const kitchenSink = results.filter(ap => ap.pattern === 'kitchen-sink');
+
+    expect(kitchenSink.length).toBeGreaterThan(0);
+  });
+
+  it('kitchen-sink: 50 tool calls with 7 types does NOT trigger (below 200 threshold)', () => {
+    const toolCounts = new Map<string, number>();
+    ['Read', 'Write', 'Edit', 'Bash', 'Grep', 'Glob', 'Task'].forEach(t => toolCounts.set(t, 7));
+
+    const results = detectAntiPatterns([], 50, toolCounts);
+    const kitchenSink = results.filter(ap => ap.pattern === 'kitchen-sink');
+
+    expect(kitchenSink.length).toBe(0);
+  });
+});
+
+// ── Phase 7: Recommendation severity ────────────────────────────────────
+
+describe('recommendation severity — Phase 7', () => {
+  it('should use severity "tip" instead of "info" for subagent tip', () => {
+    const stats = emptyStats();
+    stats.totalToolCalls = 50;
+    stats.toolCounts.set('Read', 25);
+    stats.toolCounts.set('Bash', 25);
+    // No 'Task' tool
+
+    const recs = computeRecommendations(stats);
+    const tips = recs.filter(r => r.severity === 'tip');
+    const infos = recs.filter(r => (r.severity as string) === 'info');
+
+    expect(tips.some(r => r.title.includes('Subagents'))).toBe(true);
+    expect(infos.length).toBe(0); // 'info' is deprecated, must be gone
+  });
+
+  it('should use severity "tip" for Slash-Commands tip', () => {
+    const stats = emptyStats();
+    stats.totalMessages = 30;
+    // No skillCounts — triggers the "Keine Slash-Commands" tip
+
+    const recs = computeRecommendations(stats);
+    const tips = recs.filter(r => r.severity === 'tip');
+
+    expect(tips.some(r => r.title.includes('Slash-Commands'))).toBe(true);
+  });
+
+  it('should produce anti-pattern recommendations when anti-patterns detected', async () => {
+    const filePath = path.join(tmpDir, 'session-antipattern-recs.jsonl');
+    writeJsonl(filePath, [
+      {
+        type: 'assistant',
+        message: { content: [{ type: 'tool_use', name: 'Bash', id: '1', input: { command: 'grep -r foo .' } }] },
+        timestamp: '2026-01-01T00:00:00Z',
+      },
+    ]);
+
+    const result = await computeSessionScore(filePath);
+    const antiPatternRecs = result.recommendations.filter(r => r.severity === 'anti-pattern');
+
+    expect(antiPatternRecs.length).toBeGreaterThan(0);
+  });
+});
+
 // ── Recommendation Rules ────────────────────────────────────────────────
 
 describe('computeRecommendations', () => {
@@ -291,7 +653,7 @@ describe('computeRecommendations', () => {
     expect(warnings.some(r => r.title.includes('Context wird'))).toBe(true);
   });
 
-  it('should warn about no subagent usage', () => {
+  it('should warn about no subagent usage with tip severity', () => {
     const stats = emptyStats();
     stats.totalToolCalls = 50;
     stats.toolCounts.set('Read', 25);
@@ -299,9 +661,9 @@ describe('computeRecommendations', () => {
     // No 'Task' tool
 
     const recs = computeRecommendations(stats);
-    const infos = recs.filter(r => r.severity === 'info');
+    const tips = recs.filter(r => r.severity === 'tip');
 
-    expect(infos.some(r => r.title.includes('Subagents'))).toBe(true);
+    expect(tips.some(r => r.title.includes('Subagents'))).toBe(true);
   });
 
   it('should warn about high error rate', () => {
@@ -378,6 +740,18 @@ describe('computeSessionScore', () => {
     expect(result.sessionId).toBe('session');
     expect(Array.isArray(result.badges)).toBe(true);
     expect(Array.isArray(result.highlights)).toBe(true);
+    // Phase 7: verify new fields present
+    expect(typeof result.toolNativenessScore).toBe('number');
+    expect(typeof result.subagentScore).toBe('number');
+    expect(typeof result.readBeforeWriteScore).toBe('number');
+    expect(typeof result.contextEfficiencyScore).toBe('number');
+    expect(typeof result.errorScore).toBe('number');
+    expect(Array.isArray(result.antiPatterns)).toBe(true);
+    expect(Array.isArray(result.recommendations)).toBe(true);
+    expect(typeof result.apiErrorCount).toBe('number');
+    expect(typeof result.serverToolUseCount).toBe('number');
+    expect(typeof result.cacheCreationTokens).toBe('number');
+    expect(typeof result.cacheReadTokens).toBe('number');
   });
 
   it('should return 0 for non-existent session', async () => {
@@ -471,9 +845,43 @@ describe('edge cases', () => {
     expect(files.every(f => f.endsWith('.jsonl'))).toBe(true);
   });
 
-  it('should return empty array for missing stats-cache.json', () => {
-    const entries = readStatsCache(path.join(tmpDir, 'nonexistent'));
-    expect(entries).toEqual([]);
+  it('should return null for missing stats-cache.json with v2 schema parser', () => {
+    const result = readStatsCache(path.join(tmpDir, 'nonexistent'));
+    expect(result).toBeNull();
+  });
+
+  it('should return null for stats-cache.json with wrong schema', () => {
+    const claudeHome = path.join(tmpDir, '.claude-schema-test');
+    fs.mkdirSync(claudeHome, { recursive: true });
+    // Write v1-style array (wrong schema)
+    fs.writeFileSync(path.join(claudeHome, 'stats-cache.json'), JSON.stringify([{ model: 'test', totalInputTokens: 100 }]), 'utf-8');
+
+    const result = readStatsCache(claudeHome);
+    expect(result).toBeNull();
+  });
+
+  it('should return parsed data for correct v2 stats-cache.json', () => {
+    const claudeHome = path.join(tmpDir, '.claude-v2-test');
+    fs.mkdirSync(claudeHome, { recursive: true });
+    const v2Data = {
+      version: 2,
+      lastComputedDate: '2026-02-28',
+      dailyActivity: [],
+      dailyModelTokens: [],
+      modelUsage: { 'claude-opus-4-6': { inputTokens: 1000, outputTokens: 500, cacheReadInputTokens: 200, cacheCreationInputTokens: 100, webSearchRequests: 0, costUSD: 0.5 } },
+      totalSessions: 5,
+      totalMessages: 100,
+      longestSession: { sessionId: 'abc', duration: 3600, messageCount: 50, timestamp: '2026-02-28T00:00:00Z' },
+      firstSessionDate: '2026-01-01',
+      hourCounts: {},
+      totalSpeculationTimeSavedMs: 0,
+    };
+    fs.writeFileSync(path.join(claudeHome, 'stats-cache.json'), JSON.stringify(v2Data), 'utf-8');
+
+    const result = readStatsCache(claudeHome);
+    expect(result).not.toBeNull();
+    expect(result?.version).toBe(2);
+    expect(result?.modelUsage).toBeDefined();
   });
 });
 
