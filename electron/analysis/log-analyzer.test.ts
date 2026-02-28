@@ -790,11 +790,12 @@ describe('computeSessionScore', () => {
     const result = await computeSessionScore(filePath);
 
     expect(result.score).toBeGreaterThan(50);
-    expect(result.badges).toContain('Tool Native');
+    // Zero errors + all native tools → Context Master + Zero Error
+    expect(result.badges).toContain('Zero Error');
   });
 
-  it('should assign "Context Efficient" badge for high cache-hit ratio', async () => {
-    const filePath = path.join(tmpDir, 'cache-efficient.jsonl');
+  it('should assign "Context Master" badge for high context efficiency', async () => {
+    const filePath = path.join(tmpDir, 'context-master.jsonl');
     const lines: any[] = [];
 
     for (let i = 0; i < 10; i++) {
@@ -808,7 +809,7 @@ describe('computeSessionScore', () => {
 
     const result = await computeSessionScore(filePath);
 
-    expect(result.badges).toContain('Context Efficient');
+    expect(result.badges).toContain('Context Master');
   });
 });
 

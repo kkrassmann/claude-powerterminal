@@ -809,12 +809,12 @@ export async function computeSessionScore(sessionPath: string): Promise<SessionS
 
   // ── Badges ──
   const badges: string[] = [];
-  if (taskPct > 15) badges.push('Subagent Pro');
-  if (bashCount === 0 || nativeRatio > 0.9) badges.push('Tool Native');
-  if (cacheHitRatio > 85) badges.push('Context Efficient');
-  if (stats.skillCounts.has('/plan') || stats.skillCounts.has('/EnterPlanMode')) badges.push('Planned');
-  const gsdSkills = ['/gsd', '/gsd:plan', '/gsd:execute', '/gsd:execute-phase'];
-  if (gsdSkills.some(s => stats.skillCounts.has(s))) badges.push('Orchestrated');
+  if (contextEfficiencyScore >= 80) badges.push('Context Master');
+  if (errorScore >= 100) badges.push('Zero Error');
+  if (stats.skillCounts.has('/plan') || stats.skillCounts.has('/EnterPlanMode')) badges.push('Planner');
+  if (taskPct > 15) badges.push('Parallel Pro');
+  if (stats.turnDurations.length > 0 && stats.turnDurations.every(d => d < 30000)) badges.push('Speed Demon');
+  if (readPct > 30 && stats.totalToolCalls > 10) badges.push('Researcher');
 
   // ── Highlights ──
   const highlights: string[] = [];
