@@ -1,10 +1,12 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PtyManagerService } from '../../services/pty-manager.service';
 import { SessionManagerService } from '../../services/session-manager.service';
 import { SessionStateService } from '../../services/session-state.service';
+import { TemplateService } from '../../services/template.service';
 import { SessionMetadata } from '../../models/session.model';
+import { SessionTemplate, TemplateCategory } from '../../../../shared/template-types';
 
 /**
  * Component for creating new Claude CLI terminal sessions.
@@ -29,7 +31,7 @@ import { SessionMetadata } from '../../models/session.model';
   templateUrl: './session-create.component.html',
   styleUrls: ['./session-create.component.css']
 })
-export class SessionCreateComponent {
+export class SessionCreateComponent implements OnInit {
   /**
    * Whether the create dialog is open.
    */
@@ -84,12 +86,75 @@ export class SessionCreateComponent {
    */
   statusType: 'success' | 'error' | '' = '';
 
+  /**
+   * All saved session templates.
+   */
+  templates: SessionTemplate[] = [];
+
+  /**
+   * Currently active category filter. Null means show all.
+   */
+  activeCategoryFilter: TemplateCategory | null = null;
+
+  /**
+   * Available categories for filter pills.
+   */
+  readonly categories: TemplateCategory[] = ['general', 'bugfix', 'feature', 'review', 'test', 'custom'];
+
+  /**
+   * Category color mapping for badges and styling.
+   */
+  readonly categoryColors: Record<TemplateCategory, string> = {
+    general: '#89b4fa',
+    bugfix: '#f38ba8',
+    feature: '#a6e3a1',
+    review: '#fab387',
+    test: '#f9e2af',
+    custom: '#cba6f7',
+  };
+
+  /**
+   * Queued initial prompt from a selected template.
+   * Will be sent to the PTY after session spawn.
+   */
+  pendingInitialPrompt: string = '';
+
+  /**
+   * Whether the "Save as Template" form is visible.
+   */
+  showSaveTemplateForm: boolean = false;
+
+  /**
+   * Template name for the "Save as Template" form.
+   */
+  templateName: string = '';
+
+  /**
+   * Template description for the "Save as Template" form.
+   */
+  templateDescription: string = '';
+
+  /**
+   * Template category for the "Save as Template" form.
+   */
+  templateCategory: TemplateCategory = 'general';
+
+  /**
+   * Template initial prompt for the "Save as Template" form.
+   */
+  templateInitialPrompt: string = '';
+
   constructor(
     private ptyManager: PtyManagerService,
     private sessionManager: SessionManagerService,
-    private sessionState: SessionStateService
+    private sessionState: SessionStateService,
+    private templateService: TemplateService
   ) {
     this.loadRecentDirectories();
+  }
+
+  ngOnInit(): void {
+    this.loadTemplates();
   }
 
   /**
@@ -189,17 +254,116 @@ export class SessionCreateComponent {
       // Step 6: Add to active session state
       this.sessionState.addSession(metadata, pid);
 
+      // Capture prompt before clearing form
+      const initialPrompt = this.pendingInitialPrompt;
+      const cwd = this.workingDirectory;
+
       // Step 7: Save directory to recent list, clear form, close dialog
       this.saveRecentDirectory(this.workingDirectory);
       this.clearForm();
+      this.pendingInitialPrompt = '';
       this.isDialogOpen = false;
 
-      console.log(`✓ Session created: ${sessionId} at ${this.workingDirectory} with PID ${pid}`);
+      // Send initial prompt if queued from a template
+      if (initialPrompt) {
+        // Small delay to let the PTY initialize before sending the prompt
+        setTimeout(async () => {
+          await this.ptyManager.writeToSession(sessionId, initialPrompt + '\n');
+        }, 2000);
+      }
+
+      console.log(`Session created: ${sessionId} at ${cwd} with PID ${pid}`);
     } catch (error) {
       console.error('Failed to create session:', error);
       this.showError(`Failed to create session: ${error}`);
     } finally {
       this.isCreating = false;
+    }
+  }
+
+  /**
+   * Load templates from storage.
+   */
+  async loadTemplates(): Promise<void> {
+    this.templates = await this.templateService.listTemplates();
+  }
+
+  /**
+   * Get templates filtered by the active category filter.
+   */
+  get filteredTemplates(): SessionTemplate[] {
+    if (!this.activeCategoryFilter) {
+      return this.templates;
+    }
+    return this.templates.filter(t => t.category === this.activeCategoryFilter);
+  }
+
+  /**
+   * Set the category filter.
+   */
+  setCategoryFilter(category: TemplateCategory | null): void {
+    this.activeCategoryFilter =
+      this.activeCategoryFilter === category ? null : category;
+  }
+
+  /**
+   * Apply a template: pre-fill working directory and queue the initial prompt.
+   */
+  async applyTemplate(template: SessionTemplate): Promise<void> {
+    this.workingDirectory = template.workingDirectory;
+    this.pendingInitialPrompt = template.initialPrompt || '';
+    await this.templateService.useTemplate(template);
+    await this.loadTemplates();
+  }
+
+  /**
+   * Save current form values as a new template.
+   */
+  async saveAsTemplate(): Promise<void> {
+    if (!this.templateName.trim()) {
+      this.showError('Please enter a template name');
+      return;
+    }
+
+    if (!this.workingDirectory.trim()) {
+      this.showError('Please enter a working directory before saving as template');
+      return;
+    }
+
+    const template: SessionTemplate = {
+      id: this.generateUUID(),
+      name: this.templateName.trim(),
+      category: this.templateCategory,
+      workingDirectory: this.workingDirectory.trim(),
+      initialPrompt: this.templateInitialPrompt.trim() || undefined,
+      description: this.templateDescription.trim() || undefined,
+      createdAt: new Date().toISOString(),
+      useCount: 0,
+    };
+
+    try {
+      await this.templateService.saveTemplate(template);
+      await this.loadTemplates();
+      this.showSaveTemplateForm = false;
+      this.templateName = '';
+      this.templateDescription = '';
+      this.templateCategory = 'general';
+      this.templateInitialPrompt = '';
+    } catch (error) {
+      this.showError(`Failed to save template: ${error}`);
+    }
+  }
+
+  /**
+   * Delete a template by ID.
+   */
+  async deleteTemplate(event: Event, templateId: string): Promise<void> {
+    event.stopPropagation();
+    try {
+      await this.templateService.deleteTemplate(templateId);
+      await this.loadTemplates();
+    } catch (error) {
+      this.showError(`Failed to delete template: ${error}`);
     }
   }
 

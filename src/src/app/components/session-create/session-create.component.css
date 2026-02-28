@@ -34,6 +34,12 @@
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
 }
 
+.dialog-wide {
+  width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
 .dialog-header {
   display: flex;
   justify-content: space-between;
@@ -74,6 +80,14 @@ label {
   color: #a6adc8;
 }
 
+.section-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #a6adc8;
+  margin-bottom: 8px;
+  display: block;
+}
+
 .directory-input-group {
   display: flex;
   flex-direction: column;
@@ -99,6 +113,11 @@ label {
 
 select.form-control {
   cursor: pointer;
+}
+
+textarea.form-control {
+  resize: vertical;
+  min-height: 60px;
 }
 
 .flags-checkboxes {
@@ -149,9 +168,15 @@ select.form-control {
 
 .dialog-actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
   gap: 8px;
   margin-top: 16px;
+}
+
+.dialog-actions-right {
+  display: flex;
+  gap: 8px;
 }
 
 .cancel-btn {
@@ -189,6 +214,206 @@ select.form-control {
   cursor: not-allowed;
 }
 
+/* Save as Template button */
+.save-template-btn {
+  padding: 8px 16px;
+  background: transparent;
+  color: #cba6f7;
+  border: 1px solid #cba6f7;
+  border-radius: 4px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.save-template-btn:hover {
+  background: rgba(203, 166, 247, 0.1);
+}
+
+/* Save Template form */
+.save-template-form {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #313244;
+}
+
+.template-prompt-input {
+  font-family: "Cascadia Code", Consolas, monospace;
+}
+
+/* Template Section */
+.template-section {
+  margin-bottom: 16px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #313244;
+}
+
+/* Category filter pills */
+.category-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.category-pill {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid #45475a;
+  background: #313244;
+  color: #bac2de;
+  transition: all 0.15s;
+  text-transform: capitalize;
+}
+
+.category-pill:hover {
+  border-color: var(--pill-color, #89b4fa);
+  color: var(--pill-color, #89b4fa);
+}
+
+.category-pill.active {
+  background: var(--pill-color, #89b4fa);
+  color: #1e1e2e;
+  border-color: var(--pill-color, #89b4fa);
+  font-weight: 600;
+}
+
+/* Template cards grid */
+.template-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 8px;
+}
+
+.template-card {
+  background: #313244;
+  border: 1px solid #45475a;
+  border-radius: 6px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+}
+
+.template-card:hover {
+  border-color: var(--card-accent, #89b4fa);
+  box-shadow: 0 0 12px rgba(137, 180, 250, 0.15);
+}
+
+.template-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.template-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #cdd6f4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.category-badge {
+  font-size: 10px;
+  font-weight: 600;
+  color: #1e1e2e;
+  padding: 2px 6px;
+  border-radius: 8px;
+  text-transform: capitalize;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.template-description {
+  font-size: 11px;
+  color: #a6adc8;
+  margin-bottom: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.template-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.template-use-count {
+  font-size: 11px;
+  color: #6c7086;
+}
+
+.template-delete-btn {
+  background: none;
+  border: none;
+  color: #6c7086;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+}
+
+.template-card:hover .template-delete-btn {
+  opacity: 1;
+}
+
+.template-delete-btn:hover {
+  color: #f38ba8;
+}
+
+/* Pending prompt indicator */
+.pending-prompt-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  margin-bottom: 12px;
+  background: rgba(166, 227, 161, 0.1);
+  border: 1px solid rgba(166, 227, 161, 0.25);
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.pending-prompt-label {
+  color: #a6e3a1;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.pending-prompt-text {
+  color: #cdd6f4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  font-family: "Cascadia Code", Consolas, monospace;
+}
+
+.pending-prompt-clear {
+  background: none;
+  border: none;
+  color: #6c7086;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0 2px;
+  line-height: 1;
+}
+
+.pending-prompt-clear:hover {
+  color: #f38ba8;
+}
+
 /* Mobile: full-width dialog, larger touch targets */
 @media (max-width: 600px) {
   .dialog {
@@ -199,6 +424,14 @@ select.form-control {
     border-radius: 0;
     padding: 16px;
     overflow-y: auto;
+  }
+
+  .dialog-wide {
+    width: 100%;
+  }
+
+  .template-grid {
+    grid-template-columns: 1fr;
   }
 
   .form-control {

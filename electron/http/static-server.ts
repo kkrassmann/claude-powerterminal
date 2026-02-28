@@ -26,6 +26,8 @@ import { discoverClaudeProjects, runProjectAudit } from '../analysis/audit-engin
 import { getTrends, HistoryEntry } from '../analysis/score-history';
 import { getAngularBuildDir } from '../utils/paths';
 import { exportAsJsonl } from '../utils/log-service';
+import { loadTemplatesFromDisk, saveTemplatesToDisk } from '../ipc/template-handlers';
+import { SessionTemplate } from '../../src/shared/template-types';
 
 /**
  * SessionMetadata interface (matches src/app/models/session.model.ts)
@@ -119,7 +121,7 @@ export function startStaticServer(port: number): http.Server {
     if (req.method === 'OPTIONS' && pathname.startsWith('/api/')) {
       res.writeHead(204, {
         'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
         'Access-Control-Allow-Headers': 'Content-Type',
         'Access-Control-Max-Age': '86400',
       });
@@ -414,6 +416,80 @@ export function startStaticServer(port: number): http.Server {
         'Content-Disposition': `attachment; filename="cpt-logs-${new Date().toISOString().replace(/[:.]/g, '-')}.jsonl"`,
       });
       res.end(jsonl);
+      return;
+    }
+
+    // GET /api/templates - List all session templates
+    if (req.method === 'GET' && pathname === '/api/templates') {
+      try {
+        const templates = loadTemplatesFromDisk();
+        res.writeHead(200, corsHeaders);
+        res.end(JSON.stringify(templates));
+      } catch (error) {
+        console.error('[HTTP] GET /api/templates error:', error);
+        res.writeHead(500, corsHeaders);
+        res.end(JSON.stringify({ error: String(error) }));
+      }
+      return;
+    }
+
+    // POST /api/templates - Save (create/update) a session template
+    if (req.method === 'POST' && pathname === '/api/templates') {
+      let body = '';
+      req.on('data', chunk => body += chunk);
+      req.on('end', () => {
+        try {
+          const template: SessionTemplate = JSON.parse(body);
+
+          if (!template.id || !template.name) {
+            res.writeHead(400, corsHeaders);
+            res.end(JSON.stringify({ error: 'Missing required fields: id, name' }));
+            return;
+          }
+
+          const templates = loadTemplatesFromDisk();
+          const existingIndex = templates.findIndex(t => t.id === template.id);
+
+          if (existingIndex >= 0) {
+            templates[existingIndex] = template;
+          } else {
+            templates.push(template);
+          }
+
+          saveTemplatesToDisk(templates);
+
+          res.writeHead(200, corsHeaders);
+          res.end(JSON.stringify({ success: true }));
+        } catch (error) {
+          console.error('[HTTP] POST /api/templates error:', error);
+          res.writeHead(500, corsHeaders);
+          res.end(JSON.stringify({ success: false, error: String(error) }));
+        }
+      });
+      return;
+    }
+
+    // DELETE /api/templates?id=... - Delete a session template
+    if (req.method === 'DELETE' && pathname === '/api/templates') {
+      const templateId = url.searchParams.get('id');
+      if (!templateId) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ error: 'Missing id query parameter' }));
+        return;
+      }
+
+      try {
+        const templates = loadTemplatesFromDisk();
+        const filtered = templates.filter(t => t.id !== templateId);
+        saveTemplatesToDisk(filtered);
+
+        res.writeHead(200, corsHeaders);
+        res.end(JSON.stringify({ success: true }));
+      } catch (error) {
+        console.error('[HTTP] DELETE /api/templates error:', error);
+        res.writeHead(500, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: String(error) }));
+      }
       return;
     }
 

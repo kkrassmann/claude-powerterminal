@@ -43,6 +43,11 @@ export const IPC_CHANNELS = {
 
   // Internal logging channels
   LOGS_EXPORT: 'logs:export',
+
+  // Template channels
+  TEMPLATE_LIST: 'template:list',
+  TEMPLATE_SAVE: 'template:save',
+  TEMPLATE_DELETE: 'template:delete',
 } as const;
 
 export type IPCChannel = typeof IPC_CHANNELS[keyof typeof IPC_CHANNELS];
