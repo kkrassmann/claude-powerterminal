@@ -137,6 +137,40 @@ Plans:
 - [x] 06-01-PLAN.md — Backend engine (shared types, streaming JSONL parser, recommendation engine, per-session scoring, IPC handlers, HTTP endpoints, unit tests) [Wave 1]
 - [x] 06-02-PLAN.md — Frontend UI (Angular service, analysis panel component, tile-header scores + badges, dashboard wiring, app integration) [Wave 2, depends on 06-01]
 
+### Phase 7: Advanced Recommendations Engine
+
+**Goal:** Upgrade the analysis engine with research-backed Claude Code best practices, expanded JSONL field extraction (turn durations, compact events, API errors, model usage, slash commands), new scoring dimensions, anti-pattern detection, and an enhanced recommendation UI with categorized tips, achievement badges, and session-over-session trend tracking
+**Depends on:** Phase 6
+**Requirements**: OPT-04, OPT-05, OPT-06
+**Success Criteria** (what must be TRUE):
+  1. Parser extracts all available JSONL fields: turn_duration, compact_boundary, api_error, message.model, isSidechain, server_tool_use, cache_creation tiers
+  2. Anti-pattern detection identifies: Bash-for-file-ops, correction loops (3+ edits same file without Read), kitchen-sink sessions, infinite exploration (high Read:Edit ratio)
+  3. Recommendations reference official Anthropic best practices with actionable tips (e.g., "Use Grep instead of Bash grep")
+  4. New badge system: Context Master, Zero Error, Planner, Parallel Pro, Speed Demon, Researcher
+  5. Trend tracking shows session-over-session improvement for key metrics
+  6. Recommendation categories: praise (green), tip (blue), warning (orange), anti-pattern (red), achievement (gold)
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 7 to break down)
+
+### Phase 8: Project Configuration Audit
+
+**Goal:** Add a one-click folder audit that runs a specialized prompt against Claude Code project files (CLAUDE.md, skills, agents, orchestrators) to evaluate maintenance quality, best-practice conformance, and improvement potential — with the audit prompt living as an iterable, versionable file
+**Depends on:** Phase 5 (network access for remote browser)
+**Requirements**: AUD-01, AUD-02, AUD-03
+**Success Criteria** (what must be TRUE):
+  1. Button in UI triggers analysis of a selected/current Claude project folder
+  2. Specialized audit prompt evaluates: CLAUDE.md quality, skill definitions, agent configurations, orchestrator patterns, subagent usage
+  3. Results show per-file quality scores and an overall improvement potential percentage
+  4. Audit prompt lives as a standalone file that can be iterated and improved independently
+  5. Concrete recommendations for each file (what to fix, what's missing, what's outdated)
+  6. Works in both Electron app and remote browser
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 8 to break down)
+
 ---
 *Roadmap created: 2026-02-24*
-*Last updated: 2026-02-27 after Phase 6 completion (all phases complete)*
+*Last updated: 2026-02-28 after Phase 8 addition*
