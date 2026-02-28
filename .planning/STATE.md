@@ -5,20 +5,21 @@
 See: .planning/PROJECT.md (updated 2026-02-24)
 
 **Core value:** Never lose track of which terminal needs attention — instant visibility into the status of every running Claude instance, with alerts that pull you back when action is needed.
-**Current focus:** Phase 6 - Session Log Analysis
+**Current focus:** Phase 7 - Advanced Recommendations Engine
 
 ## Current Position
 
-Phase: 6 of 6 (Session Log Analysis)
-Plan: 2 of 2 in current phase
-Status: Complete
-Last activity: 2026-02-27 — Phase 6 Plan 2 complete (Frontend Analysis UI)
+Phase: 7 of 7 (Advanced Recommendations Engine)
+Plan: 0 of 0 in current phase
+Status: Not planned
+Last activity: 2026-02-27 — Phase 7 added based on extensive best-practices research
 
 Progress: [██████████] 100%
 
 ### Roadmap Evolution
 
 - Phase 6 added: Session Log Analysis — on-demand Claude CLI analysis of terminal logs for optimization recommendations
+- Phase 7 added: Advanced Recommendations Engine — research-backed best practices, expanded JSONL parsing, anti-pattern detection, achievement badges, trend tracking
 
 ## Performance Metrics
 
