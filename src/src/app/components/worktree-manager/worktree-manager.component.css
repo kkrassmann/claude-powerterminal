@@ -1,0 +1,306 @@
+/**
+ * Worktree Manager styles — Catppuccin Mocha theme.
+ * Consistent with session-create and dashboard styling patterns.
+ */
+
+.worktree-panel {
+  background: #1e1e2e;
+  border: 1px solid #313244;
+  border-radius: 4px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.panel-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: #cdd6f4;
+}
+
+.panel-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.refresh-btn {
+  background: transparent;
+  border: 1px solid #313244;
+  color: #a6adc8;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 4px;
+  transition: background-color 0.15s ease;
+  line-height: 1;
+}
+
+.refresh-btn:hover:not(:disabled) {
+  background: #313244;
+  color: #cdd6f4;
+}
+
+.refresh-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.create-btn {
+  padding: 4px 10px;
+  background: #89b4fa;
+  color: #1e1e2e;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.create-btn:hover {
+  background: #b4d0fb;
+}
+
+/* Create form */
+.create-form {
+  background: #181825;
+  border: 1px solid #313244;
+  border-radius: 4px;
+  padding: 10px;
+}
+
+.form-row {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.form-input {
+  flex: 1;
+  padding: 6px 8px;
+  background: #313244;
+  border: 1px solid #45475a;
+  border-radius: 4px;
+  color: #cdd6f4;
+  font-size: 12px;
+  font-family: 'Cascadia Code', Consolas, monospace;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #89b4fa;
+}
+
+.form-input-secondary {
+  flex: 0.8;
+}
+
+/* Action buttons */
+.action-btn {
+  padding: 4px 10px;
+  border: 1px solid #45475a;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+
+.action-btn-primary {
+  background: #89b4fa;
+  color: #1e1e2e;
+  border-color: #89b4fa;
+  font-weight: 600;
+}
+
+.action-btn-primary:hover:not(:disabled) {
+  background: #b4d0fb;
+}
+
+.action-btn-primary:disabled {
+  background: #45475a;
+  color: #6c7086;
+  border-color: #45475a;
+  cursor: not-allowed;
+}
+
+.action-btn-open {
+  background: transparent;
+  color: #a6e3a1;
+  border-color: #a6e3a1;
+}
+
+.action-btn-open:hover {
+  background: rgba(166, 227, 161, 0.1);
+}
+
+.action-btn-danger {
+  background: transparent;
+  color: #f38ba8;
+  border-color: #f38ba8;
+}
+
+.action-btn-danger:hover {
+  background: rgba(243, 139, 168, 0.1);
+}
+
+/* Error message */
+.error-message {
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  background: rgba(243, 139, 168, 0.15);
+  color: #f38ba8;
+  border: 1px solid rgba(243, 139, 168, 0.3);
+}
+
+/* Loading */
+.loading {
+  color: #6c7086;
+  font-size: 12px;
+  padding: 8px 0;
+  text-align: center;
+}
+
+/* Worktree list */
+.worktree-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.worktree-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 10px;
+  background: #181825;
+  border: 1px solid #313244;
+  border-radius: 4px;
+  gap: 12px;
+  transition: border-color 0.15s ease;
+}
+
+.worktree-row:hover {
+  border-color: #45475a;
+}
+
+.worktree-row.is-main {
+  border-left: 3px solid #89b4fa;
+}
+
+.worktree-row.has-session {
+  border-left: 3px solid #a6e3a1;
+}
+
+.worktree-row.is-main.has-session {
+  border-left: 3px solid #a6e3a1;
+}
+
+.wt-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1;
+}
+
+.wt-branch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.branch-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: #cdd6f4;
+  font-family: 'Cascadia Code', Consolas, monospace;
+}
+
+.wt-badge {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  background: rgba(137, 180, 250, 0.2);
+  color: #89b4fa;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.session-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #a6e3a1;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.wt-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.wt-commit {
+  font-size: 11px;
+  font-family: 'Cascadia Code', Consolas, monospace;
+  color: #f9e2af;
+  background: rgba(249, 226, 175, 0.1);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+.wt-path {
+  font-size: 11px;
+  color: #6c7086;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.wt-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* Empty state */
+.empty-state {
+  color: #6c7086;
+  font-size: 12px;
+  padding: 8px 0;
+  text-align: center;
+}
+
+/* Mobile */
+@media (max-width: 600px) {
+  .worktree-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .wt-actions {
+    align-self: flex-end;
+  }
+
+  .form-row {
+    flex-direction: column;
+  }
+
+  .form-input-secondary {
+    flex: 1;
+  }
+}

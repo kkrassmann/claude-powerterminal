@@ -9,11 +9,20 @@
     <button class="analysis-btn" (click)="showAnalysis = !showAnalysis" [class.active]="showAnalysis" title="Toggle analysis panel">
       Analysis
     </button>
+    <button class="worktree-toggle-btn" [class.active]="showWorktreePanel" (click)="toggleWorktreePanel()" title="Git Worktree Manager">
+      Worktrees
+    </button>
     <span class="lan-url" *ngIf="lanUrl">{{ lanUrl }}</span>
     <app-session-create></app-session-create>
   </header>
 
   <app-analysis-panel *ngIf="showAnalysis" [sessionPaths]="activeSessionPaths"></app-analysis-panel>
+
+  <app-worktree-manager
+    *ngIf="showWorktreePanel"
+    [repoPath]="worktreeRepoPath"
+    (openSession)="onWorktreeOpenSession($event)">
+  </app-worktree-manager>
 
   <app-dashboard
     [pendingSessions]="pendingSessions"

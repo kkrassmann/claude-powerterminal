@@ -48,6 +48,11 @@ export const IPC_CHANNELS = {
   TEMPLATE_LIST: 'template:list',
   TEMPLATE_SAVE: 'template:save',
   TEMPLATE_DELETE: 'template:delete',
+
+  // Git worktree channels
+  WORKTREE_LIST: 'worktree:list',
+  WORKTREE_CREATE: 'worktree:create',
+  WORKTREE_DELETE: 'worktree:delete',
 } as const;
 
 export type IPCChannel = typeof IPC_CHANNELS[keyof typeof IPC_CHANNELS];

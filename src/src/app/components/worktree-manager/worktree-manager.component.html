@@ -1,0 +1,94 @@
+<div class="worktree-panel">
+  <div class="panel-header">
+    <h3>Worktrees</h3>
+    <div class="panel-actions">
+      <button class="refresh-btn" (click)="refresh()" title="Refresh" [disabled]="loading">
+        &#x21bb;
+      </button>
+      <button class="create-btn" (click)="showCreateForm = !showCreateForm">
+        {{ showCreateForm ? 'Cancel' : '+ New Worktree' }}
+      </button>
+    </div>
+  </div>
+
+  <!-- Create form -->
+  <div class="create-form" *ngIf="showCreateForm">
+    <div class="form-row">
+      <input
+        type="text"
+        class="form-input"
+        [(ngModel)]="newBranchName"
+        placeholder="Branch name"
+        (keydown.enter)="createWorktree()"
+      />
+      <input
+        type="text"
+        class="form-input form-input-secondary"
+        [(ngModel)]="newBaseBranch"
+        placeholder="Base branch (optional)"
+        (keydown.enter)="createWorktree()"
+      />
+      <button
+        class="action-btn action-btn-primary"
+        (click)="createWorktree()"
+        [disabled]="creating || !newBranchName.trim()">
+        {{ creating ? 'Creating...' : 'Create' }}
+      </button>
+    </div>
+  </div>
+
+  <!-- Error message -->
+  <div class="error-message" *ngIf="errorMessage">
+    {{ errorMessage }}
+  </div>
+
+  <!-- Loading indicator -->
+  <div class="loading" *ngIf="loading && worktrees.length === 0">
+    Loading worktrees...
+  </div>
+
+  <!-- Worktree list -->
+  <div class="worktree-list" *ngIf="worktrees.length > 0">
+    <div
+      class="worktree-row"
+      *ngFor="let wt of worktrees"
+      [class.is-main]="wt.isMain"
+      [class.has-session]="wt.hasSession">
+      <div class="wt-info">
+        <div class="wt-branch">
+          <span class="branch-name">{{ wt.branch }}</span>
+          <span class="wt-badge" *ngIf="wt.isMain">main</span>
+          <span class="session-indicator" *ngIf="wt.hasSession" title="Active session"></span>
+        </div>
+        <div class="wt-meta">
+          <code class="wt-commit">{{ wt.commit }}</code>
+          <span class="wt-path" [title]="wt.path">{{ shortenPath(wt.path) }}</span>
+        </div>
+      </div>
+      <div class="wt-actions">
+        <button
+          class="action-btn action-btn-open"
+          (click)="onOpenSession(wt)"
+          title="Open a new session in this worktree">
+          Open Session
+        </button>
+        <button
+          class="action-btn action-btn-danger"
+          *ngIf="!wt.isMain"
+          (click)="deleteWorktree(wt)"
+          title="Remove this worktree">
+          Delete
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Empty state -->
+  <div class="empty-state" *ngIf="!loading && worktrees.length === 0 && !errorMessage && repoPath">
+    No worktrees found. The directory may not be a Git repository.
+  </div>
+
+  <div class="empty-state" *ngIf="!repoPath">
+    Select a session to view its worktrees.
+  </div>
+</div>
