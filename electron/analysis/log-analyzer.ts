@@ -606,7 +606,7 @@ export function computeRecommendations(
     recommendations.push({
       severity: 'tip',
       title: 'Subagents nicht genutzt.',
-      description: 'Das Task-Tool wird nicht eingesetzt. Subagents koennen parallele Arbeit beschleunigen.',
+      description: 'Kein Subagent-Einsatz erkannt. Fuer Recherchen mit 3+ Datei-Lesevorgaengen lohnt sich eine CLAUDE.md-Regel: "Nutze Subagenten fuer explorative Aufgaben, um das Hauptkontextfenster schlank zu halten."',
     });
   }
 
@@ -614,8 +614,8 @@ export function computeRecommendations(
   if (bashPct > 20 && nativeSearchCount < bashSearchCount) {
     recommendations.push({
       severity: 'warning',
-      title: 'Bash fuer Datei-Suche.',
-      description: 'Bash wird haeufig statt Grep/Glob verwendet. Native Tools sind praeziser und schneller.',
+      title: 'Hoher Bash-Anteil bei Datei-Operationen.',
+      description: 'Bash wird haeufig fuer Suchen/Lesen genutzt statt dedizierter Tools. Jeder Bash-Output fuellt das Kontextfenster. CLAUDE.md-Tipp: "Fuer Recherche-Aufgaben mit mehreren Dateien nutze Subagenten statt Bash-Ketten im Hauptkontext."',
       metric: `Bash: ${bashPct.toFixed(1)}%, Grep+Glob: ${toolGroupPct(['Grep', 'Glob']).toFixed(1)}%`,
     });
   }
@@ -624,7 +624,7 @@ export function computeRecommendations(
     recommendations.push({
       severity: 'warning',
       title: 'Hohe Fehlerrate.',
-      description: 'Mehr als 10% der Interaktionen fuehren zu Fehlern. Ursachen pruefen.',
+      description: 'Mehr als 10% der Interaktionen fuehren zu Fehlern. Pruefen ob Berechtigungen, fehlende Dependencies oder falsche Pfade die Ursache sind.',
       metric: `Fehlerrate: ${errorRate.toFixed(1)}%`,
     });
   }
@@ -633,7 +633,7 @@ export function computeRecommendations(
     recommendations.push({
       severity: 'tip',
       title: 'Keine Slash-Commands.',
-      description: 'Skills und Slash-Commands werden nicht genutzt. Diese koennen Workflows beschleunigen.',
+      description: 'Keine Custom-Skills erkannt. Wiederkehrende Ablaeufe (Commit, Review, Deploy) als Slash-Commands definieren spart Kontext und reduziert Prompt-Laenge.',
     });
   }
 
@@ -641,7 +641,7 @@ export function computeRecommendations(
     recommendations.push({
       severity: 'warning',
       title: 'Wenig Read vor Write.',
-      description: 'Files werden haeufig geschrieben/editiert ohne vorheriges Lesen — Risiko fuer Kontextverlust.',
+      description: 'Dateien werden haeufig editiert ohne vorheriges Lesen. Das fuehrt zu Correction-Loops. CLAUDE.md-Tipp: "Lies immer den aktuellen Dateistand bevor du editierst."',
       metric: `Read: ${readPct.toFixed(1)}%, Write+Edit: ${(writePct + editPct).toFixed(1)}%`,
     });
   }
@@ -650,7 +650,7 @@ export function computeRecommendations(
     recommendations.push({
       severity: 'warning',
       title: 'Sehr lange Sessions.',
-      description: 'Sessions mit ueber 500 Nachrichten — kuerzere Sessions verbessern Fokus und Cache-Effizienz.',
+      description: 'Sessions mit 500+ Nachrichten verlieren Cache-Effizienz durch Komprimierung. Aufgaben in kuerzere Sessions aufteilen — /clear zwischen logischen Bloecken nutzen.',
       metric: `Laengste Session: ${stats.maxMessagesInSession} Nachrichten`,
     });
   }
@@ -660,26 +660,26 @@ export function computeRecommendations(
     if (ap.pattern === 'bash-for-file-ops') {
       recommendations.push({
         severity: 'anti-pattern',
-        title: 'Bash statt nativer File-Tools.',
-        description: `Verwende Grep/Glob/Read statt Bash-Datei-Operationen — schneller und zeigt Ergebnisse direkt in der UI. Turn ${ap.turn}: ${ap.detail}`,
+        title: 'Bash-Kette statt Subagent.',
+        description: `Bash-Dateioperationen fuellen das Kontextfenster. Fuer solche Recherchen Subagenten delegieren oder CLAUDE.md-Regel ergaenzen: "Explorative Suchen als Subagent ausfuehren." Turn ${ap.turn}: ${ap.detail}`,
       });
     } else if (ap.pattern === 'correction-loop') {
       recommendations.push({
         severity: 'anti-pattern',
         title: 'Correction-Loop erkannt.',
-        description: `Mehrfache Edits ohne Read zwischendurch — lies die Datei vor weiteren Aenderungen. ${ap.detail}`,
+        description: `Datei wird mehrfach editiert ohne zwischendurch den aktuellen Stand zu lesen. CLAUDE.md-Regel hilft: "Lies den aktuellen Dateistand vor jeder Aenderung." ${ap.detail}`,
       });
     } else if (ap.pattern === 'kitchen-sink') {
       recommendations.push({
         severity: 'anti-pattern',
         title: 'Kitchen-Sink-Session.',
-        description: `${ap.detail} — fokussiere auf kleinere, klar abgegrenzte Aufgaben pro Session.`,
+        description: `${ap.detail} — zu viele verschiedene Aufgaben in einer Session reduzieren Cache-Effizienz. Pro Session ein klares Ziel setzen, dann /clear.`,
       });
     } else if (ap.pattern === 'infinite-exploration') {
       recommendations.push({
         severity: 'anti-pattern',
-        title: 'Infinite-Exploration.',
-        description: `${ap.detail} — setze klare Outputs bevor du weiter erkundest.`,
+        title: 'Endlose Exploration.',
+        description: `${ap.detail} — Recherche ohne Output verschwendet Kontext. Exploration an Subagenten delegieren oder vorher Scope festlegen: "Finde X und fasse in 3 Saetzen zusammen."`,
       });
     }
   }
