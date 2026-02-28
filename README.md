@@ -2,15 +2,7 @@
 
 A desktop dashboard for running and monitoring multiple [Claude CLI](https://docs.anthropic.com/en/docs/claude-code) sessions simultaneously. Built with Electron and Angular.
 
-```
- +-----------+  +-----------+  +-----------+
- | main [M]  |  | feature   |  | refactor  |
- | WORKING   |  | WAITING   |  | THINKING  |
- |           |  |  (glow)   |  |           |
- | > fixing  |  | > approve |  | ...       |
- |   the bug |  |   changes?|  |           |
- +-----------+  +-----------+  +-----------+
-```
+<img width="1252" height="848" alt="image" src="https://github.com/user-attachments/assets/c211fc62-dc92-4abb-87a3-dc5e4307e46b" />
 
 Run 6-10+ Claude instances in a tiled grid. Each tile shows live terminal output, Git branch, file changes, and a real-time status indicator. Audio alerts notify you when any session needs attention &mdash; so you can context-switch only when it matters.
 
@@ -20,13 +12,21 @@ Run 6-10+ Claude instances in a tiled grid. Each tile shows live terminal output
 
 **Intelligent Status Detection** &mdash; A state machine analyzes PTY output in real-time to classify each session as WORKING, THINKING, WAITING, ERROR, or DONE. Uses a combination of prompt pattern matching, content hashing, and idle timeout heuristics.
 
+<img width="123" height="76" alt="image" src="https://github.com/user-attachments/assets/7053d247-b57e-4a0a-8326-ce2b1f788d37" />
+<img width="93" height="66" alt="image" src="https://github.com/user-attachments/assets/d8d8176d-e02a-4011-b7f7-acc6d887de52" />
+
+
 **Audio & Visual Alerts** &mdash; Synthesized notification sounds (Web Audio API, no external files) fire when a session needs input or encounters an error. Tiles glow to draw your eye. Alerts are debounced and priority-ranked to avoid noise.
 
 **Session Persistence** &mdash; Sessions survive app restarts. On launch, Claude PowerTerminal attempts `--resume` for each saved session to preserve conversation history, falling back to a fresh `--session-id` start.
 
 **LAN Access** &mdash; The dashboard is accessible from any device on your local network. Open `http://<your-ip>:9801` on your phone or tablet to monitor and create sessions remotely.
 
+![Screenshot_20260228_183851_Chrome](https://github.com/user-attachments/assets/0263331b-7e11-4fd3-b2fd-c7ab4b4fddb1)
+
 **Git Context** &mdash; Each tile header shows the current Git branch, plus added/modified/deleted file counts. Updated every 30 seconds.
+
+<img width="274" height="49" alt="image" src="https://github.com/user-attachments/assets/7dd3c4db-7e9f-457c-bac9-3fe75e20823b" />
 
 **Terminal Emulation** &mdash; Full xterm.js with WebGL rendering, 10,000-line scrollback, Catppuccin Mocha theme, and auto-fit to container size.
 
