@@ -15,6 +15,8 @@ import * as os from 'os';
 import {
   SessionAnalysis,
   SessionPracticeScore,
+  SessionScoreDetail,
+  AntiPatternOccurrence,
   AnalysisOverview,
   ToolUsageStat,
   SkillUsageStat,
@@ -27,10 +29,22 @@ import {
 const MAX_JSONL_FILES = 50;
 const MAX_LINES_PER_FILE = 20_000;
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const MAX_TOOL_CALL_SEQUENCE = 2000;
 
 // ── Cache ───────────────────────────────────────────────────────────────
 let cachedResult: SessionAnalysis | null = null;
 let cachedAt = 0;
+
+// ── Internal types ───────────────────────────────────────────────────────
+
+/** Internal representation of a single tool call in sequence order. */
+interface ToolCallEvent {
+  turnIndex: number;
+  toolName: string;
+  targetFile?: string;
+  bashCommand?: string;
+  isError: boolean;
+}
 
 // ── Internal accumulator ────────────────────────────────────────────────
 interface ParsedStats {
@@ -47,6 +61,16 @@ interface ParsedStats {
   earliestDate: string;
   latestDate: string;
   maxMessagesInSession: number;
+  // Phase 7: new fields
+  turnDurations: number[];
+  compactBoundaryCount: number;
+  modelUsed: string | null;
+  sidechainMessages: number;
+  toolCallSequence: ToolCallEvent[];
+  apiErrorCount: number;
+  serverToolUseCount: number;
+  cacheCreationTokens: number;
+  cacheReadTokens: number;
 }
 
 function emptyStats(): ParsedStats {
@@ -64,6 +88,16 @@ function emptyStats(): ParsedStats {
     earliestDate: '',
     latestDate: '',
     maxMessagesInSession: 0,
+    // Phase 7 fields
+    turnDurations: [],
+    compactBoundaryCount: 0,
+    modelUsed: null,
+    sidechainMessages: 0,
+    toolCallSequence: [],
+    apiErrorCount: 0,
+    serverToolUseCount: 0,
+    cacheCreationTokens: 0,
+    cacheReadTokens: 0,
   };
 }
 
@@ -128,7 +162,9 @@ export function discoverSessionFiles(claudeHome?: string): string[] {
 
 /**
  * Parse a single JSONL file line-by-line.
- * Extracts tool_use blocks, token usage, skill detection, error detection.
+ * Extracts tool_use blocks, token usage, skill detection, error detection,
+ * and Phase 7 fields: turn_duration, compact_boundary, model, isSidechain,
+ * api_error, server_tool_use, cache tiers, tool call sequence.
  */
 export async function parseJsonlFile(filePath: string, stats: ParsedStats): Promise<number> {
   return new Promise((resolve, reject) => {
@@ -165,6 +201,37 @@ export async function parseJsonlFile(filePath: string, stats: ParsedStats): Prom
         if (!stats.latestDate || ts > stats.latestDate) stats.latestDate = ts;
       }
 
+      // Phase 7: system record extraction (turn_duration, compact_boundary)
+      if (parsed.type === 'system') {
+        if (parsed.subtype === 'turn_duration' && typeof parsed.durationMs === 'number') {
+          stats.turnDurations.push(parsed.durationMs);
+        }
+        if (parsed.subtype === 'compact_boundary') {
+          stats.compactBoundaryCount++;
+        }
+      }
+
+      // Phase 7: api_error detection
+      if (parsed.type === 'api_error' || (parsed.type === 'assistant' && parsed.error)) {
+        stats.apiErrorCount++;
+      }
+
+      // Phase 7: model tracking (last seen model)
+      if (parsed.type === 'assistant' && parsed.message?.model) {
+        stats.modelUsed = parsed.message.model;
+      }
+
+      // Phase 7: cache token tiers from assistant messages
+      if (parsed.type === 'assistant' && parsed.message?.usage) {
+        stats.cacheCreationTokens += parsed.message.usage.cache_creation_input_tokens ?? 0;
+        stats.cacheReadTokens += parsed.message.usage.cache_read_input_tokens ?? 0;
+      }
+
+      // Phase 7: isSidechain tracking
+      if ((parsed.type === 'assistant' || parsed.type === 'user') && parsed.isSidechain) {
+        stats.sidechainMessages++;
+      }
+
       // Detect tool_use blocks
       if (parsed.type === 'assistant' && Array.isArray(parsed.message?.content)) {
         for (const block of parsed.message.content) {
@@ -172,6 +239,27 @@ export async function parseJsonlFile(filePath: string, stats: ParsedStats): Prom
             stats.totalToolCalls++;
             const current = stats.toolCounts.get(block.name) || 0;
             stats.toolCounts.set(block.name, current + 1);
+
+            // Phase 7: build tool call sequence for anti-pattern detection (capped)
+            if (stats.toolCallSequence.length < MAX_TOOL_CALL_SEQUENCE) {
+              const event: ToolCallEvent = {
+                turnIndex: stats.totalToolCalls,
+                toolName: block.name,
+                isError: false,
+              };
+              if (block.name === 'Bash' && block.input?.command) {
+                event.bashCommand = block.input.command;
+              }
+              if ((block.name === 'Read' || block.name === 'Edit' || block.name === 'Write') && block.input?.file_path) {
+                event.targetFile = block.input.file_path;
+              }
+              stats.toolCallSequence.push(event);
+            }
+          }
+
+          // Phase 7: server_tool_use counting
+          if (block.type === 'server_tool_use') {
+            stats.serverToolUseCount++;
           }
         }
       }
@@ -228,28 +316,50 @@ export async function parseJsonlFile(filePath: string, stats: ParsedStats): Prom
 
 // ── Stats cache reader ──────────────────────────────────────────────────
 
-interface StatsCacheEntry {
-  model?: string;
-  date?: string;
-  totalInputTokens?: number;
-  totalOutputTokens?: number;
+/** Real v2 schema of ~/.claude/stats-cache.json */
+interface StatsCacheData {
+  version: 2;
+  lastComputedDate: string;
+  dailyActivity: Array<{
+    date: string;
+    messageCount: number;
+    sessionCount: number;
+    toolCallCount: number;
+  }>;
+  dailyModelTokens: Array<{
+    date: string;
+    tokensByModel: Record<string, number>;
+  }>;
+  modelUsage: Record<string, {
+    inputTokens: number;
+    outputTokens: number;
+    cacheReadInputTokens: number;
+    cacheCreationInputTokens: number;
+    webSearchRequests: number;
+    costUSD: number;
+  }>;
+  totalSessions: number;
+  totalMessages: number;
+  longestSession: { sessionId: string; duration: number; messageCount: number; timestamp: string };
+  firstSessionDate: string;
+  hourCounts: Record<string, number>;
+  totalSpeculationTimeSavedMs: number;
 }
 
 /**
  * Read stats-cache.json for daily/model statistics.
+ * Parses the real v2 schema; returns null if absent or malformed.
  */
-export function readStatsCache(claudeHome?: string): StatsCacheEntry[] {
+export function readStatsCache(claudeHome?: string): StatsCacheData | null {
   const home = claudeHome ?? getClaudeHome();
-  const statsPath = path.join(home, 'stats-cache.json');
-
+  const cachePath = path.join(home, 'stats-cache.json');
   try {
-    if (!fs.existsSync(statsPath)) return [];
-    const data = fs.readFileSync(statsPath, 'utf-8');
-    const parsed = JSON.parse(data);
-    if (Array.isArray(parsed)) return parsed;
-    return [];
+    if (!fs.existsSync(cachePath)) return null;
+    const raw = JSON.parse(fs.readFileSync(cachePath, 'utf-8'));
+    if (raw.version === 2 && raw.modelUsage) return raw as StatsCacheData;
+    return null;
   } catch {
-    return [];
+    return null;
   }
 }
 
@@ -302,6 +412,76 @@ export async function parseHistory(claudeHome?: string): Promise<Map<string, num
   });
 }
 
+// ── Anti-pattern detection ──────────────────────────────────────────────
+
+/**
+ * Detect workflow anti-patterns from ordered tool call sequence.
+ * Returns array of occurrences with concrete turn references.
+ */
+export function detectAntiPatterns(
+  sequence: ToolCallEvent[],
+  totalToolCalls: number,
+  toolCounts: Map<string, number>
+): AntiPatternOccurrence[] {
+  const occurrences: AntiPatternOccurrence[] = [];
+
+  // 1. Bash-for-file-ops: Bash command contains grep/find/rg/cat/head/tail/sed/awk
+  const bashFileOpsPattern = /\b(grep\b|find\s|rg\s|cat\s|head\s|tail\s|sed\s|awk\s)/i;
+  for (const event of sequence) {
+    if (event.toolName === 'Bash' && event.bashCommand && bashFileOpsPattern.test(event.bashCommand)) {
+      occurrences.push({
+        pattern: 'bash-for-file-ops',
+        turn: event.turnIndex,
+        detail: `Bash file-op: "${event.bashCommand.slice(0, 80)}"`,
+      });
+    }
+  }
+
+  // 2. Correction loops: 4+ edits on same file without intervening Read
+  const fileEditHistory: Record<string, { editCount: number; lastReadTurn: number }> = {};
+  for (const event of sequence) {
+    if ((event.toolName === 'Edit' || event.toolName === 'Write') && event.targetFile) {
+      const h = fileEditHistory[event.targetFile] ?? { editCount: 0, lastReadTurn: -1 };
+      h.editCount++;
+      fileEditHistory[event.targetFile] = h;
+      if (h.editCount >= 4 && event.turnIndex - h.lastReadTurn > 3) {
+        occurrences.push({
+          pattern: 'correction-loop',
+          turn: event.turnIndex,
+          detail: `${h.editCount} Edits auf ${event.targetFile} ohne Read dazwischen`,
+        });
+        h.editCount = 0; // Reset to avoid duplicate reporting
+      }
+    }
+    if (event.toolName === 'Read' && event.targetFile && fileEditHistory[event.targetFile]) {
+      fileEditHistory[event.targetFile].lastReadTurn = event.turnIndex;
+      fileEditHistory[event.targetFile].editCount = 0;
+    }
+  }
+
+  // 3. Kitchen-sink: >200 total tool calls AND >5 distinct tool types
+  if (totalToolCalls > 200 && toolCounts.size > 5) {
+    occurrences.push({
+      pattern: 'kitchen-sink',
+      turn: 0,
+      detail: `${totalToolCalls} Tool-Calls über ${toolCounts.size} Tool-Typen — Session zu breit gefächert`,
+    });
+  }
+
+  // 4. Infinite exploration: Read:Edit ratio >10:1 with >50 reads
+  const readCount = toolCounts.get('Read') ?? 0;
+  const editCount = (toolCounts.get('Edit') ?? 0) + (toolCounts.get('Write') ?? 0);
+  if (readCount > 50 && editCount > 0 && readCount / editCount > 10) {
+    occurrences.push({
+      pattern: 'infinite-exploration',
+      turn: 0,
+      detail: `Read:Edit Verhältnis ${readCount}:${editCount} — zu viel Erkundung, zu wenig Output`,
+    });
+  }
+
+  return occurrences;
+}
+
 // ── Recommendation engine ───────────────────────────────────────────────
 
 // Bash commands that indicate file-search workaround
@@ -309,9 +489,12 @@ const BASH_SEARCH_PATTERNS = ['grep', 'find', 'rg', 'cat', 'head', 'tail', 'sed'
 
 /**
  * Compute recommendations based on aggregated stats.
- * Produces both praise (severity='praise') and improvement rules.
+ * Produces praise, tip, warning, and anti-pattern severity items.
  */
-export function computeRecommendations(stats: ParsedStats): Recommendation[] {
+export function computeRecommendations(
+  stats: ParsedStats,
+  antiPatterns: AntiPatternOccurrence[] = []
+): Recommendation[] {
   const recommendations: Recommendation[] = [];
   const totalTools = stats.totalToolCalls || 1; // Prevent division by zero
 
@@ -421,7 +604,7 @@ export function computeRecommendations(stats: ParsedStats): Recommendation[] {
 
   if (!stats.toolCounts.has('Task') && stats.totalToolCalls > 10) {
     recommendations.push({
-      severity: 'info',
+      severity: 'tip',
       title: 'Subagents nicht genutzt.',
       description: 'Das Task-Tool wird nicht eingesetzt. Subagents koennen parallele Arbeit beschleunigen.',
     });
@@ -448,7 +631,7 @@ export function computeRecommendations(stats: ParsedStats): Recommendation[] {
 
   if (stats.skillCounts.size === 0 && stats.totalMessages > 20) {
     recommendations.push({
-      severity: 'info',
+      severity: 'tip',
       title: 'Keine Slash-Commands.',
       description: 'Skills und Slash-Commands werden nicht genutzt. Diese koennen Workflows beschleunigen.',
     });
@@ -472,15 +655,45 @@ export function computeRecommendations(stats: ParsedStats): Recommendation[] {
     });
   }
 
+  // ── Anti-pattern recommendations ──
+  for (const ap of antiPatterns) {
+    if (ap.pattern === 'bash-for-file-ops') {
+      recommendations.push({
+        severity: 'anti-pattern',
+        title: 'Bash statt nativer File-Tools.',
+        description: `Verwende Grep/Glob/Read statt Bash-Datei-Operationen — schneller und zeigt Ergebnisse direkt in der UI. Turn ${ap.turn}: ${ap.detail}`,
+      });
+    } else if (ap.pattern === 'correction-loop') {
+      recommendations.push({
+        severity: 'anti-pattern',
+        title: 'Correction-Loop erkannt.',
+        description: `Mehrfache Edits ohne Read zwischendurch — lies die Datei vor weiteren Aenderungen. ${ap.detail}`,
+      });
+    } else if (ap.pattern === 'kitchen-sink') {
+      recommendations.push({
+        severity: 'anti-pattern',
+        title: 'Kitchen-Sink-Session.',
+        description: `${ap.detail} — fokussiere auf kleinere, klar abgegrenzte Aufgaben pro Session.`,
+      });
+    } else if (ap.pattern === 'infinite-exploration') {
+      recommendations.push({
+        severity: 'anti-pattern',
+        title: 'Infinite-Exploration.',
+        description: `${ap.detail} — setze klare Outputs bevor du weiter erkundest.`,
+      });
+    }
+  }
+
   return recommendations;
 }
 
 // ── Session scoring ─────────────────────────────────────────────────────
 
 /**
- * Compute a per-session 0-100 practice score with badges.
+ * Compute a per-session 0-100 practice score with badges and full detail.
+ * Returns SessionScoreDetail including anti-pattern detection, sub-scores, and new fields.
  */
-export async function computeSessionScore(sessionPath: string): Promise<SessionPracticeScore> {
+export async function computeSessionScore(sessionPath: string): Promise<SessionScoreDetail> {
   const sessionId = path.basename(sessionPath, '.jsonl');
   const stats = emptyStats();
 
@@ -493,12 +706,50 @@ export async function computeSessionScore(sessionPath: string): Promise<SessionP
     if (found) {
       fullPath = found;
     } else {
-      return { sessionId, score: 0, badges: [], highlights: ['Session not found'] };
+      return {
+        sessionId,
+        score: 0,
+        badges: [],
+        highlights: ['Session not found'],
+        toolNativenessScore: 0,
+        subagentScore: 0,
+        readBeforeWriteScore: 0,
+        contextEfficiencyScore: 0,
+        errorScore: 0,
+        antiPatterns: [],
+        recommendations: [],
+        avgTurnDurationMs: 0,
+        compactBoundaryCount: 0,
+        modelUsed: null,
+        apiErrorCount: 0,
+        serverToolUseCount: 0,
+        cacheCreationTokens: 0,
+        cacheReadTokens: 0,
+      };
     }
   }
 
   if (!fs.existsSync(fullPath)) {
-    return { sessionId, score: 0, badges: [], highlights: ['Session file not found'] };
+    return {
+      sessionId,
+      score: 0,
+      badges: [],
+      highlights: ['Session file not found'],
+      toolNativenessScore: 0,
+      subagentScore: 0,
+      readBeforeWriteScore: 0,
+      contextEfficiencyScore: 0,
+      errorScore: 0,
+      antiPatterns: [],
+      recommendations: [],
+      avgTurnDurationMs: 0,
+      compactBoundaryCount: 0,
+      modelUsed: null,
+      apiErrorCount: 0,
+      serverToolUseCount: 0,
+      cacheCreationTokens: 0,
+      cacheReadTokens: 0,
+    };
   }
 
   await parseJsonlFile(fullPath, stats);
@@ -536,7 +787,7 @@ export async function computeSessionScore(sessionPath: string): Promise<SessionP
   const readBeforeWriteScore = Math.min(100, readWriteRatio * 200); // 50% ratio → 100 score
 
   // Context-Effizienz: 20% (Cache-hit ratio)
-  const contextScore = Math.min(100, cacheHitRatio * 1.18); // 85% → 100 score
+  const contextEfficiencyScore = Math.min(100, cacheHitRatio * 1.18); // 85% → 100 score
 
   // Error-Rate: 15% (inverse error rate)
   const errorScore = Math.max(0, 100 - errorRate * 10); // 10% error → 0 score
@@ -546,9 +797,15 @@ export async function computeSessionScore(sessionPath: string): Promise<SessionP
     toolNativenessScore * 0.25 +
     subagentScore * 0.20 +
     readBeforeWriteScore * 0.20 +
-    contextScore * 0.20 +
+    contextEfficiencyScore * 0.20 +
     errorScore * 0.15
   );
+
+  // ── Anti-pattern detection ──
+  const antiPatterns = detectAntiPatterns(stats.toolCallSequence, stats.totalToolCalls, stats.toolCounts);
+
+  // ── Recommendations (includes anti-pattern recommendations) ──
+  const recommendations = computeRecommendations(stats, antiPatterns);
 
   // ── Badges ──
   const badges: string[] = [];
@@ -565,7 +822,31 @@ export async function computeSessionScore(sessionPath: string): Promise<SessionP
   if (badges.length > 0) highlights.push(`Badges earned: ${badges.join(', ')}`);
   if (stats.totalToolCalls > 0) highlights.push(`${stats.totalToolCalls} tool calls across session`);
 
-  return { sessionId, score: Math.min(100, Math.max(0, score)), badges, highlights };
+  // ── Phase 7 new fields ──
+  const avgTurnDurationMs = stats.turnDurations.length > 0
+    ? Math.round(stats.turnDurations.reduce((a, b) => a + b, 0) / stats.turnDurations.length)
+    : 0;
+
+  return {
+    sessionId,
+    score: Math.min(100, Math.max(0, score)),
+    badges,
+    highlights,
+    toolNativenessScore,
+    subagentScore,
+    readBeforeWriteScore,
+    contextEfficiencyScore,
+    errorScore,
+    antiPatterns,
+    recommendations,
+    avgTurnDurationMs,
+    compactBoundaryCount: stats.compactBoundaryCount,
+    modelUsed: stats.modelUsed,
+    apiErrorCount: stats.apiErrorCount,
+    serverToolUseCount: stats.serverToolUseCount,
+    cacheCreationTokens: stats.cacheCreationTokens,
+    cacheReadTokens: stats.cacheReadTokens,
+  };
 }
 
 // ── Main entry point ────────────────────────────────────────────────────
@@ -595,12 +876,10 @@ export async function analyzeAllSessions(): Promise<SessionAnalysis> {
     }
   }
 
-  // 2. Read stats cache for additional token data
-  const statsCache = readStatsCache();
-  for (const entry of statsCache) {
-    if (entry.totalInputTokens) stats.tokenInput += entry.totalInputTokens;
-    if (entry.totalOutputTokens) stats.tokenOutput += entry.totalOutputTokens;
-  }
+  // 2. Read stats cache for additional context (v2 schema)
+  // Note: token data is read directly from JSONL above; stats-cache is supplemental
+  const statsCacheData = readStatsCache();
+  // (statsCacheData available for future use — e.g., model usage stats)
 
   // 3. Parse history for skill patterns
   const historySkills = await parseHistory();
