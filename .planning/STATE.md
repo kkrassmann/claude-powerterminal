@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-02-24)
 ## Current Position
 
 Phase: 7 of 7 (Advanced Recommendations Engine)
-Plan: 1 of 3 in current phase
+Plan: 2 of 3 in current phase
 Status: In Progress
-Last activity: 2026-02-28 — Plan 07-01 (Analysis Backend Extension) complete
+Last activity: 2026-02-28 — Plan 07-02 (Score History Persistence and IPC/HTTP Endpoints) complete
 
 Progress: [██████████] 100%
 
@@ -66,6 +66,7 @@ Progress: [██████████] 100%
 | Phase 06 P01 | 6 | 5 tasks | 7 files |
 | Phase 06 P02 | 8 | 5 tasks | 13 files |
 | Phase 07 P01 | 6 | 3 tasks | 3 files |
+| Phase 07 P02 | 3 | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -126,6 +127,9 @@ Recent decisions affecting current work:
 - [Phase 07]: detectAntiPatterns() exported for direct unit testing
 - [Phase 07]: correction-loop threshold: 4 edits (not 3) to reduce false positives
 - [Phase 07]: readStatsCache() returns null instead of empty array, parses real v2 schema
+- [Phase 07]: HistoryEntry kept local to score-history.ts to avoid Electron main process depending on Angular shared types
+- [Phase 07]: 5-minute detail cache in analysis-handlers.ts prevents re-parsing for repeated session detail views
+- [Phase 07]: Score history appended on every LOG_SESSION_SCORE (not just LOG_SESSION_DETAIL) to ensure trends accumulate
 
 ### Pending Todos
 
@@ -140,5 +144,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-28 (plan execution)
-Stopped at: Completed 07-01-PLAN.md (Analysis Backend Extension) — Phase 7 Plan 1 of 3 done
+Stopped at: Completed 07-02-PLAN.md (Score History Persistence and IPC/HTTP Endpoints) — Phase 7 Plan 2 of 3 done
 Resume file: None
