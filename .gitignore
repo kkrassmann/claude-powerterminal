@@ -7,9 +7,11 @@ dist/
 *.js
 *.js.map
 !src/
+!launcher/**
 
 # Electron
 out/
+release/
 
 # IDE
 .vscode/

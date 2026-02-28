@@ -448,7 +448,7 @@ export function detectAntiPatterns(
         occurrences.push({
           pattern: 'correction-loop',
           turn: event.turnIndex,
-          detail: `${h.editCount} Edits auf ${event.targetFile} ohne Read dazwischen`,
+          detail: `${h.editCount} edits on ${event.targetFile} without an intervening Read`,
         });
         h.editCount = 0; // Reset to avoid duplicate reporting
       }
@@ -464,7 +464,7 @@ export function detectAntiPatterns(
     occurrences.push({
       pattern: 'kitchen-sink',
       turn: 0,
-      detail: `${totalToolCalls} Tool-Calls über ${toolCounts.size} Tool-Typen — Session zu breit gefächert`,
+      detail: `${totalToolCalls} tool calls across ${toolCounts.size} tool types — session scope too broad`,
     });
   }
 
@@ -475,7 +475,7 @@ export function detectAntiPatterns(
     occurrences.push({
       pattern: 'infinite-exploration',
       turn: 0,
-      detail: `Read:Edit Verhältnis ${readCount}:${editCount} — zu viel Erkundung, zu wenig Output`,
+      detail: `Read:Edit ratio ${readCount}:${editCount} — too much exploration, too little output`,
     });
   }
 
@@ -538,17 +538,17 @@ export function computeRecommendations(
   if (taskPct > 15) {
     recommendations.push({
       severity: 'praise',
-      title: 'Starker Subagent-Einsatz!',
-      description: 'Task-Tool wird intensiv genutzt, um Arbeit zu parallelisieren und zu delegieren.',
-      metric: `Task: ${taskPct.toFixed(1)}% aller Tool-Aufrufe`,
+      title: 'Strong subagent usage!',
+      description: 'Task tool is heavily used to parallelize and delegate work.',
+      metric: `Task: ${taskPct.toFixed(1)}% of all tool calls`,
     });
   }
 
   if (cacheHitRatio > 85) {
     recommendations.push({
       severity: 'praise',
-      title: 'Exzellente Context-Wiederverwendung.',
-      description: 'Cache-Hit-Rate ist hoch — wenig redundante Token-Generierung.',
+      title: 'Excellent context reuse.',
+      description: 'Cache hit rate is high — minimal redundant token generation.',
       metric: `Cache-Hit: ${cacheHitRatio.toFixed(1)}%`,
     });
   }
@@ -556,8 +556,8 @@ export function computeRecommendations(
   if (readPct > 20) {
     recommendations.push({
       severity: 'praise',
-      title: 'Guter Read-Before-Write-Workflow.',
-      description: 'Read-Tool wird haeufig vor Write/Edit eingesetzt — sauberer Arbeitsstil.',
+      title: 'Good read-before-write workflow.',
+      description: 'Read tool is frequently used before Write/Edit — clean working style.',
       metric: `Read: ${readPct.toFixed(1)}%`,
     });
   }
@@ -565,8 +565,8 @@ export function computeRecommendations(
   if (nativeSearchCount > bashSearchCount && nativeSearchCount > 0) {
     recommendations.push({
       severity: 'praise',
-      title: 'Saubere Tool-Nutzung.',
-      description: 'Grep+Glob werden haeufiger genutzt als Bash-Suchen — native Tools bevorzugt.',
+      title: 'Clean tool usage.',
+      description: 'Grep+Glob are used more than Bash searches — native tools preferred.',
       metric: `Native: ${nativeSearchCount}, Bash: ${bashSearchCount}`,
     });
   }
@@ -577,8 +577,8 @@ export function computeRecommendations(
   if (hasGsdSkills) {
     recommendations.push({
       severity: 'praise',
-      title: 'Orchestrator-Skills im Einsatz!',
-      description: 'GSD-Workflow-Skills werden aktiv genutzt fuer strukturierte Ausfuehrung.',
+      title: 'Orchestrator skills in use!',
+      description: 'GSD workflow skills are actively used for structured execution.',
     });
   }
 
@@ -586,8 +586,8 @@ export function computeRecommendations(
   if (stats.skillCounts.has('/plan') || stats.skillCounts.has('/EnterPlanMode')) {
     recommendations.push({
       severity: 'praise',
-      title: 'Plan-Mode wird aktiv genutzt.',
-      description: 'Planung vor Ausfuehrung — ein Zeichen fuer durchdachte Arbeitsweise.',
+      title: 'Plan mode actively used.',
+      description: 'Planning before execution — a sign of deliberate workflow.',
     });
   }
 
@@ -596,8 +596,8 @@ export function computeRecommendations(
   if (cacheHitRatio < 70 && totalTokenInput > 0) {
     recommendations.push({
       severity: 'warning',
-      title: 'Context wird haeufig neu aufgebaut.',
-      description: 'Niedrige Cache-Hit-Rate — Sessions oder Prompts werden nicht effizient wiederverwendet.',
+      title: 'Context frequently rebuilt.',
+      description: 'Low cache hit rate — sessions or prompts are not being reused efficiently.',
       metric: `Cache-Hit: ${cacheHitRatio.toFixed(1)}%`,
     });
   }
@@ -605,8 +605,8 @@ export function computeRecommendations(
   if (!stats.toolCounts.has('Task') && stats.totalToolCalls > 10) {
     recommendations.push({
       severity: 'tip',
-      title: 'Subagents nicht genutzt.',
-      description: 'Kein Subagent-Einsatz erkannt. Fuer Recherchen mit 3+ Datei-Lesevorgaengen lohnt sich eine CLAUDE.md-Regel: "Nutze Subagenten fuer explorative Aufgaben, um das Hauptkontextfenster schlank zu halten."',
+      title: 'Subagents not used.',
+      description: 'No subagent usage detected. For research tasks with 3+ file reads, consider a CLAUDE.md rule: "Use subagents for explorative tasks to keep the main context window lean."',
     });
   }
 
@@ -614,8 +614,8 @@ export function computeRecommendations(
   if (bashPct > 20 && nativeSearchCount < bashSearchCount) {
     recommendations.push({
       severity: 'warning',
-      title: 'Hoher Bash-Anteil bei Datei-Operationen.',
-      description: 'Bash wird haeufig fuer Suchen/Lesen genutzt statt dedizierter Tools. Jeder Bash-Output fuellt das Kontextfenster. CLAUDE.md-Tipp: "Fuer Recherche-Aufgaben mit mehreren Dateien nutze Subagenten statt Bash-Ketten im Hauptkontext."',
+      title: 'High Bash usage for file operations.',
+      description: 'Bash is frequently used for searching/reading instead of dedicated tools. Every Bash output fills the context window. CLAUDE.md tip: "For research tasks with multiple files, use subagents instead of Bash chains in the main context."',
       metric: `Bash: ${bashPct.toFixed(1)}%, Grep+Glob: ${toolGroupPct(['Grep', 'Glob']).toFixed(1)}%`,
     });
   }
@@ -623,25 +623,25 @@ export function computeRecommendations(
   if (errorRate > 10) {
     recommendations.push({
       severity: 'warning',
-      title: 'Hohe Fehlerrate.',
-      description: 'Mehr als 10% der Interaktionen fuehren zu Fehlern. Pruefen ob Berechtigungen, fehlende Dependencies oder falsche Pfade die Ursache sind.',
-      metric: `Fehlerrate: ${errorRate.toFixed(1)}%`,
+      title: 'High error rate.',
+      description: 'More than 10% of interactions result in errors. Check whether permissions, missing dependencies, or wrong paths are the cause.',
+      metric: `Error rate: ${errorRate.toFixed(1)}%`,
     });
   }
 
   if (stats.skillCounts.size === 0 && stats.totalMessages > 20) {
     recommendations.push({
       severity: 'tip',
-      title: 'Keine Slash-Commands.',
-      description: 'Keine Custom-Skills erkannt. Wiederkehrende Ablaeufe (Commit, Review, Deploy) als Slash-Commands definieren spart Kontext und reduziert Prompt-Laenge.',
+      title: 'No slash commands.',
+      description: 'No custom skills detected. Define recurring workflows (commit, review, deploy) as slash commands to save context and reduce prompt length.',
     });
   }
 
   if (readPct < 5 && (writePct + editPct) > 20) {
     recommendations.push({
       severity: 'warning',
-      title: 'Wenig Read vor Write.',
-      description: 'Dateien werden haeufig editiert ohne vorheriges Lesen. Das fuehrt zu Correction-Loops. CLAUDE.md-Tipp: "Lies immer den aktuellen Dateistand bevor du editierst."',
+      title: 'Low read-before-write ratio.',
+      description: 'Files are frequently edited without reading first. This leads to correction loops. CLAUDE.md tip: "Always read the current file state before editing."',
       metric: `Read: ${readPct.toFixed(1)}%, Write+Edit: ${(writePct + editPct).toFixed(1)}%`,
     });
   }
@@ -649,9 +649,9 @@ export function computeRecommendations(
   if (stats.maxMessagesInSession > 500) {
     recommendations.push({
       severity: 'warning',
-      title: 'Sehr lange Sessions.',
-      description: 'Sessions mit 500+ Nachrichten verlieren Cache-Effizienz durch Komprimierung. Aufgaben in kuerzere Sessions aufteilen — /clear zwischen logischen Bloecken nutzen.',
-      metric: `Laengste Session: ${stats.maxMessagesInSession} Nachrichten`,
+      title: 'Very long sessions.',
+      description: 'Sessions with 500+ messages lose cache efficiency due to compression. Split tasks into shorter sessions — use /clear between logical blocks.',
+      metric: `Longest session: ${stats.maxMessagesInSession} messages`,
     });
   }
 
@@ -660,26 +660,26 @@ export function computeRecommendations(
     if (ap.pattern === 'bash-for-file-ops') {
       recommendations.push({
         severity: 'anti-pattern',
-        title: 'Bash-Kette statt Subagent.',
-        description: `Bash-Dateioperationen fuellen das Kontextfenster. Fuer solche Recherchen Subagenten delegieren oder CLAUDE.md-Regel ergaenzen: "Explorative Suchen als Subagent ausfuehren." Turn ${ap.turn}: ${ap.detail}`,
+        title: 'Bash chain instead of subagent.',
+        description: `Bash file operations fill the context window. Delegate such research to subagents or add a CLAUDE.md rule: "Run explorative searches as subagents." Turn ${ap.turn}: ${ap.detail}`,
       });
     } else if (ap.pattern === 'correction-loop') {
       recommendations.push({
         severity: 'anti-pattern',
-        title: 'Correction-Loop erkannt.',
-        description: `Datei wird mehrfach editiert ohne zwischendurch den aktuellen Stand zu lesen. CLAUDE.md-Regel hilft: "Lies den aktuellen Dateistand vor jeder Aenderung." ${ap.detail}`,
+        title: 'Correction loop detected.',
+        description: `File is edited multiple times without reading current state in between. CLAUDE.md rule helps: "Read the current file state before every change." ${ap.detail}`,
       });
     } else if (ap.pattern === 'kitchen-sink') {
       recommendations.push({
         severity: 'anti-pattern',
-        title: 'Kitchen-Sink-Session.',
-        description: `${ap.detail} — zu viele verschiedene Aufgaben in einer Session reduzieren Cache-Effizienz. Pro Session ein klares Ziel setzen, dann /clear.`,
+        title: 'Kitchen-sink session.',
+        description: `${ap.detail} — too many different tasks in one session reduce cache efficiency. Set one clear goal per session, then /clear.`,
       });
     } else if (ap.pattern === 'infinite-exploration') {
       recommendations.push({
         severity: 'anti-pattern',
-        title: 'Endlose Exploration.',
-        description: `${ap.detail} — Recherche ohne Output verschwendet Kontext. Exploration an Subagenten delegieren oder vorher Scope festlegen: "Finde X und fasse in 3 Saetzen zusammen."`,
+        title: 'Endless exploration.',
+        description: `${ap.detail} — research without output wastes context. Delegate exploration to subagents or define scope upfront: "Find X and summarize in 3 sentences."`,
       });
     }
   }

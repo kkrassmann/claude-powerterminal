@@ -1,13 +1,13 @@
 <div class="detail-overlay" (click)="onClose()">
   <div class="detail-panel" (click)="$event.stopPropagation()">
     <div class="detail-header">
-      <span class="detail-title">Session Analyse</span>
+      <span class="detail-title">Session Analysis</span>
       <span class="session-id-label">{{ sessionId | slice:0:8 }}...</span>
       <button class="close-btn" (click)="onClose()">&#x2715;</button>
     </div>
 
-    <div *ngIf="loading" class="loading-state">Lade Analyse...</div>
-    <div *ngIf="error" class="error-state">Fehler beim Laden der Session-Details.</div>
+    <div *ngIf="loading" class="loading-state">Loading analysis...</div>
+    <div *ngIf="error" class="error-state">Failed to load session details.</div>
 
     <div *ngIf="detail && !loading" class="detail-content">
       <!-- Overall score -->
@@ -17,16 +17,16 @@
 
       <!-- 5-dimension breakdown -->
       <section class="score-breakdown">
-        <h3>Score-Aufschlüsselung</h3>
+        <h3>Score Breakdown</h3>
         <div class="dimension-row">
-          <span class="dim-label">Tool-Nativeness</span>
+          <span class="dim-label">Tool Nativeness</span>
           <div class="dim-bar-wrap">
             <div class="dim-bar" [style.width.%]="detail.toolNativenessScore" [style.background]="getScoreColor(detail.toolNativenessScore)"></div>
           </div>
           <span class="dim-value">{{ detail.toolNativenessScore }}</span>
         </div>
         <div class="dimension-row">
-          <span class="dim-label">Subagent-Nutzung</span>
+          <span class="dim-label">Subagent Usage</span>
           <div class="dim-bar-wrap">
             <div class="dim-bar" [style.width.%]="detail.subagentScore" [style.background]="getScoreColor(detail.subagentScore)"></div>
           </div>
@@ -40,14 +40,14 @@
           <span class="dim-value">{{ detail.readBeforeWriteScore }}</span>
         </div>
         <div class="dimension-row">
-          <span class="dim-label">Context-Effizienz</span>
+          <span class="dim-label">Context Efficiency</span>
           <div class="dim-bar-wrap">
             <div class="dim-bar" [style.width.%]="detail.contextEfficiencyScore" [style.background]="getScoreColor(detail.contextEfficiencyScore)"></div>
           </div>
           <span class="dim-value">{{ detail.contextEfficiencyScore }}</span>
         </div>
         <div class="dimension-row">
-          <span class="dim-label">Fehlerrate</span>
+          <span class="dim-label">Error Rate</span>
           <div class="dim-bar-wrap">
             <div class="dim-bar" [style.width.%]="detail.errorScore" [style.background]="getScoreColor(detail.errorScore)"></div>
           </div>
@@ -66,12 +66,12 @@
       </section>
       <section class="anti-patterns" *ngIf="!detail.antiPatterns || detail.antiPatterns.length === 0">
         <h3>Anti-Patterns</h3>
-        <span class="no-issues">Keine Anti-Patterns erkannt ✓</span>
+        <span class="no-issues">No anti-patterns detected</span>
       </section>
 
       <!-- Sorted recommendations (sorted by severity in component) -->
       <section class="recommendations" *ngIf="detail.recommendations && detail.recommendations.length > 0">
-        <h3>Empfehlungen</h3>
+        <h3>Recommendations</h3>
         <div class="rec-card" *ngFor="let rec of detail.recommendations" [ngClass]="'severity-' + rec.severity">
           <span class="rec-title">{{ rec.title }}</span>
           <span class="rec-desc">{{ rec.description }}</span>
@@ -80,17 +80,17 @@
 
       <!-- Session metadata -->
       <section class="session-meta" *ngIf="detail.modelUsed || detail.avgTurnDurationMs || detail.compactBoundaryCount">
-        <h3>Session-Info</h3>
+        <h3>Session Info</h3>
         <div class="meta-row" *ngIf="detail.modelUsed">
-          <span class="meta-label">Modell:</span>
+          <span class="meta-label">Model:</span>
           <span class="meta-value">{{ detail.modelUsed }}</span>
         </div>
         <div class="meta-row" *ngIf="detail.avgTurnDurationMs">
-          <span class="meta-label">Ø Turn-Dauer:</span>
+          <span class="meta-label">Avg Turn Duration:</span>
           <span class="meta-value">{{ (detail.avgTurnDurationMs / 1000).toFixed(1) }}s</span>
         </div>
         <div class="meta-row" *ngIf="detail.compactBoundaryCount">
-          <span class="meta-label">Compact-Events:</span>
+          <span class="meta-label">Compact Events:</span>
           <span class="meta-value">{{ detail.compactBoundaryCount }}</span>
         </div>
       </section>

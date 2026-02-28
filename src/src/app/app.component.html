@@ -1,11 +1,11 @@
 <div class="app-container">
   <header class="app-header">
     <h1>Claude PowerTerminal</h1>
-    <button class="mute-btn" (click)="audioAlertService.toggleMute()" [title]="audioAlertService.isMuted ? 'Ton aktivieren' : 'Ton deaktivieren'">
+    <button class="mute-btn" (click)="audioAlertService.toggleMute()" [title]="audioAlertService.isMuted ? 'Unmute' : 'Mute'">
       {{ audioAlertService.isMuted ? '🔇' : '🔊' }}
     </button>
-    <button class="analysis-btn" (click)="showAnalysis = !showAnalysis" [class.active]="showAnalysis" title="Analyse-Panel umschalten">
-      Analyse
+    <button class="analysis-btn" (click)="showAnalysis = !showAnalysis" [class.active]="showAnalysis" title="Toggle analysis panel">
+      Analysis
     </button>
     <span class="lan-url" *ngIf="lanUrl">{{ lanUrl }}</span>
     <app-session-create></app-session-create>

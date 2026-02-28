@@ -15,6 +15,7 @@ import { StatusDetector } from './status/status-detector';
 import { startStaticServer } from './http/static-server';
 import { getLocalNetworkAddress } from './utils/network-info';
 import { sanitizeEnvForClaude } from './utils/env-sanitize';
+import { getAngularBuildDir } from './utils/paths';
 
 import { setMainWindow } from './utils/window-ref';
 
@@ -51,7 +52,7 @@ function createWindow(): void {
 
   // Load Angular UI: prefer dev server in dev mode, fall back to built files
   const devServerUrl = 'http://localhost:4800';
-  const builtFilePath = path.join(__dirname, '../../src/dist/claude-powerterminal-angular/browser/index.html');
+  const builtFilePath = path.join(getAngularBuildDir(), 'index.html');
 
   if (!app.isPackaged) {
     // Dev mode: wait for Angular dev server, then load it

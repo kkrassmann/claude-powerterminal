@@ -1,9 +1,9 @@
-<button class="open-dialog-btn" (click)="isDialogOpen = true">+ Neue Session</button>
+<button class="open-dialog-btn" (click)="isDialogOpen = true">+ New Session</button>
 
 <div class="dialog-overlay" *ngIf="isDialogOpen" (click)="isDialogOpen = false">
   <div class="dialog" (click)="$event.stopPropagation()">
     <div class="dialog-header">
-      <h2>Neue Claude Session</h2>
+      <h2>New Claude Session</h2>
       <button class="close-btn" (click)="isDialogOpen = false">&times;</button>
     </div>
 
@@ -16,7 +16,7 @@
             (change)="onDirectorySelect($any($event.target).value)"
             class="form-control"
           >
-            <option value="">-- Zuletzt verwendet --</option>
+            <option value="">-- Recent directories --</option>
             <option *ngFor="let dir of recentDirectories" [value]="dir">{{ dir }}</option>
           </select>
           <input
@@ -38,7 +38,7 @@
           id="session-id-input"
           name="sessionId"
           [(ngModel)]="sessionId"
-          placeholder="Leer = automatisch generiert"
+          placeholder="Leave empty for auto-generated ID"
           class="form-control"
         />
       </div>
@@ -55,7 +55,7 @@
           type="text"
           name="customFlags"
           [(ngModel)]="customFlags"
-          placeholder="z.B. --timeout 60 --model opus"
+          placeholder="e.g. --timeout 60 --model opus"
           class="form-control"
         />
       </div>
@@ -65,9 +65,9 @@
       </div>
 
       <div class="dialog-actions">
-        <button type="button" class="cancel-btn" (click)="isDialogOpen = false">Abbrechen</button>
+        <button type="button" class="cancel-btn" (click)="isDialogOpen = false">Cancel</button>
         <button type="submit" class="create-btn" [disabled]="isCreating || !workingDirectory">
-          {{ isCreating ? 'Erstelle...' : 'Session starten' }}
+          {{ isCreating ? 'Creating...' : 'Start Session' }}
         </button>
       </div>
     </form>

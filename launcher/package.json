@@ -1,0 +1,27 @@
+{
+  "name": "claude-powerterminal",
+  "version": "1.0.0",
+  "description": "Multi-session terminal manager for Claude CLI",
+  "bin": {
+    "claude-powerterminal": "./bin/cli.js"
+  },
+  "files": [
+    "bin/",
+    "lib/"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kkrassmann/claude-powerterminal"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "GPL-3.0-only",
+  "keywords": [
+    "claude",
+    "terminal",
+    "electron",
+    "cli",
+    "multi-session"
+  ]
+}

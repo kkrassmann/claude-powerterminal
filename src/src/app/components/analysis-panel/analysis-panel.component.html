@@ -2,13 +2,13 @@
   <!-- Loading state -->
   <div class="panel-loading" *ngIf="!analysis && analysisService.loading">
     <span class="spinner"></span>
-    <span>Analyse wird geladen...</span>
+    <span>Loading analysis...</span>
   </div>
 
   <!-- Empty state -->
   <div class="panel-empty" *ngIf="!analysis && !analysisService.loading">
-    <span>Keine Analysedaten verfuegbar.</span>
-    <button class="refresh-btn" (click)="refresh()">Erneut laden</button>
+    <span>No analysis data available.</span>
+    <button class="refresh-btn" (click)="refresh()">Reload</button>
   </div>
 
   <!-- Analysis content -->
@@ -16,9 +16,9 @@
 
     <!-- Header with refresh button -->
     <div class="panel-header">
-      <span class="panel-title">Session-Analyse</span>
+      <span class="panel-title">Session Analysis</span>
       <button class="refresh-btn" (click)="refresh()" [disabled]="analysisService.loading">
-        {{ analysisService.loading ? 'Laden...' : 'Aktualisieren' }}
+        {{ analysisService.loading ? 'Loading...' : 'Refresh' }}
       </button>
     </div>
 
@@ -26,7 +26,7 @@
     <div class="section">
       <div class="section-header" (click)="toggleSection('overview')">
         <span class="section-toggle">{{ isCollapsed('overview') ? '+' : '-' }}</span>
-        <span class="section-title">Uebersicht</span>
+        <span class="section-title">Overview</span>
       </div>
       <div class="section-body" *ngIf="!isCollapsed('overview')">
         <div class="stat-row">
@@ -36,15 +36,15 @@
           </div>
           <div class="stat-item">
             <span class="stat-value">{{ analysis.overview.totalMessages }}</span>
-            <span class="stat-label">Nachrichten</span>
+            <span class="stat-label">Messages</span>
           </div>
           <div class="stat-item">
             <span class="stat-value">{{ analysis.overview.totalToolCalls }}</span>
-            <span class="stat-label">Tool-Aufrufe</span>
+            <span class="stat-label">Tool Calls</span>
           </div>
           <div class="stat-item">
             <span class="stat-value-small">{{ analysis.overview.dateRange.from }} - {{ analysis.overview.dateRange.to }}</span>
-            <span class="stat-label">Zeitraum</span>
+            <span class="stat-label">Date Range</span>
           </div>
         </div>
       </div>
@@ -54,7 +54,7 @@
     <div class="section" *ngIf="analysis.toolUsage.length > 0">
       <div class="section-header" (click)="toggleSection('tools')">
         <span class="section-toggle">{{ isCollapsed('tools') ? '+' : '-' }}</span>
-        <span class="section-title">Tool-Nutzung</span>
+        <span class="section-title">Tool Usage</span>
         <span class="section-badge">{{ analysis.toolUsage.length }} Tools</span>
       </div>
       <div class="section-body" *ngIf="!isCollapsed('tools')">
@@ -76,12 +76,12 @@
     <div class="section">
       <div class="section-header" (click)="toggleSection('tokens')">
         <span class="section-toggle">{{ isCollapsed('tokens') ? '+' : '-' }}</span>
-        <span class="section-title">Token-Verbrauch</span>
+        <span class="section-title">Token Usage</span>
       </div>
       <div class="section-body" *ngIf="!isCollapsed('tokens')">
         <div class="token-stats">
           <div class="cache-ratio-row">
-            <span class="cache-label">Cache-Trefferquote</span>
+            <span class="cache-label">Cache Hit Rate</span>
             <div class="cache-bar-container">
               <div class="cache-bar" [style.width.%]="analysis.tokenUsage.cacheHitRatio"></div>
             </div>
@@ -113,7 +113,7 @@
     <div class="section" *ngIf="analysis.problems.length > 0">
       <div class="section-header" (click)="toggleSection('problems')">
         <span class="section-toggle">{{ isCollapsed('problems') ? '+' : '-' }}</span>
-        <span class="section-title">Probleme</span>
+        <span class="section-title">Problems</span>
         <span class="section-badge warning">{{ analysis.problems.length }}</span>
       </div>
       <div class="section-body" *ngIf="!isCollapsed('problems')">
@@ -129,7 +129,7 @@
     <div class="section" *ngIf="analysis.recommendations.length > 0">
       <div class="section-header" (click)="toggleSection('recommendations')">
         <span class="section-toggle">{{ isCollapsed('recommendations') ? '+' : '-' }}</span>
-        <span class="section-title">Empfehlungen</span>
+        <span class="section-title">Recommendations</span>
         <span class="section-badge">{{ analysis.recommendations.length }}</span>
       </div>
       <div class="section-body" *ngIf="!isCollapsed('recommendations')">
@@ -149,7 +149,7 @@
     <div class="section">
       <div class="section-header" (click)="toggleSection('score')">
         <span class="section-toggle">{{ isCollapsed('score') ? '+' : '-' }}</span>
-        <span class="section-title">Praxis-Score</span>
+        <span class="section-title">Practice Score</span>
       </div>
       <div class="section-body" *ngIf="!isCollapsed('score')">
         <div class="score-display">
@@ -171,11 +171,11 @@
     <div class="section">
       <div class="section-header" (click)="trendsExpanded = !trendsExpanded">
         <span class="section-toggle">{{ trendsExpanded ? '-' : '+' }}</span>
-        <span class="section-title">Verlauf (letzte 10 Sessions)</span>
+        <span class="section-title">Trends (last 10 sessions)</span>
       </div>
       <div class="section-body" *ngIf="trendsExpanded">
         <div *ngIf="!trends || trends.entries.length < 2" class="no-trends">
-          Keine Verlaufsdaten (mindestens 2 Sessions erforderlich)
+          No trend data yet (at least 2 sessions required)
         </div>
         <div *ngIf="trends && trends.entries.length >= 2" class="sparklines-grid">
           <div class="sparkline-row" *ngFor="let dim of sparklineDimensions">

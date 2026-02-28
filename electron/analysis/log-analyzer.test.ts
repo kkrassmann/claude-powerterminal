@@ -591,7 +591,7 @@ describe('recommendation severity — Phase 7', () => {
     const recs = computeRecommendations(stats);
     const tips = recs.filter(r => r.severity === 'tip');
 
-    expect(tips.some(r => r.title.includes('Slash-Commands'))).toBe(true);
+    expect(tips.some(r => r.title.includes('slash commands'))).toBe(true);
   });
 
   it('should produce anti-pattern recommendations when anti-patterns detected', async () => {
@@ -624,7 +624,7 @@ describe('computeRecommendations', () => {
     const recs = computeRecommendations(stats);
     const praise = recs.filter(r => r.severity === 'praise');
 
-    expect(praise.some(r => r.title.includes('Subagent'))).toBe(true);
+    expect(praise.some(r => r.title.includes('subagent'))).toBe(true);
   });
 
   it('should praise high cache-hit ratio', () => {
@@ -637,7 +637,7 @@ describe('computeRecommendations', () => {
     const recs = computeRecommendations(stats);
     const praise = recs.filter(r => r.severity === 'praise');
 
-    expect(praise.some(r => r.title.includes('Context-Wiederverwendung'))).toBe(true);
+    expect(praise.some(r => r.title.includes('context reuse'))).toBe(true);
   });
 
   it('should warn about low cache-hit ratio', () => {
@@ -650,7 +650,7 @@ describe('computeRecommendations', () => {
     const recs = computeRecommendations(stats);
     const warnings = recs.filter(r => r.severity === 'warning');
 
-    expect(warnings.some(r => r.title.includes('Context wird'))).toBe(true);
+    expect(warnings.some(r => r.title.includes('Context frequently'))).toBe(true);
   });
 
   it('should warn about no subagent usage with tip severity', () => {
@@ -675,7 +675,7 @@ describe('computeRecommendations', () => {
     const recs = computeRecommendations(stats);
     const warnings = recs.filter(r => r.severity === 'warning');
 
-    expect(warnings.some(r => r.title.includes('Fehlerrate'))).toBe(true);
+    expect(warnings.some(r => r.title.includes('error rate'))).toBe(true);
   });
 
   it('should warn about low Read before Write', () => {
@@ -689,7 +689,7 @@ describe('computeRecommendations', () => {
     const recs = computeRecommendations(stats);
     const warnings = recs.filter(r => r.severity === 'warning');
 
-    expect(warnings.some(r => r.title.includes('Read vor Write'))).toBe(true);
+    expect(warnings.some(r => r.title.includes('read-before-write'))).toBe(true);
   });
 
   it('should praise GSD skills usage', () => {

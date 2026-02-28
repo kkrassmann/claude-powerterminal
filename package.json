@@ -1,5 +1,5 @@
 {
-  "name": "claude-powerterminal",
+  "name": "@kkrassmann/claude-powerterminal",
   "version": "1.0.0",
   "description": "Multi-session terminal manager for Claude CLI with status monitoring",
   "main": "dist/electron/main.js",
@@ -10,7 +10,11 @@
     "start:electron": "npm run build:electron && electron .",
     "start:angular": "cd src && npm start",
     "dev": "concurrently \"npm run start:angular\" \"npm run start:electron\"",
-    "test": "vitest run"
+    "test": "vitest run",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win",
+    "dist:linux": "electron-builder --linux"
   },
   "keywords": [
     "electron",
@@ -20,11 +24,10 @@
     "pty"
   ],
   "author": "",
-  "license": "ISC",
+  "license": "GPL-3.0-only",
   "type": "commonjs",
   "dependencies": {
     "@angular/cli": "^17.3.17",
-    "electron": "^28.3.3",
     "node-addon-api": "^7.1.1",
     "node-pty": "^1.1.0",
     "typescript": "^5.9.3",
@@ -34,7 +37,50 @@
     "@types/node": "^25.3.0",
     "@types/ws": "^8.18.1",
     "concurrently": "^9.2.1",
+    "electron": "^28.3.3",
     "electron-builder": "^26.8.1",
     "vitest": "^4.0.18"
+  },
+  "build": {
+    "appId": "com.kkrassmann.claude-powerterminal",
+    "productName": "Claude PowerTerminal",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/electron/**/*",
+      "src/dist/claude-powerterminal-angular/browser/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "node_modules/node-pty/**/*"
+    ],
+    "npmRebuild": false,
+    "publish": {
+      "provider": "github",
+      "owner": "kkrassmann",
+      "repo": "claude-powerterminal"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
+      "artifactName": "claude-powerterminal-${version}-win-x64.${ext}",
+      "signAndEditExecutable": false
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": ["x64"]
+        }
+      ],
+      "artifactName": "claude-powerterminal-${version}-linux-x64.${ext}",
+      "category": "Development"
+    }
   }
 }

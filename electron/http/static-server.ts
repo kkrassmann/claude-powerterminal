@@ -23,6 +23,7 @@ import { parseGitStatus } from '../utils/git-status-parser';
 import { IPC_CHANNELS } from '../../src/shared/ipc-channels';
 import { analyzeAllSessions, computeSessionScore } from '../analysis/log-analyzer';
 import { getTrends, HistoryEntry } from '../analysis/score-history';
+import { getAngularBuildDir } from '../utils/paths';
 
 /**
  * SessionMetadata interface (matches src/app/models/session.model.ts)
@@ -100,7 +101,7 @@ const MIME_TYPES: Record<string, string> = {
  * @returns http.Server instance
  */
 export function startStaticServer(port: number): http.Server {
-  const buildDir = path.join(__dirname, '../../../src/dist/claude-powerterminal-angular/browser');
+  const buildDir = getAngularBuildDir();
 
   // CORS headers for API endpoints
   const corsHeaders: Record<string, string> = {
