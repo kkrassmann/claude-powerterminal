@@ -168,11 +168,13 @@ Plans:
   4. Audit prompt lives as a standalone file that can be iterated and improved independently
   5. Concrete recommendations for each file (what to fix, what's missing, what's outdated)
   6. Works in both Electron app and remote browser
-**Plans:** 0 plans
+**Plans:** 3 plans in 3 waves
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 8 to break down)
+- [ ] 08-01-PLAN.md — Audit engine backend: shared types, heuristic engine, audit-prompt.md rule checklist [Wave 1]
+- [ ] 08-02-PLAN.md — Dual-transport wiring: IPC channels + handlers, HTTP /api/audit/* endpoints [Wave 2, depends on 08-01]
+- [ ] 08-03-PLAN.md — Angular UI: AuditService, tab switcher in analysis panel, project dropdown, scored results + expandable findings [Wave 3, depends on 08-01 + 08-02]
 
 ---
 *Roadmap created: 2026-02-24*
-*Last updated: 2026-02-28 after Phase 7 planning*
+*Last updated: 2026-02-28 after Phase 8 planning*
