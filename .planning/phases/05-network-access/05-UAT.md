@@ -63,30 +63,30 @@ result: pass
 
 ### 10. Session Count Matches (Re-test Gap 1)
 expected: Electron und Handy-Browser zeigen exakt die gleiche Anzahl Sessions. Keine Geister-Sessions, keine fehlenden.
-result: [pending]
+result: pass
 
 ### 11. New Session Auto-Sync (Re-test Gap 1)
 expected: Erstelle eine neue Session in Electron. Innerhalb von 5 Sekunden erscheint sie auf dem Handy-Browser OHNE manuellen Reload.
-result: [pending]
+result: pass
 
 ### 12. Terminal Output bei Heavy Output (Re-test Gap 2)
 expected: Fuehre in Electron einen Befehl mit viel Output aus (z.B. `for i in {1..100}; do echo "Line $i"; done`). Die Ausgabe auf dem Handy ist lesbar und konsistent — keine kaputten Zeichen oder Farb-Glitches.
-result: [pending]
+result: pass
 
 ### 13. Terminal Selbst-Korrektur (Re-test Gap 2)
 expected: Falls waehrend der Ausgabe kurzzeitig Glitches auftreten, korrigieren sie sich innerhalb von 30 Sekunden automatisch (Buffer-Resync). Terminal sieht danach identisch zum Electron-Terminal aus.
-result: [pending]
+result: pass
 
 ### 14. Session erstellen vom Handy (Re-test Gap 3)
 expected: Oeffne den Handy-Browser. Klicke "New Session". Waehle ein Verzeichnis und klicke Create. Kein JavaScript-Fehler (kein "crypto.randomUUID is not a function"). Die Session erscheint auf dem Handy UND in Electron.
-result: [pending]
+result: pass
 
 ## Summary
 
 total: 14
-passed: 7
+passed: 12
 issues: 2
-pending: 5
+pending: 0
 skipped: 0
 
 ## Gaps
