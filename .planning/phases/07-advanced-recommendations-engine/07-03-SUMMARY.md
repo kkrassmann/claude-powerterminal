@@ -43,12 +43,13 @@ key-decisions:
   - "Achievement badges use #f6c90e gold (not Catppuccin gold) as specified in plan"
   - "Score chip stopPropagation prevents tile click-to-acknowledge from firing alongside detail open"
   - "Import path fix: session-detail uses 4 levels up (../../../../) not 5 to reach shared/analysis-types"
+  - "Recommendation texts rewritten post-checkpoint to give actionable CLAUDE.md-style advice instead of tool-choice hints users cannot control"
 patterns-established:
   - "Event bubbling chain pattern: child emits → parent bubbles → grandparent handles"
   - "Fixed side panel: position:fixed, right-aligned, z-index 1000, overlay backdrop"
   - "Severity CSS classes: severity-{value} applied via ngClass for 5-category coloring"
 requirements-completed: [OPT-05, OPT-06]
-duration: 7min
+duration: ~30min (including human verification checkpoint)
 completed: 2026-02-28
 ---
 
@@ -58,11 +59,11 @@ completed: 2026-02-28
 
 ## Performance
 
-- **Duration:** ~7 min
+- **Duration:** ~30 min (including human verification checkpoint)
 - **Started:** 2026-02-28T07:50:55Z
-- **Completed:** 2026-02-28T07:58:00Z
-- **Tasks:** 3 auto-tasks complete, 1 human-verify checkpoint pending
-- **Files modified:** 11 files
+- **Completed:** 2026-02-28
+- **Tasks:** 3 auto-tasks + 1 checkpoint (APPROVED) + 1 post-checkpoint fix
+- **Files modified:** 12 files (11 Angular + 1 backend)
 
 ## Accomplishments
 
@@ -79,8 +80,10 @@ Each task was committed atomically:
 1. **Task 1: Extend Angular service and create SessionDetailComponent** - `43bdcb1` (feat)
 2. **Task 2: Upgrade tile-header badges, add Trends sparklines and severity styling to analysis panel** - `3e281ef` (feat)
 3. **Task 3: Wire session-detail panel into app component and dashboard** - `d16f40a` (feat)
+4. **Task 4: Human verification** - APPROVED (no code commit)
+5. **Post-checkpoint fix: Rewrite recommendation texts with actionable user advice** - `6055c57` (fix)
 
-**Human verify checkpoint (Task 4):** Pending user confirmation
+**Plan metadata:** _(this commit)_ (docs: complete plan)
 
 ## Files Created/Modified
 
@@ -98,6 +101,7 @@ Each task was committed atomically:
 - `src/src/app/app.component.html` - Add app-session-detail binding, wire dashboard sessionSelected
 - `src/src/app/components/dashboard/dashboard.component.ts` - Add sessionSelected Output and handler
 - `src/src/app/components/dashboard/dashboard.component.html` - Pass [sessionId] and (sessionSelected) to tile-header
+- `electron/analysis/log-analyzer.ts` - Recommendation texts rewritten with actionable CLAUDE.md-style advice
 
 ## Decisions Made
 
@@ -127,10 +131,18 @@ Each task was committed atomically:
 - **Verification:** `npx tsc --noEmit` passes with zero errors
 - **Committed in:** 43bdcb1 (Task 1 commit)
 
+**3. [Post-Checkpoint Improvement] Rewrote recommendation texts with actionable user advice**
+- **Found during:** Human verification (Task 4) — recommendation descriptions told users to "use Read instead of Bash" but tool-choice is made by Claude, not the user; users cannot act on these recommendations
+- **Issue:** Recommendations had no actionable path for users (e.g., "Use the Read tool to read files" — user has no way to enforce this)
+- **Fix:** Rewrote all recommendation texts in log-analyzer.ts to give workflow-level advice: suggest adding rules to CLAUDE.md, delegate exploration to subagents, use `/plan` mode for complex tasks, etc.
+- **Files modified:** `electron/analysis/log-analyzer.ts`
+- **Verification:** Texts confirmed actionable in code review — each recommendation describes a change the user can implement
+- **Committed in:** `6055c57` (separate fix commit after checkpoint approval)
+
 ---
 
-**Total deviations:** 2 auto-fixed (both Rule 1 - Bug)
-**Impact on plan:** Both fixes were necessary for compilation. No scope creep, all planned functionality delivered as specified.
+**Total deviations:** 3 (2 auto-fixed Rule 1 bugs during tasks + 1 post-checkpoint UX improvement)
+**Impact on plan:** All fixes necessary for compilation or UX value. No scope creep.
 
 ## Issues Encountered
 
@@ -142,10 +154,32 @@ None - all changes are Angular UI components, no external service configuration.
 
 ## Next Phase Readiness
 
-- All Phase 7 UI is complete pending human verification (Task 4 checkpoint)
-- Angular production build succeeds with zero errors
-- Full event chain verified: tile-header → dashboard → app → session-detail renders
-- TypeScript compilation clean
+Phase 7 is now fully complete — all 3 plans delivered and human-verified:
+- Plan 01: Extended backend types, anti-pattern detection engine (51 tests passing)
+- Plan 02: Score history persistence, IPC channels, HTTP endpoints
+- Plan 03: Full Angular UI — session detail panel, sparklines, severity styling, emoji badges
+
+Users can now:
+1. Click any session score chip to drill into per-session breakdown (5 dimensions + anti-patterns)
+2. View trend sparklines across last 10 sessions in the analysis panel
+3. See severity-colored recommendations with actionable advice they can implement
+4. Earn achievement badges (Context Master, Zero Error, Planner, etc.) displayed in gold
+
+No blockers. Angular production build confirmed clean. Human verification passed.
+
+## Self-Check: PASSED
+
+Files verified:
+- FOUND: .planning/phases/07-advanced-recommendations-engine/07-03-SUMMARY.md
+- FOUND: src/src/app/components/session-detail/session-detail.component.ts
+- FOUND: src/src/app/components/analysis-panel/analysis-panel.component.ts
+- FOUND: src/src/app/components/tile-header/tile-header.component.ts
+
+Commits verified:
+- FOUND: 43bdcb1 (Task 1 — Extend Angular service and create SessionDetailComponent)
+- FOUND: 3e281ef (Task 2 — Upgrade tile-header badges, add Trends sparklines)
+- FOUND: d16f40a (Task 3 — Wire session-detail panel into app and dashboard)
+- FOUND: 6055c57 (Post-checkpoint — Rewrite recommendation texts)
 
 ---
 *Phase: 07-advanced-recommendations-engine*
