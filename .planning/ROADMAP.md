@@ -18,6 +18,10 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 4: Status Detection & Alerts** - Pattern-based status detection with audio notifications (completed 2026-02-25)
 - [x] **Phase 5: Network Access** - Mobile-responsive UI with LAN accessibility
 - [x] **Phase 6: Session Log Analysis** - On-demand Claude CLI analysis of terminal logs for optimization recommendations
+- [x] **Phase 7: Advanced Recommendations Engine** - Anti-pattern detection, achievement badges, score trends
+- [ ] **Phase 8: Project Configuration Audit** - One-click audit of Claude Code project files
+- [ ] **Phase 9: Local Code Review Panel** - Inline diff viewer with accept/reject and comments
+- [ ] **Phase 10: Task Board with Drag & Drop** - Kanban board with terminal dispatch
 
 ## Phase Details
 
@@ -119,6 +123,10 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | 4. Status Detection & Alerts | 2/2 | Complete | 2026-02-25 |
 | 5. Network Access | 5/5 | Complete | 2026-02-27 |
 | 6. Session Log Analysis | 2/2 | Complete | 2026-02-27 |
+| 7. Advanced Recommendations | 3/3 | Complete | 2026-02-28 |
+| 8. Project Configuration Audit | 0/3 | Planned | - |
+| 9. Local Code Review Panel | 0/? | Planned | - |
+| 10. Task Board | 0/? | Planned | - |
 
 ### Phase 6: Session Log Analysis
 **Goal**: Analyze Claude CLI JSONL session logs to display tool statistics, token efficiency, workflow recommendations (praise + improvements), and per-session live practice scores with badges in the dashboard
@@ -175,6 +183,41 @@ Plans:
 - [ ] 08-02-PLAN.md — Dual-transport wiring: IPC channels + handlers, HTTP /api/audit/* endpoints [Wave 2, depends on 08-01]
 - [ ] 08-03-PLAN.md — Angular UI: AuditService, tab switcher in analysis panel, project dropdown, scored results + expandable findings [Wave 3, depends on 08-01 + 08-02]
 
+### Phase 9: Local Code Review Panel
+
+**Goal:** Provide an integrated diff viewer in the dashboard so users can review Claude's code changes inline — with syntax highlighting, per-hunk accept/reject, and inline comments — without switching to an external editor
+**Depends on:** Phase 3 (dashboard grid for tile integration)
+**Requirements**: REVW-01, REVW-02, REVW-03, REVW-04, REVW-05
+**Success Criteria** (what must be TRUE):
+  1. User can open a diff viewer from a terminal tile header showing all uncommitted changes
+  2. Diff is syntax-highlighted with file tree navigation (added/modified/deleted indicators)
+  3. User can accept or reject individual hunks or entire files (reject reverts via `git checkout -- file`)
+  4. User can click on a diff line to leave an inline comment (stored locally per session)
+  5. "Review Changes" button appears automatically when terminal status is WAITING or DONE and uncommitted changes exist
+  6. Works in both Electron app and remote browser
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 9 to break down)
+
+### Phase 10: Task Board with Drag & Drop Execution
+
+**Goal:** Add a Kanban-style task board where users can create work items, organize them by status, and drag cards directly onto terminal tiles to inject the task content as a prompt — turning PowerTerminal into a task orchestration platform
+**Depends on:** Phase 2 (WebSocket for terminal I/O), Phase 4 (status detection for auto-tracking)
+**Requirements**: TASK-01, TASK-02, TASK-03, TASK-04, TASK-05
+**Success Criteria** (what must be TRUE):
+  1. User can create, edit, and delete task cards with title, description, and category
+  2. Kanban board with three columns: Backlog, In Progress, Done — with drag-drop between columns
+  3. Dragging a card onto a terminal tile injects the card content as a prompt into that terminal
+  4. Card status auto-updates based on terminal status detection (terminal DONE → card moves to Done)
+  5. Task cards support templates for common patterns (bug fix, feature, test, refactor)
+  6. Board state persists across app restarts
+  7. Works in both Electron app and remote browser
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (run /gsd:plan-phase 10 to break down)
+
 ---
 *Roadmap created: 2026-02-24*
-*Last updated: 2026-02-28 after Phase 8 planning*
+*Last updated: 2026-02-28 — added Phase 9 (Local Code Review) and Phase 10 (Task Board)*

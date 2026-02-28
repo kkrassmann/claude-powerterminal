@@ -50,15 +50,23 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ## v2 Requirements
 
-Deferred to future release. Tracked but not in current roadmap.
+### Code Review (moved to v1 Phase 9)
 
-### Code Review
+- **REVW-01**: User can view Git diff inline within the dashboard with syntax highlighting
+- **REVW-02**: User can accept or reject changes per file or per hunk
+- **REVW-03**: User can place inline review comments on specific diff lines
+- **REVW-04**: Review panel appears contextually when a terminal reaches WAITING or DONE status
+- **REVW-05**: Works in both Electron app and remote browser
 
-- **REVW-01**: User can view Git diff inline within the dashboard
-- **REVW-02**: User can place review comments on specific lines
-- **REVW-03**: Review comments are submitted as GitHub PR reviews via GitHub API
+### Task Board (moved to v1 Phase 10)
 
-### Remote Access
+- **TASK-01**: User can create, edit, and delete task cards on a Kanban board (Backlog / In Progress / Done)
+- **TASK-02**: User can drag a task card onto a terminal tile to inject the task content as a prompt
+- **TASK-03**: Task card status updates automatically based on terminal status detection (DONE → card moves to Done)
+- **TASK-04**: Task cards support templates for common patterns (bug fix, feature, test, refactor)
+- **TASK-05**: Task board persists across app restarts
+
+### Remote Access (deferred)
 
 - **RMTE-01**: App supports ngrok tunneling for internet access
 - **RMTE-02**: User authentication via login when accessed remotely
@@ -107,12 +115,22 @@ Deferred to future release. Tracked but not in current roadmap.
 | OPT-01 | Phase 6 | Complete |
 | OPT-02 | Phase 6 | Complete |
 | OPT-03 | Phase 6 | Complete |
+| REVW-01 | Phase 9 | Planned |
+| REVW-02 | Phase 9 | Planned |
+| REVW-03 | Phase 9 | Planned |
+| REVW-04 | Phase 9 | Planned |
+| REVW-05 | Phase 9 | Planned |
+| TASK-01 | Phase 10 | Planned |
+| TASK-02 | Phase 10 | Planned |
+| TASK-03 | Phase 10 | Planned |
+| TASK-04 | Phase 10 | Planned |
+| TASK-05 | Phase 10 | Planned |
 
 **Coverage:**
-- v1 requirements: 23 total
-- Mapped to phases: 23
+- v1 requirements: 33 total
+- Mapped to phases: 33
 - Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-02-24*
-*Last updated: 2026-02-24 after roadmap creation (traceability updated)*
+*Last updated: 2026-02-28 — added Phase 9 (Code Review) and Phase 10 (Task Board)*
