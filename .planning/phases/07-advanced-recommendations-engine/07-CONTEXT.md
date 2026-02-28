@@ -30,11 +30,17 @@ Upgrade the existing session log analysis engine (Phase 6) with expanded JSONL f
 - Window: last 10 sessions
 - Placement: dedicated "Trends" section in the Analysis Panel (below recommendations)
 
+### Per-Session Analysis View
+- Click on score/badge area in tile-header opens a session detail panel
+- Detail view shows: score breakdown (all 5 dimensions with sub-scores), detected anti-patterns with concrete occurrences, and session-specific recommendations grouped by category
+- This replaces/enhances the current aggregated-only analysis — each session becomes individually explorable
+
 ### Recommendation Presentation
 - Standalone explanations — no external doc links, each tip is self-contained and actionable
 - Tone: direct and factual ("Use Grep instead of Bash grep — faster and shows results in UI")
 - Grouped by category: Anti-Patterns (red) first, then Warnings (orange), Tips (blue), Praise (green), Achievements (gold)
 - 5 recommendation categories total: praise, tip, warning, anti-pattern, achievement (colors per Catppuccin Mocha palette)
+- Recommendations shown both in per-session detail view and in aggregated analysis panel
 
 ### Claude's Discretion
 - Anti-pattern threshold values (how many occurrences trigger detection)
@@ -53,6 +59,7 @@ Upgrade the existing session log analysis engine (Phase 6) with expanded JSONL f
 - Sparklines should be compact enough to sit next to metric labels without disrupting layout
 - Achievement-gold badges should feel distinct from the regular Catppuccin color palette
 - Recommendation tone should be like a senior developer reviewing code: factual, no fluff, actionable
+- Per-session detail view should feel like drilling into a specific session's "report card" — score breakdown, what went well, what to improve
 
 </specifics>
 
