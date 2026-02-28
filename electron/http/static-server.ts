@@ -22,6 +22,7 @@ import { getMainWindow } from '../utils/window-ref';
 import { parseGitStatus } from '../utils/git-status-parser';
 import { IPC_CHANNELS } from '../../src/shared/ipc-channels';
 import { analyzeAllSessions, computeSessionScore } from '../analysis/log-analyzer';
+import { getTrends, HistoryEntry } from '../analysis/score-history';
 
 /**
  * SessionMetadata interface (matches src/app/models/session.model.ts)
@@ -323,6 +324,48 @@ export function startStaticServer(port: number): http.Server {
         console.error(`[HTTP] GET /api/analysis/session error for ${id}:`, error.message);
         res.writeHead(500, corsHeaders);
         res.end(JSON.stringify({ error: 'Session score computation failed' }));
+      }
+      return;
+    }
+
+    // GET /api/analysis/session-detail?sessionId=<sessionId> - Full per-session score detail
+    if (req.method === 'GET' && pathname === '/api/analysis/session-detail') {
+      const sessionId = url.searchParams.get('sessionId') ?? '';
+      if (!sessionId) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ error: 'sessionId required' }));
+        return;
+      }
+      try {
+        const result = await computeSessionScore(sessionId);
+        res.writeHead(200, corsHeaders);
+        res.end(JSON.stringify(result ?? null));
+      } catch (err) {
+        res.writeHead(500, corsHeaders);
+        res.end(JSON.stringify({ error: String(err) }));
+      }
+      return;
+    }
+
+    // GET /api/analysis/trends - Score trend data for last 10 sessions
+    if (req.method === 'GET' && pathname === '/api/analysis/trends') {
+      try {
+        const entries = getTrends(10);
+        const trends = {
+          entries,
+          totalScore: entries.map((e: HistoryEntry) => e.score),
+          toolNativeness: entries.map((e: HistoryEntry) => e.toolNativenessScore),
+          subagent: entries.map((e: HistoryEntry) => e.subagentScore),
+          readBeforeWrite: entries.map((e: HistoryEntry) => e.readBeforeWriteScore),
+          contextEfficiency: entries.map((e: HistoryEntry) => e.contextEfficiencyScore),
+          errorScore: entries.map((e: HistoryEntry) => e.errorScore),
+          antiPatternCount: entries.map((e: HistoryEntry) => e.antiPatternCount),
+        };
+        res.writeHead(200, corsHeaders);
+        res.end(JSON.stringify(trends));
+      } catch (err) {
+        res.writeHead(500, corsHeaders);
+        res.end(JSON.stringify({ error: String(err) }));
       }
       return;
     }
