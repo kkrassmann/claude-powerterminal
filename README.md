@@ -22,7 +22,7 @@ Run 6-10+ Claude instances in a tiled grid. Each tile shows live terminal output
 
 **LAN Access** &mdash; The dashboard is accessible from any device on your local network. Open `http://<your-ip>:9801` on your phone or tablet to monitor and create sessions remotely.
 
-![Screenshot_20260228_183851_Chrome](https://github.com/user-attachments/assets/0263331b-7e11-4fd3-b2fd-c7ab4b4fddb1)
+<img width="150" alt="image" src="https://github.com/user-attachments/assets/0263331b-7e11-4fd3-b2fd-c7ab4b4fddb1" />
 
 **Git Context** &mdash; Each tile header shows the current Git branch, plus added/modified/deleted file counts. Updated every 30 seconds.
 
