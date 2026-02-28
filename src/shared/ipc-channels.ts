@@ -29,6 +29,8 @@ export const IPC_CHANNELS = {
   // Log analysis channels
   LOG_ANALYSIS: 'analysis:logs',
   LOG_SESSION_SCORE: 'analysis:session-score',
+  LOG_SESSION_DETAIL: 'analysis:session-detail',
+  LOG_SCORE_TRENDS: 'analysis:score-trends',
 } as const;
 
 export type IPCChannel = typeof IPC_CHANNELS[keyof typeof IPC_CHANNELS];
