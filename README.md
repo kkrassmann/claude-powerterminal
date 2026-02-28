@@ -8,7 +8,13 @@ A desktop dashboard for power users who run many [Claude CLI](https://docs.anthr
 
 ## Quick Start
 
-Download the latest binary from [Releases](https://github.com/kkrassmann/claude-powerterminal/releases), run it, done.
+```bash
+npx claude-powerterminal
+```
+
+Downloads the latest binary, caches it locally, and launches the app. That's it.
+
+Or download manually from [Releases](https://github.com/kkrassmann/claude-powerterminal/releases).
 
 Or build from source:
 
@@ -83,14 +89,22 @@ Full xterm.js with WebGL rendering, 10,000-line scrollback, Catppuccin Mocha the
 
 ## Installation
 
-### Option 1: GitHub Releases (recommended)
+### Option 1: npx (recommended)
+
+```bash
+npx claude-powerterminal
+```
+
+Requires Node.js 18+. Automatically downloads the correct binary for your platform and caches it in `~/.claude-powerterminal/`.
+
+### Option 2: GitHub Releases
 
 Download the latest binary from [Releases](https://github.com/kkrassmann/claude-powerterminal/releases):
 
 - **Windows:** `claude-powerterminal-x.x.x-win-x64.exe` (portable, no install)
 - **Linux:** `claude-powerterminal-x.x.x-linux-x64.AppImage`
 
-### Option 2: Build from source
+### Option 3: Build from source
 
 ```bash
 git clone https://github.com/kkrassmann/claude-powerterminal.git
