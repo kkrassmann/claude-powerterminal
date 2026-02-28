@@ -149,10 +149,12 @@ Plans:
   4. New badge system: Context Master, Zero Error, Planner, Parallel Pro, Speed Demon, Researcher
   5. Trend tracking shows session-over-session improvement for key metrics
   6. Recommendation categories: praise (green), tip (blue), warning (orange), anti-pattern (red), achievement (gold)
-**Plans:** 0 plans
+**Plans:** 3 plans in 2 waves
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 7 to break down)
+- [ ] 07-01-PLAN.md — Backend extension: expanded JSONL fields, anti-pattern detection engine, 5-category recommendations, stats-cache v2 fix [Wave 1]
+- [ ] 07-02-PLAN.md — Score history persistence + new IPC/HTTP channels for session detail and trend data [Wave 1]
+- [ ] 07-03-PLAN.md — Angular UI: session detail panel, sparkline trends section, emoji badge upgrades, app wiring [Wave 2, depends on 07-01 + 07-02]
 
 ### Phase 8: Project Configuration Audit
 
@@ -173,4 +175,4 @@ Plans:
 
 ---
 *Roadmap created: 2026-02-24*
-*Last updated: 2026-02-28 after Phase 8 addition*
+*Last updated: 2026-02-28 after Phase 7 planning*
