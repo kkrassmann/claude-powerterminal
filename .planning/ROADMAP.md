@@ -195,10 +195,12 @@ Plans:
   4. User can click on a diff line to leave an inline comment (stored locally per session)
   5. "Review Changes" button appears automatically when terminal status is WAITING or DONE and uncommitted changes exist
   6. Works in both Electron app and remote browser
-**Plans:** 0 plans
+**Plans:** 3 plans in 3 waves
 
 Plans:
-- [ ] TBD (run /gsd:plan-phase 9 to break down)
+- [ ] 09-01-PLAN.md -- Backend foundation: shared types, IPC handlers for git diff/apply, HTTP API mirrors, Angular CodeReviewService [Wave 1]
+- [ ] 09-02-PLAN.md -- Diff viewer UI: fullscreen overlay, VS Code-style file tree, diff2html rendering with Catppuccin Mocha dark theme [Wave 2, depends on 09-01]
+- [ ] 09-03-PLAN.md -- Review workflow: per-hunk accept/reject with undo, comment sidebar with terminal injection, tile-header button, app wiring [Wave 3, depends on 09-02]
 
 ### Phase 10: Task Board with Drag & Drop Execution
 
