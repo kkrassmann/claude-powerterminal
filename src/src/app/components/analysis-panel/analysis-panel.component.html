@@ -125,7 +125,7 @@
       </div>
     </div>
 
-    <!-- Section 5: Recommendations -->
+    <!-- Section 5: Recommendations (severity-styled) -->
     <div class="section" *ngIf="analysis.recommendations.length > 0">
       <div class="section-header" (click)="toggleSection('recommendations')">
         <span class="section-toggle">{{ isCollapsed('recommendations') ? '+' : '-' }}</span>
@@ -162,6 +162,28 @@
                  [style.width.%]="analysis.practiceScore"
                  [style.backgroundColor]="getScoreColor(analysis.practiceScore)">
             </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Section 7: Trends (sparklines) -->
+    <div class="section">
+      <div class="section-header" (click)="trendsExpanded = !trendsExpanded">
+        <span class="section-toggle">{{ trendsExpanded ? '-' : '+' }}</span>
+        <span class="section-title">Verlauf (letzte 10 Sessions)</span>
+      </div>
+      <div class="section-body" *ngIf="trendsExpanded">
+        <div *ngIf="!trends || trends.entries.length < 2" class="no-trends">
+          Keine Verlaufsdaten (mindestens 2 Sessions erforderlich)
+        </div>
+        <div *ngIf="trends && trends.entries.length >= 2" class="sparklines-grid">
+          <div class="sparkline-row" *ngFor="let dim of sparklineDimensions">
+            <span class="sparkline-label">{{ dim.label }}</span>
+            <svg class="sparkline" width="60" height="20" viewBox="0 0 60 20">
+              <path [attr.d]="dim.path" [attr.stroke]="dim.color" stroke-width="1.5" fill="none"/>
+            </svg>
+            <span class="sparkline-last">{{ dim.lastValue }}</span>
           </div>
         </div>
       </div>

@@ -340,6 +340,12 @@
   background: rgba(137, 180, 250, 0.08);
 }
 
+/* severity-tip is the renamed 'info' from Phase 7 */
+.recommendation-card.severity-tip {
+  border-left-color: #89b4fa;
+  background: rgba(137, 180, 250, 0.08);
+}
+
 .recommendation-card.severity-warning {
   border-left-color: #fab387;
   background: rgba(250, 179, 135, 0.08);
@@ -348,6 +354,18 @@
 .recommendation-card.severity-critical {
   border-left-color: #f38ba8;
   background: rgba(243, 139, 168, 0.08);
+}
+
+/* anti-pattern severity — red with dark background */
+.recommendation-card.severity-anti-pattern {
+  border-left-color: #f38ba8;
+  background: rgba(243, 139, 168, 0.12);
+}
+
+/* achievement severity — gold */
+.recommendation-card.severity-achievement {
+  border-left-color: #f6c90e;
+  background: rgba(246, 201, 14, 0.08);
 }
 
 .rec-header {
@@ -437,6 +455,43 @@
   height: 100%;
   border-radius: 4px;
   transition: width 0.3s ease;
+}
+
+/* Section 7: Sparklines / Trends */
+.sparklines-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.sparkline-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.sparkline-label {
+  font-size: 0.72rem;
+  color: #a6adc8;
+  width: 75px;
+  flex-shrink: 0;
+}
+
+.sparkline {
+  flex-shrink: 0;
+}
+
+.sparkline-last {
+  font-size: 0.72rem;
+  color: #cdd6f4;
+  width: 24px;
+  text-align: right;
+}
+
+.no-trends {
+  font-size: 0.75rem;
+  color: #6c7086;
+  padding: 0.5rem 0;
 }
 
 /* Responsive: stack on mobile */

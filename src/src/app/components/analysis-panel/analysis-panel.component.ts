@@ -2,7 +2,7 @@ import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Subscription } from 'rxjs';
 import { LogAnalysisService } from '../../services/log-analysis.service';
-import type { SessionAnalysis, ToolUsageStat, Recommendation } from '../../../../shared/analysis-types';
+import type { SessionAnalysis, ToolUsageStat, Recommendation, ScoreTrends } from '../../../../shared/analysis-types';
 
 /**
  * Collapsible analysis panel showing session log analysis results.
@@ -26,6 +26,12 @@ export class AnalysisPanelComponent implements OnInit, OnDestroy {
   analysis: SessionAnalysis | null = null;
   loading = false;
 
+  /** Trend data for sparkline section */
+  trends: ScoreTrends | null = null;
+
+  /** Whether the Trends section is expanded */
+  trendsExpanded = true;
+
   /** Track which sections are collapsed */
   collapsedSections: Record<string, boolean> = {};
 
@@ -39,8 +45,9 @@ export class AnalysisPanelComponent implements OnInit, OnDestroy {
       this.loading = this.analysisService.loading;
     });
 
-    // Trigger initial load
+    // Trigger initial load for analysis and trends
     this.analysisService.loadAnalysis();
+    this.analysisService.loadTrends().then(t => { this.trends = t; });
   }
 
   ngOnDestroy(): void {
@@ -115,5 +122,45 @@ export class AnalysisPanelComponent implements OnInit, OnDestroy {
     if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
     if (n >= 1_000) return (n / 1_000).toFixed(1) + 'K';
     return n.toString();
+  }
+
+  /**
+   * Build an SVG polyline path string for a sparkline.
+   * Normalizes values to the given pixel dimensions.
+   *
+   * @param values - Array of numeric values
+   * @param width - SVG width in pixels (default 60)
+   * @param height - SVG height in pixels (default 20)
+   * @returns SVG path string (M...L...L...) or empty string if fewer than 2 values
+   */
+  buildSparklinePath(values: number[], width = 60, height = 20): string {
+    if (!values || values.length < 2) return '';
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const range = max - min || 1;
+    const xStep = width / (values.length - 1);
+    const points = values.map((v, i) => {
+      const x = i * xStep;
+      const y = height - ((v - min) / range) * (height - 2) - 1;
+      return `${x.toFixed(1)},${y.toFixed(1)}`;
+    });
+    return `M${points.join(' L')}`;
+  }
+
+  /**
+   * Pre-computed sparkline dimensions for the Trends section.
+   * Computed as getter to avoid per-change-detection recalculation.
+   * Returns empty array when fewer than 2 history entries exist.
+   */
+  get sparklineDimensions(): Array<{ label: string; path: string; color: string; lastValue: number }> {
+    if (!this.trends || this.trends.entries.length < 2) return [];
+    return [
+      { label: 'Gesamt', path: this.buildSparklinePath(this.trends.totalScore), color: '#cdd6f4', lastValue: this.trends.totalScore.at(-1) ?? 0 },
+      { label: 'Tool-Nativ', path: this.buildSparklinePath(this.trends.toolNativeness), color: '#89b4fa', lastValue: this.trends.toolNativeness.at(-1) ?? 0 },
+      { label: 'Subagent', path: this.buildSparklinePath(this.trends.subagent), color: '#a6e3a1', lastValue: this.trends.subagent.at(-1) ?? 0 },
+      { label: 'Read/Write', path: this.buildSparklinePath(this.trends.readBeforeWrite), color: '#fab387', lastValue: this.trends.readBeforeWrite.at(-1) ?? 0 },
+      { label: 'Context', path: this.buildSparklinePath(this.trends.contextEfficiency), color: '#cba6f7', lastValue: this.trends.contextEfficiency.at(-1) ?? 0 },
+      { label: 'Anti-Pattern', path: this.buildSparklinePath(this.trends.antiPatternCount), color: '#f38ba8', lastValue: this.trends.antiPatternCount.at(-1) ?? 0 },
+    ];
   }
 }

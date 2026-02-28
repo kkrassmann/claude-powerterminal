@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActiveSession } from '../../services/session-state.service';
 import { GitContext } from '../../models/git-context.model';
@@ -24,6 +24,7 @@ import { TerminalStatus, STATUS_COLORS, STATUS_LABELS } from '../../models/termi
 })
 export class TileHeaderComponent {
   @Input() session!: ActiveSession;
+  @Input() sessionId: string = '';
   @Input() gitContext: GitContext | undefined;
   @Input() isChanged: boolean = false;
   @Input() isMaximized: boolean = false;
@@ -36,6 +37,7 @@ export class TileHeaderComponent {
   @Output() restart = new EventEmitter<void>();
   @Output() kill = new EventEmitter<void>();
   @Output() acknowledged = new EventEmitter<void>();
+  @Output() sessionSelected = new EventEmitter<string>();
 
   /**
    * Get color for the practice score based on value.
@@ -120,5 +122,46 @@ export class TileHeaderComponent {
    */
   onMaximize(): void {
     this.maximize.emit();
+  }
+
+  /**
+   * Emit sessionSelected event when score chip is clicked.
+   * Used to open the session detail panel.
+   */
+  onScoreClick(): void {
+    if (this.sessionId) {
+      this.sessionSelected.emit(this.sessionId);
+    }
+  }
+
+  /**
+   * Get emoji icon for a badge name.
+   */
+  getBadgeEmoji(badge: string): string {
+    const map: Record<string, string> = {
+      'Context Master': '🧠',
+      'Zero Error': '✅',
+      'Planner': '📋',
+      'Parallel Pro': '⚡',
+      'Speed Demon': '🚀',
+      'Researcher': '🔍',
+      'Tool Native': '🛠️',
+      'Subagent Pro': '🤝',
+      'Context Efficient': '🧠',
+      'Orchestrated': '🤝',
+      'Planned': '📋',
+    };
+    return map[badge] ?? '🏅';
+  }
+
+  /**
+   * Returns true if the badge is one of the 6 special achievement badges.
+   * These get the achievement-gold color treatment.
+   */
+  isAchievementBadge(badge: string): boolean {
+    const achievementBadges = new Set([
+      'Context Master', 'Zero Error', 'Planner', 'Parallel Pro', 'Speed Demon', 'Researcher',
+    ]);
+    return achievementBadges.has(badge);
   }
 }

@@ -168,6 +168,22 @@
   color: #1e1e2e;
 }
 
+/* Achievement badge — gold color distinct from regular badge colors */
+.badge.achievement-badge {
+  color: #1e1e2e;
+  background: #f6c90e;
+  border-color: #f6c90e;
+}
+
+/* Score chip — clickable to open session detail panel */
+.score-chip {
+  cursor: pointer;
+}
+
+.score-chip:hover {
+  opacity: 0.8;
+}
+
 /* Mobile: larger touch targets, compact layout */
 @media (max-width: 600px) {
   .tile-header {
