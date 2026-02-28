@@ -1,7 +1,7 @@
 import { Injectable, OnDestroy } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { IPC_CHANNELS } from '../../../shared/ipc-channels';
-import type { SessionAnalysis, SessionPracticeScore } from '../../../shared/analysis-types';
+import type { SessionAnalysis, SessionPracticeScore, SessionScoreDetail, ScoreTrends } from '../../../shared/analysis-types';
 
 /**
  * Service for fetching Claude CLI session log analysis data.
@@ -94,6 +94,47 @@ export class LogAnalysisService implements OnDestroy {
     } catch (error: any) {
       console.warn(`[LogAnalysisService] Failed to load score for ${sessionId}:`, error.message);
       return { sessionId, score: 0, badges: [], highlights: [] };
+    }
+  }
+
+  /**
+   * Load detailed score breakdown for a single session.
+   * Returns null on error.
+   *
+   * @param sessionId - Unique session identifier
+   * @returns SessionScoreDetail or null on error
+   */
+  async loadSessionDetail(sessionId: string): Promise<SessionScoreDetail | null> {
+    try {
+      if (window.electronAPI) {
+        return await window.electronAPI.invoke('analysis:session-detail', sessionId);
+      } else {
+        const res = await fetch(
+          `http://${window.location.hostname}:9801/api/analysis/session-detail?sessionId=${encodeURIComponent(sessionId)}`
+        );
+        return await res.json();
+      }
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Load score trend data for sparkline visualizations.
+   * Returns null on error.
+   *
+   * @returns ScoreTrends or null on error
+   */
+  async loadTrends(): Promise<ScoreTrends | null> {
+    try {
+      if (window.electronAPI) {
+        return await window.electronAPI.invoke('analysis:score-trends');
+      } else {
+        const res = await fetch(`http://${window.location.hostname}:9801/api/analysis/trends`);
+        return await res.json();
+      }
+    } catch {
+      return null;
     }
   }
 
