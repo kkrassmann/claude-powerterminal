@@ -22,6 +22,7 @@ import { getMainWindow } from '../utils/window-ref';
 import { parseGitStatus } from '../utils/git-status-parser';
 import { IPC_CHANNELS } from '../../src/shared/ipc-channels';
 import { analyzeAllSessions, computeSessionScore } from '../analysis/log-analyzer';
+import { discoverClaudeProjects, runProjectAudit } from '../analysis/audit-engine';
 import { getTrends, HistoryEntry } from '../analysis/score-history';
 import { getAngularBuildDir } from '../utils/paths';
 import { exportAsJsonl } from '../utils/log-service';
@@ -365,6 +366,38 @@ export function startStaticServer(port: number): http.Server {
         };
         res.writeHead(200, corsHeaders);
         res.end(JSON.stringify(trends));
+      } catch (err) {
+        res.writeHead(500, corsHeaders);
+        res.end(JSON.stringify({ error: String(err) }));
+      }
+      return;
+    }
+
+    // GET /api/audit/projects - Discover Claude project paths from ~/.claude/projects/
+    if (req.method === 'GET' && pathname === '/api/audit/projects') {
+      try {
+        const projects = discoverClaudeProjects();
+        res.writeHead(200, { ...corsHeaders, 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(projects));
+      } catch (err) {
+        res.writeHead(500, corsHeaders);
+        res.end(JSON.stringify({ error: String(err) }));
+      }
+      return;
+    }
+
+    // GET /api/audit/run?path=<encoded> - Run heuristic audit for a project path
+    if (req.method === 'GET' && pathname === '/api/audit/run') {
+      const projectPath = url.searchParams.get('path') ?? '';
+      if (!projectPath) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ error: 'path parameter required' }));
+        return;
+      }
+      try {
+        const result = runProjectAudit(projectPath);
+        res.writeHead(200, { ...corsHeaders, 'Content-Type': 'application/json' });
+        res.end(JSON.stringify(result));
       } catch (err) {
         res.writeHead(500, corsHeaders);
         res.end(JSON.stringify({ error: String(err) }));

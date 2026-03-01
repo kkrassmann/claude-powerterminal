@@ -33,6 +33,10 @@ export const IPC_CHANNELS = {
   LOG_SESSION_DETAIL: 'analysis:session-detail',
   LOG_SCORE_TRENDS: 'analysis:score-trends',
 
+  // Project audit channels
+  AUDIT_PROJECTS: 'audit:projects',
+  AUDIT_RUN: 'audit:run',
+
   // Internal logging channels
   LOGS_EXPORT: 'logs:export',
 } as const;

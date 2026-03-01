@@ -10,6 +10,7 @@ import { ipcMain } from 'electron';
 import { IPC_CHANNELS } from '../../src/shared/ipc-channels';
 import { analyzeAllSessions, computeSessionScore } from '../analysis/log-analyzer';
 import { appendScoreHistory, getTrends } from '../analysis/score-history';
+import { discoverClaudeProjects, runProjectAudit } from '../analysis/audit-engine';
 import type { SessionAnalysis, SessionScoreDetail } from '../../src/shared/analysis-types';
 
 // Per-session detail cache with 5-minute TTL
@@ -98,6 +99,16 @@ export function registerAnalysisHandlers(): void {
       errorScore: entries.map(e => e.errorScore),
       antiPatternCount: entries.map(e => e.antiPatternCount),
     };
+  });
+
+  // Handler 5: audit:projects - Discover Claude project paths from ~/.claude/projects/
+  ipcMain.handle(IPC_CHANNELS.AUDIT_PROJECTS, async () => {
+    return discoverClaudeProjects();
+  });
+
+  // Handler 6: audit:run - Run heuristic audit for a given project path
+  ipcMain.handle(IPC_CHANNELS.AUDIT_RUN, async (_event, projectPath: string) => {
+    return runProjectAudit(projectPath);
   });
 
   console.log('[Analysis Handlers] All analysis IPC handlers registered successfully');
