@@ -1,9 +1,45 @@
 <div class="tile-header" (click)="onHeaderClick()" (dblclick)="onHeaderDblClick()">
-  <!-- Line 1: Working directory + action buttons -->
+  <!-- Line 1: Working directory + group badge + action buttons -->
   <div class="header-line-1">
     <span class="status-dot" [style.backgroundColor]="statusColor" [title]="statusLabel"></span>
     <span class="working-dir" [title]="session.metadata.workingDirectory">{{ shortenedPath }}</span>
+
+    <!-- Group badge -->
+    <span class="group-badge"
+          *ngIf="groupName"
+          [style.backgroundColor]="groupColor + '22'"
+          [style.color]="groupColor"
+          [style.borderColor]="groupColor + '44'">
+      {{ groupName }}
+    </span>
+
     <div class="header-actions">
+      <!-- Group assign button -->
+      <div class="group-menu-wrapper">
+        <button class="header-btn"
+                (click)="toggleGroupMenu($event)"
+                title="Assign to group">
+          &#x25CB;
+        </button>
+        <div class="group-dropdown" *ngIf="showGroupMenu" (click)="$event.stopPropagation()">
+          <button class="group-dropdown-item"
+                  *ngFor="let group of availableGroups"
+                  (click)="onAssignToGroup(group.name)">
+            <span class="group-dropdown-dot" [style.backgroundColor]="group.color"></span>
+            {{ group.name }}
+          </button>
+          <button class="group-dropdown-item remove-item"
+                  *ngIf="groupName"
+                  (click)="onRemoveFromGroup()">
+            Remove from group
+          </button>
+          <div class="group-dropdown-empty"
+               *ngIf="availableGroups.length === 0 && !groupName">
+            No groups yet
+          </div>
+        </div>
+      </div>
+
       <button class="header-btn" (click)="onRestart()" title="Restart">&#x21BB;</button>
       <button class="header-btn danger" (click)="onKill()" title="Kill session">&#x2715;</button>
       <button class="header-btn" (click)="onMaximize()" [title]="isMaximized ? 'Restore' : 'Maximize'">

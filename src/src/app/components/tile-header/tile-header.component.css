@@ -184,6 +184,83 @@
   opacity: 0.8;
 }
 
+/* Group badge */
+.group-badge {
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 8px;
+  border: 1px solid;
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-weight: 500;
+}
+
+/* Group menu wrapper */
+.group-menu-wrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+/* Group dropdown menu */
+.group-dropdown {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 100;
+  background: #1e1e2e;
+  border: 1px solid #45475a;
+  border-radius: 6px;
+  padding: 4px 0;
+  min-width: 140px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  margin-top: 2px;
+}
+
+.group-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 5px 10px;
+  border: none;
+  background: transparent;
+  color: #cdd6f4;
+  font-size: 11px;
+  font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+}
+
+.group-dropdown-item:hover {
+  background: #313244;
+}
+
+.group-dropdown-item.remove-item {
+  color: #f38ba8;
+  border-top: 1px solid #313244;
+  margin-top: 2px;
+  padding-top: 6px;
+}
+
+.group-dropdown-item.remove-item:hover {
+  background: rgba(243, 139, 168, 0.15);
+}
+
+.group-dropdown-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.group-dropdown-empty {
+  padding: 6px 10px;
+  color: #585b70;
+  font-size: 11px;
+  font-family: 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'Consolas', monospace;
+}
+
 /* Mobile: larger touch targets, compact layout */
 @media (max-width: 600px) {
   .tile-header {

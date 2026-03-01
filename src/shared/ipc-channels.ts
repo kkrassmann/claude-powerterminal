@@ -23,6 +23,10 @@ export const IPC_CHANNELS = {
   // Git context channels
   GIT_CONTEXT: 'git:context',
 
+  // Group persistence channels
+  GROUPS_LOAD: 'groups:load',
+  GROUPS_SAVE: 'groups:save',
+
   // App info channels
   APP_HOME_DIR: 'app:home-dir',
   APP_LAN_URL: 'app:lan-url',

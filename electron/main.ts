@@ -32,6 +32,7 @@ import { registerSessionHandlers } from './ipc/session-handlers';
 import { registerGitHandlers } from './ipc/git-handlers';
 import { registerAnalysisHandlers } from './ipc/analysis-handlers';
 import { registerLogHandlers } from './ipc/log-handlers';
+import { registerGroupHandlers } from './ipc/group-handlers';
 import { startWebSocketServer, stopWebSocketServer, getScrollbackBuffers, getStatusDetectors, broadcastStatus } from './websocket/ws-server';
 import { ScrollbackBuffer } from '../src/shared/scrollback-buffer';
 import { deleteSessionFromDisk } from './ipc/session-handlers';
@@ -59,9 +60,14 @@ function createWindow(): void {
   // Hide default menu bar
   Menu.setApplicationMenu(null);
 
+  const iconPath = app.isPackaged
+    ? path.join(process.resourcesPath, 'icon.png')
+    : path.join(__dirname, '..', 'assets', 'icon.png');
+
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    icon: iconPath,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -363,6 +369,7 @@ app.whenReady().then(async () => {
   registerGitHandlers();
   registerAnalysisHandlers();
   registerLogHandlers();
+  registerGroupHandlers();
 
   // Start WebSocket server before creating window
   startWebSocketServer();

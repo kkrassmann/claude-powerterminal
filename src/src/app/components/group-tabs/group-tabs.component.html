@@ -1,0 +1,128 @@
+<div class="group-tab-bar">
+  <div class="tabs-section">
+    <!-- "All" tab -->
+    <button class="group-tab"
+            [class.active]="!activeGroup"
+            (click)="selectAll()"
+            (dragover)="onTabDragOver($event)"
+            (drop)="onAllTabDrop($event)">
+      <span class="tab-label">All</span>
+      <span class="tab-count">{{ totalSessionCount }}</span>
+    </button>
+
+    <!-- Group tabs -->
+    <button *ngFor="let group of groups"
+            class="group-tab"
+            [class.active]="activeGroup === group.name"
+            (click)="selectGroup(group.name)"
+            (contextmenu)="onTabContextMenu($event, group)"
+            (dragover)="onTabDragOver($event)"
+            (drop)="onTabDrop($event, group.name)">
+      <!-- Inline rename mode -->
+      <ng-container *ngIf="renamingGroup === group.name; else normalTab">
+        <input class="rename-input"
+               [(ngModel)]="renameValue"
+               (keydown)="onRenameKeydown($event)"
+               (blur)="confirmRename()"
+               autofocus>
+      </ng-container>
+
+      <!-- Normal tab display -->
+      <ng-template #normalTab>
+        <span class="color-dot" [style.backgroundColor]="group.color"></span>
+        <span class="tab-label">{{ group.name }}</span>
+        <span class="tab-count">{{ group.sessionIds.length }}</span>
+      </ng-template>
+    </button>
+
+    <!-- Create group input -->
+    <div class="create-group-inline" *ngIf="showCreateInput">
+      <input class="create-input"
+             [(ngModel)]="newGroupName"
+             placeholder="Group name..."
+             (keydown)="onCreateKeydown($event)"
+             (blur)="confirmCreateGroup()"
+             autofocus>
+    </div>
+
+    <!-- "+" button -->
+    <button class="group-tab add-btn"
+            (click)="startCreateGroup()"
+            title="Create new group"
+            *ngIf="!showCreateInput">
+      +
+    </button>
+  </div>
+
+  <!-- Layout preset buttons -->
+  <div class="preset-section">
+    <button class="preset-btn"
+            [class.active]="activePreset === 'overview'"
+            (click)="setPreset('overview')"
+            title="Grid overview">
+      <!-- Grid icon (4 squares) -->
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+        <rect x="1" y="1" width="6" height="6" rx="1"/>
+        <rect x="9" y="1" width="6" height="6" rx="1"/>
+        <rect x="1" y="9" width="6" height="6" rx="1"/>
+        <rect x="9" y="9" width="6" height="6" rx="1"/>
+      </svg>
+    </button>
+    <button class="preset-btn"
+            [class.active]="activePreset === 'focus'"
+            (click)="setPreset('focus')"
+            title="Focus (single tile)">
+      <!-- Single square icon -->
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+        <rect x="2" y="2" width="12" height="12" rx="1"/>
+      </svg>
+    </button>
+    <button class="preset-btn"
+            [class.active]="activePreset === 'split'"
+            (click)="setPreset('split')"
+            title="Split (two columns)">
+      <!-- Two columns icon -->
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+        <rect x="1" y="1" width="6" height="14" rx="1"/>
+        <rect x="9" y="1" width="6" height="14" rx="1"/>
+      </svg>
+    </button>
+    <button class="preset-btn"
+            [class.active]="activePreset === 'columns'"
+            (click)="setPreset('columns')"
+            title="Three columns">
+      <!-- Three columns icon -->
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+        <rect x="1" y="1" width="4" height="14" rx="0.5"/>
+        <rect x="6" y="1" width="4" height="14" rx="0.5"/>
+        <rect x="11" y="1" width="4" height="14" rx="0.5"/>
+      </svg>
+    </button>
+  </div>
+</div>
+
+<!-- Context menu -->
+<div class="context-menu"
+     *ngIf="contextMenuVisible"
+     [style.left.px]="contextMenuX"
+     [style.top.px]="contextMenuY"
+     (click)="$event.stopPropagation()">
+  <button class="context-item" (click)="startRename()">Rename</button>
+  <button class="context-item" (click)="startChangeColor()">Change color</button>
+  <button class="context-item danger" (click)="deleteGroup()">Delete group</button>
+</div>
+
+<!-- Color picker popover -->
+<div class="color-picker-overlay" *ngIf="showColorPicker" (click)="cancelColorPicker()">
+  <div class="color-picker" (click)="$event.stopPropagation()">
+    <div class="color-picker-title">Choose color</div>
+    <div class="color-swatches">
+      <button *ngFor="let color of availableColors"
+              class="color-swatch"
+              [style.backgroundColor]="color"
+              [class.selected]="colorPickerGroup?.color === color"
+              (click)="selectColor(color)">
+      </button>
+    </div>
+  </div>
+</div>

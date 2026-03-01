@@ -1,8 +1,9 @@
-import { Component, Input, Output, EventEmitter, OnInit } from '@angular/core';
+import { Component, Input, Output, EventEmitter, HostListener, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ActiveSession } from '../../services/session-state.service';
 import { GitContext } from '../../models/git-context.model';
 import { TerminalStatus, STATUS_COLORS, STATUS_LABELS } from '../../models/terminal-status.model';
+import { SessionGroup } from '../../../../shared/group-types';
 
 /**
  * Terminal tile header component displaying working directory, git context, and action buttons.
@@ -23,6 +24,8 @@ import { TerminalStatus, STATUS_COLORS, STATUS_LABELS } from '../../models/termi
   styleUrls: ['./tile-header.component.css']
 })
 export class TileHeaderComponent {
+  constructor(private elementRef: ElementRef) {}
+
   @Input() session!: ActiveSession;
   @Input() sessionId: string = '';
   @Input() gitContext: GitContext | undefined;
@@ -32,12 +35,20 @@ export class TileHeaderComponent {
   @Input() status: TerminalStatus = 'WORKING';
   @Input() practiceScore: number | null = null;
   @Input() badges: string[] = [];
+  @Input() groupName: string = '';
+  @Input() groupColor: string = '';
+  @Input() availableGroups: SessionGroup[] = [];
 
   @Output() maximize = new EventEmitter<void>();
   @Output() restart = new EventEmitter<void>();
   @Output() kill = new EventEmitter<void>();
   @Output() acknowledged = new EventEmitter<void>();
   @Output() sessionSelected = new EventEmitter<string>();
+  @Output() assignToGroup = new EventEmitter<string>();
+  @Output() removeFromGroup = new EventEmitter<void>();
+
+  /** Whether the group context menu is visible. */
+  showGroupMenu = false;
 
   /**
    * Get color for the practice score based on value.
@@ -163,5 +174,39 @@ export class TileHeaderComponent {
       'Context Master', 'Zero Error', 'Planner', 'Parallel Pro', 'Speed Demon', 'Researcher',
     ]);
     return achievementBadges.has(badge);
+  }
+
+  /**
+   * Toggle the group assignment dropdown.
+   */
+  toggleGroupMenu(event: MouseEvent): void {
+    event.stopPropagation();
+    this.showGroupMenu = !this.showGroupMenu;
+  }
+
+  /**
+   * Assign session to a group.
+   */
+  onAssignToGroup(groupName: string): void {
+    this.assignToGroup.emit(groupName);
+    this.showGroupMenu = false;
+  }
+
+  /**
+   * Remove session from its current group.
+   */
+  onRemoveFromGroup(): void {
+    this.removeFromGroup.emit();
+    this.showGroupMenu = false;
+  }
+
+  /**
+   * Close group menu on outside click (host listener on document).
+   */
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: MouseEvent): void {
+    if (this.showGroupMenu && !this.elementRef.nativeElement.contains(event.target)) {
+      this.showGroupMenu = false;
+    }
   }
 }
