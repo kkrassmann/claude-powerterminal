@@ -1,10 +1,61 @@
 <button class="open-dialog-btn" (click)="isDialogOpen = true">+ New Session</button>
 
 <div class="dialog-overlay" *ngIf="isDialogOpen" (click)="isDialogOpen = false">
-  <div class="dialog" (click)="$event.stopPropagation()">
+  <div class="dialog dialog-wide" (click)="$event.stopPropagation()">
     <div class="dialog-header">
       <h2>New Claude Session</h2>
       <button class="close-btn" (click)="isDialogOpen = false">&times;</button>
+    </div>
+
+    <!-- Template Section -->
+    <div class="template-section" *ngIf="templates.length > 0">
+      <label class="section-label">From Template</label>
+
+      <!-- Category filter pills -->
+      <div class="category-filters">
+        <button
+          class="category-pill"
+          [class.active]="activeCategoryFilter === null"
+          (click)="setCategoryFilter(null)"
+        >All</button>
+        <button
+          *ngFor="let cat of categories"
+          class="category-pill"
+          [class.active]="activeCategoryFilter === cat"
+          [style.--pill-color]="categoryColors[cat]"
+          (click)="setCategoryFilter(cat)"
+        >{{ cat }}</button>
+      </div>
+
+      <!-- Template cards grid -->
+      <div class="template-grid">
+        <div
+          class="template-card"
+          *ngFor="let tpl of filteredTemplates"
+          (click)="applyTemplate(tpl)"
+          [style.--card-accent]="categoryColors[tpl.category]"
+        >
+          <div class="template-card-header">
+            <span class="template-name">{{ tpl.name }}</span>
+            <span
+              class="category-badge"
+              [style.background]="categoryColors[tpl.category]"
+            >{{ tpl.category }}</span>
+          </div>
+          <div class="template-description" *ngIf="tpl.description">{{ tpl.description }}</div>
+          <div class="template-meta">
+            <span class="template-use-count">{{ tpl.useCount }}x used</span>
+            <button class="template-delete-btn" (click)="deleteTemplate($event, tpl.id)" title="Delete template">&times;</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pending prompt indicator -->
+    <div class="pending-prompt-indicator" *ngIf="pendingInitialPrompt">
+      <span class="pending-prompt-label">Queued prompt:</span>
+      <span class="pending-prompt-text">{{ pendingInitialPrompt }}</span>
+      <button class="pending-prompt-clear" (click)="pendingInitialPrompt = ''">&times;</button>
     </div>
 
     <form (ngSubmit)="createSession()" #sessionForm="ngForm">
@@ -65,11 +116,67 @@
       </div>
 
       <div class="dialog-actions">
-        <button type="button" class="cancel-btn" (click)="isDialogOpen = false">Cancel</button>
-        <button type="submit" class="create-btn" [disabled]="isCreating || !workingDirectory">
-          {{ isCreating ? 'Creating...' : 'Start Session' }}
-        </button>
+        <button
+          type="button"
+          class="save-template-btn"
+          (click)="showSaveTemplateForm = !showSaveTemplateForm"
+        >{{ showSaveTemplateForm ? 'Cancel Template' : 'Save as Template' }}</button>
+        <div class="dialog-actions-right">
+          <button type="button" class="cancel-btn" (click)="isDialogOpen = false">Cancel</button>
+          <button type="submit" class="create-btn" [disabled]="isCreating || !workingDirectory">
+            {{ isCreating ? 'Creating...' : 'Start Session' }}
+          </button>
+        </div>
       </div>
     </form>
+
+    <!-- Save as Template form -->
+    <div class="save-template-form" *ngIf="showSaveTemplateForm">
+      <div class="form-section">
+        <label for="template-name">Template Name</label>
+        <input
+          type="text"
+          id="template-name"
+          [(ngModel)]="templateName"
+          placeholder="e.g. My Project Bugfix"
+          class="form-control"
+        />
+      </div>
+      <div class="form-section">
+        <label for="template-description">Description (optional)</label>
+        <input
+          type="text"
+          id="template-description"
+          [(ngModel)]="templateDescription"
+          placeholder="Short description of this template"
+          class="form-control"
+        />
+      </div>
+      <div class="form-section">
+        <label for="template-category">Category</label>
+        <select
+          id="template-category"
+          [(ngModel)]="templateCategory"
+          class="form-control"
+        >
+          <option *ngFor="let cat of categories" [value]="cat">{{ cat }}</option>
+        </select>
+      </div>
+      <div class="form-section">
+        <label for="template-initial-prompt">Initial Prompt (optional)</label>
+        <textarea
+          id="template-initial-prompt"
+          [(ngModel)]="templateInitialPrompt"
+          placeholder="Prompt to send after session starts"
+          class="form-control template-prompt-input"
+          rows="3"
+        ></textarea>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" class="create-btn" (click)="saveAsTemplate()" [disabled]="!templateName.trim() || !workingDirectory.trim()">
+          Save Template
+        </button>
+      </div>
+    </div>
   </div>
 </div>
