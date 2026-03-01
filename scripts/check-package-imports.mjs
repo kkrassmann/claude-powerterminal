@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-'use strict';
 
 /**
  * Pre-release check: verify all require() paths in dist/electron/
@@ -9,8 +8,11 @@
  * Everything else will cause a runtime crash in the packaged app.
  */
 
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function walk(dir) {
   let results = [];
