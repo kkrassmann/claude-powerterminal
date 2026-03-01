@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <clipPath id="rounded">
+      <rect width="512" height="512" rx="80" ry="80"/>
+    </clipPath>
+  </defs>
+
+  <g clip-path="url(#rounded)">
+    <!-- Background -->
+    <rect width="512" height="512" fill="#1e1e2e"/>
+
+    <!-- Terminal window chrome -->
+    <rect x="40" y="40" width="432" height="432" rx="24" fill="#181825"/>
+
+    <!-- Title bar -->
+    <rect x="40" y="40" width="432" height="48" rx="24" fill="#313244"/>
+    <rect x="40" y="64" width="432" height="24" fill="#313244"/>
+
+    <!-- Traffic light dots -->
+    <circle cx="80" cy="64" r="10" fill="#f38ba8"/>
+    <circle cx="112" cy="64" r="10" fill="#f9e2af"/>
+    <circle cx="144" cy="64" r="10" fill="#a6e3a1"/>
+
+    <!-- Prompt line: bold > _ with cursor -->
+    <text x="80" y="230" font-family="Consolas, 'Courier New', monospace" font-size="120" font-weight="bold" fill="#fab387">❯</text>
+    <text x="180" y="230" font-family="Consolas, 'Courier New', monospace" font-size="120" font-weight="bold" fill="#cdd6f4">_</text>
+    <!-- Blinking cursor -->
+    <rect x="284" y="155" width="12" height="85" rx="3" fill="#fab387" opacity="0.9"/>
+
+    <!-- "power" text -->
+    <text x="80" y="370" font-family="Consolas, 'Courier New', monospace" font-size="80" font-weight="bold" letter-spacing="8" fill="#fab387">power</text>
+
+    <!-- Status indicator dot -->
+    <circle cx="432" cy="64" r="8" fill="#a6e3a1"/>
+  </g>
+</svg>

@@ -20,19 +20,18 @@ function getGroupsFilePath(): string {
 }
 
 /**
- * Load groups from disk.
+ * Load groups from a JSON file.
  * Returns empty array if file doesn't exist or is invalid.
+ *
+ * @param filePath - Absolute path to groups JSON file
  */
-function loadGroupsFromDisk(): SessionGroup[] {
+export function loadGroupsFromFile(filePath: string): SessionGroup[] {
   try {
-    const filePath = getGroupsFilePath();
     if (!fs.existsSync(filePath)) {
       return [];
     }
     const data = fs.readFileSync(filePath, 'utf-8');
-    const groups = JSON.parse(data);
-    console.log(`[Group Handlers] Loaded ${groups.length} groups from disk`);
-    return groups;
+    return JSON.parse(data);
   } catch (error: any) {
     console.error('[Group Handlers] Error loading groups:', error.message);
     return [];
@@ -40,24 +39,18 @@ function loadGroupsFromDisk(): SessionGroup[] {
 }
 
 /**
- * Save groups to disk (synchronous for durability).
+ * Save groups to a JSON file (synchronous for durability).
+ *
+ * @param filePath - Absolute path to groups JSON file
+ * @param groups - Array of groups to persist
  */
-function saveGroupsToDisk(groups: SessionGroup[]): void {
-  try {
-    const filePath = getGroupsFilePath();
-    const dirPath = path.dirname(filePath);
-
-    if (!fs.existsSync(dirPath)) {
-      fs.mkdirSync(dirPath, { recursive: true });
-    }
-
-    const data = JSON.stringify(groups, null, 2);
-    fs.writeFileSync(filePath, data, 'utf-8');
-    console.log(`[Group Handlers] Saved ${groups.length} groups to disk`);
-  } catch (error: any) {
-    console.error('[Group Handlers] Error saving groups:', error.message);
-    throw error;
+export function saveGroupsToFile(filePath: string, groups: SessionGroup[]): void {
+  const dirPath = path.dirname(filePath);
+  if (!fs.existsSync(dirPath)) {
+    fs.mkdirSync(dirPath, { recursive: true });
   }
+  const data = JSON.stringify(groups, null, 2);
+  fs.writeFileSync(filePath, data, 'utf-8');
 }
 
 /**
@@ -70,7 +63,7 @@ export function registerGroupHandlers(): void {
   // GROUPS_LOAD - Load all groups
   ipcMain.handle(IPC_CHANNELS.GROUPS_LOAD, async () => {
     try {
-      const groups = loadGroupsFromDisk();
+      const groups = loadGroupsFromFile(getGroupsFilePath());
       return { success: true, groups };
     } catch (error: any) {
       console.error('[Group Handlers] Failed to load groups:', error);
@@ -81,7 +74,7 @@ export function registerGroupHandlers(): void {
   // GROUPS_SAVE - Save all groups (full replacement)
   ipcMain.handle(IPC_CHANNELS.GROUPS_SAVE, async (_event, groups: SessionGroup[]) => {
     try {
-      saveGroupsToDisk(groups);
+      saveGroupsToFile(getGroupsFilePath(), groups);
       return { success: true };
     } catch (error: any) {
       console.error('[Group Handlers] Failed to save groups:', error);

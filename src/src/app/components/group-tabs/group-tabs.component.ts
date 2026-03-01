@@ -10,13 +10,14 @@
  * - Drag-drop: sessions can be dragged onto tabs to assign groups
  */
 
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, Input, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subscription, combineLatest } from 'rxjs';
 import { GroupService } from '../../services/group.service';
 import { SessionStateService } from '../../services/session-state.service';
 import { SessionGroup, LayoutPreset, DEFAULT_GROUP_COLORS } from '../../../../shared/group-types';
+import { TerminalStatus } from '../../models/terminal-status.model';
 
 @Component({
   selector: 'app-group-tabs',
@@ -26,6 +27,9 @@ import { SessionGroup, LayoutPreset, DEFAULT_GROUP_COLORS } from '../../../../sh
   styleUrls: ['./group-tabs.component.css']
 })
 export class GroupTabsComponent implements OnInit, OnDestroy {
+  /** Per-session statuses passed from dashboard for attention indicators. */
+  @Input() sessionStatuses: Record<string, TerminalStatus> = {};
+
   groups: SessionGroup[] = [];
   activeGroup: string | undefined;
   activePreset: LayoutPreset = 'overview';
@@ -269,6 +273,24 @@ export class GroupTabsComponent implements OnInit, OnDestroy {
     if (sessionId) {
       this.groupService.removeFromGroup(sessionId);
     }
+  }
+
+  /**
+   * Count sessions needing attention (WAITING/ERROR/DONE) within a group.
+   */
+  getAttentionCount(group: SessionGroup): number {
+    return group.sessionIds.filter(id => {
+      const s = this.sessionStatuses[id];
+      return s === 'WAITING' || s === 'ERROR' || s === 'DONE';
+    }).length;
+  }
+
+  /**
+   * Count all sessions needing attention across all groups/sessions.
+   */
+  getTotalAttentionCount(): number {
+    return Object.values(this.sessionStatuses)
+      .filter(s => s === 'WAITING' || s === 'ERROR' || s === 'DONE').length;
   }
 
   /**

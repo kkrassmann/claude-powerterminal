@@ -274,6 +274,7 @@ export class TerminalComponent implements OnInit, OnDestroy {
               this.isRestarting = false;
               this.fitAddon.fit();
             }
+            this.term.scrollToBottom();
             console.log('[Terminal] Buffer replay complete');
             break;
 
@@ -287,6 +288,7 @@ export class TerminalComponent implements OnInit, OnDestroy {
             // Server sent full buffer replay
             this.term.clear();
             this.term.write(msg.data);
+            this.term.scrollToBottom();
             console.log('[Terminal] Buffer replay received');
             break;
 
@@ -364,7 +366,15 @@ export class TerminalComponent implements OnInit, OnDestroy {
     this.resizeObserver = new ResizeObserver(() => {
       clearTimeout(this.resizeTimeout);
       this.resizeTimeout = setTimeout(() => {
+        // Remember scroll state before fit (fit can reset viewport position)
+        const wasAtBottom = !this.isScrolledUp;
+
         this.fitAddon.fit();
+
+        // Restore scroll position — keep at bottom if user wasn't scrolled up
+        if (wasAtBottom) {
+          this.term.scrollToBottom();
+        }
 
         // Notify PTY of new terminal size
         if (this.socket?.readyState === WebSocket.OPEN) {

@@ -84,6 +84,24 @@
   background: #1e1e2e;
 }
 
+/* Attention badge — shows count of sessions needing input */
+.attention-badge {
+  font-size: 10px;
+  font-weight: 700;
+  color: #1e1e2e;
+  background: #f9e2af;
+  padding: 1px 5px;
+  border-radius: 8px;
+  min-width: 16px;
+  text-align: center;
+  animation: attention-pulse 2s ease-in-out infinite;
+}
+
+@keyframes attention-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
 /* Active tab gets a colored underline matching the group color */
 .group-tab.active {
   border-bottom-color: currentColor;

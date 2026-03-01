@@ -107,6 +107,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
   /** Minimum WORKING duration (ms) to count as "sustained" (real Claude output, not click noise). */
   private static readonly MIN_SUSTAINED_WORK_MS = 3000;
 
+  /** Whether session restore from main process is complete. Prevents premature group cleanup. */
+  private restoreComplete = false;
+
   private sessionsSubscription: Subscription | null = null;
   private scoreRefreshInterval: ReturnType<typeof setInterval> | null = null;
   private layoutSubscription: Subscription | null = null;
@@ -173,10 +176,23 @@ export class DashboardComponent implements OnInit, OnDestroy {
       // Track/untrack sessions in git context service
       this.updateGitContextTracking();
 
-      // Clean up stale session IDs from groups
-      const activeIds = new Set(this.sessions.map(s => s.metadata.sessionId));
-      this.groupService.cleanupStaleSessionIds(activeIds);
+      // Clean up stale session IDs from groups only after restore is complete —
+      // during startup, sessions arrive one by one and premature cleanup would wipe
+      // IDs of sessions that haven't been restored yet
+      if (this.restoreComplete) {
+        const activeIds = new Set(this.sessions.map(s => s.metadata.sessionId));
+        this.groupService.cleanupStaleSessionIds(activeIds);
+      }
     });
+
+    // Listen for session restore completion to enable group cleanup
+    if (window.electronAPI) {
+      window.electronAPI.on(IPC_CHANNELS.SESSION_RESTORE_COMPLETE, () => {
+        this.restoreComplete = true;
+      });
+    }
+    // Fallback: enable cleanup after 15s even if no restore signal (e.g., 0 saved sessions)
+    setTimeout(() => { this.restoreComplete = true; }, 15000);
 
     // Fetch home directory for path shortening
     this.fetchHomeDir();

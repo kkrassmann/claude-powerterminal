@@ -61,6 +61,9 @@
     "asarUnpack": [
       "node_modules/node-pty/**/*"
     ],
+    "extraResources": [
+      { "from": "assets/icon.png", "to": "icon.png" }
+    ],
     "npmRebuild": false,
     "publish": {
       "provider": "github",
