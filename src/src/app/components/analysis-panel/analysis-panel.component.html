@@ -3,10 +3,10 @@
   <!-- Tab switcher -->
   <div class="panel-tabs">
     <button class="tab-btn" [class.active]="activeTab === 'analysis'" (click)="onTabChange('analysis')">
-      Session-Analyse
+      Session Analysis
     </button>
     <button class="tab-btn" [class.active]="activeTab === 'audit'" (click)="onTabChange('audit')">
-      Projekt-Audit
+      Project Audit
     </button>
   </div>
 
@@ -211,7 +211,7 @@
 
     <!-- No session selected -->
     <div *ngIf="!projectPath" class="audit-empty">
-      Session auswaehlen, um deren Projekt zu auditieren.
+      Select a session to audit its project configuration.
     </div>
 
     <!-- Session selected: show audit controls -->
@@ -221,18 +221,18 @@
       <div class="audit-controls">
         <span class="audit-project-path" [title]="projectPath">{{ projectPath }}</span>
         <button class="audit-btn" (click)="startAudit()" [disabled]="auditLoading">
-          {{ auditLoading ? 'Analysiere...' : 'Audit starten' }}
+          {{ auditLoading ? 'Analyzing...' : 'Run Audit' }}
         </button>
       </div>
 
       <!-- Error state -->
       <div *ngIf="auditError" class="audit-error">
-        Fehler: {{ auditError }}
+        Error: {{ auditError }}
       </div>
 
       <!-- Loading state -->
       <div *ngIf="auditLoading" class="audit-loading">
-        Projekt wird analysiert...
+        Analyzing project...
       </div>
 
       <!-- Results -->
@@ -240,10 +240,10 @@
 
         <!-- Overall score header -->
         <div class="audit-overall">
-          <div class="overall-score-label">Gesamtscore</div>
+          <div class="overall-score-label">Overall Score</div>
           <div class="overall-score-value">{{ auditResult.overallScore }}<span class="score-max">/100</span></div>
           <div class="improvement-potential">
-            Verbesserungspotential: {{ auditResult.improvementPotential }}%
+            Improvement potential: {{ auditResult.improvementPotential }}%
           </div>
         </div>
 
@@ -259,7 +259,7 @@
                 {{ file.score }}/100
               </span>
               <span class="file-issue-count" *ngIf="file.findings.length > 0">
-                {{ file.findings.length }} {{ file.findings.length === 1 ? 'Problem' : 'Probleme' }}
+                {{ file.findings.length }} {{ file.findings.length === 1 ? 'issue' : 'issues' }}
               </span>
               <span class="file-ok" *ngIf="file.findings.length === 0">OK</span>
             </div>
@@ -267,7 +267,7 @@
             <!-- Expanded findings -->
             <div *ngIf="expandedFiles.has(file.filePath)" class="file-findings">
               <div *ngIf="file.findings.length === 0" class="finding-ok">
-                Alle Regeln bestanden.
+                All rules passed.
               </div>
               <div *ngFor="let finding of file.findings" class="finding-row" [class]="'finding-row ' + severityClass(finding.severity)">
                 <span class="finding-severity">{{ finding.severity }}</span>

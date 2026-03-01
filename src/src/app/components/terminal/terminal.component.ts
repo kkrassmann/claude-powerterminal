@@ -28,15 +28,15 @@ import { IPC_CHANNELS } from '../../../../shared/ipc-channels';
     <div class="restart-overlay" *ngIf="isRestarting">
       <div class="restart-indicator">
         <div class="spinner"></div>
-        <span>Session wird neu gestartet...</span>
+        <span>Restarting session...</span>
       </div>
     </div>
     <div #terminalContainer class="terminal-container" [class.hidden]="isRestarting" (contextmenu)="onContextMenu($event)"></div>
-    <button class="refresh-btn" title="Terminal auffrischen" (click)="refreshBuffer()">&#x21bb;</button>
-    <button *ngIf="isScrolledUp" class="scroll-bottom-btn" title="Zum Ende scrollen" (click)="scrollToBottom()">&#x2193;</button>
+    <button class="refresh-btn" title="Refresh terminal" (click)="refreshBuffer()">&#x21bb;</button>
+    <button *ngIf="isScrolledUp" class="scroll-bottom-btn" title="Scroll to bottom" (click)="scrollToBottom()">&#x2193;</button>
     <div *ngIf="contextMenuVisible" class="context-menu" [style.left.px]="contextMenuX" [style.top.px]="contextMenuY" (mousedown)="$event.stopPropagation()">
-      <button class="context-menu-item" (click)="restartSession()">Neu starten</button>
-      <button class="context-menu-item danger" (click)="killSession()">Session beenden</button>
+      <button class="context-menu-item" (click)="restartSession()">Restart</button>
+      <button class="context-menu-item danger" (click)="killSession()">Kill session</button>
     </div>
   `,
   imports: [CommonModule],

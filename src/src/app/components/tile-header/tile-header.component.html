@@ -4,9 +4,9 @@
     <span class="status-dot" [style.backgroundColor]="statusColor" [title]="statusLabel"></span>
     <span class="working-dir" [title]="session.metadata.workingDirectory">{{ shortenedPath }}</span>
     <div class="header-actions">
-      <button class="header-btn" (click)="onRestart()" title="Neu starten">&#x21BB;</button>
-      <button class="header-btn danger" (click)="onKill()" title="Session beenden">&#x2715;</button>
-      <button class="header-btn" (click)="onMaximize()" [title]="isMaximized ? 'Wiederherstellen' : 'Maximieren'">
+      <button class="header-btn" (click)="onRestart()" title="Restart">&#x21BB;</button>
+      <button class="header-btn danger" (click)="onKill()" title="Kill session">&#x2715;</button>
+      <button class="header-btn" (click)="onMaximize()" [title]="isMaximized ? 'Restore' : 'Maximize'">
         {{ isMaximized ? '&#x29C9;' : '&#x25A1;' }}
       </button>
     </div>
