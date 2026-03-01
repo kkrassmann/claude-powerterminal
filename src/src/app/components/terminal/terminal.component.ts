@@ -28,15 +28,15 @@ import { IPC_CHANNELS } from '../../../../shared/ipc-channels';
     <div class="restart-overlay" *ngIf="isRestarting">
       <div class="restart-indicator">
         <div class="spinner"></div>
-        <span>Session wird neu gestartet...</span>
+        <span>Restarting session...</span>
       </div>
     </div>
     <div #terminalContainer class="terminal-container" [class.hidden]="isRestarting" (contextmenu)="onContextMenu($event)"></div>
-    <button class="refresh-btn" title="Terminal auffrischen" (click)="refreshBuffer()">&#x21bb;</button>
-    <button *ngIf="isScrolledUp" class="scroll-bottom-btn" title="Zum Ende scrollen" (click)="scrollToBottom()">&#x2193;</button>
+    <button class="refresh-btn" title="Refresh terminal" (click)="refreshBuffer()">&#x21bb;</button>
+    <button *ngIf="isScrolledUp" class="scroll-bottom-btn" title="Scroll to bottom" (click)="scrollToBottom()">&#x2193;</button>
     <div *ngIf="contextMenuVisible" class="context-menu" [style.left.px]="contextMenuX" [style.top.px]="contextMenuY" (mousedown)="$event.stopPropagation()">
-      <button class="context-menu-item" (click)="restartSession()">Neu starten</button>
-      <button class="context-menu-item danger" (click)="killSession()">Session beenden</button>
+      <button class="context-menu-item" (click)="restartSession()">Restart</button>
+      <button class="context-menu-item danger" (click)="killSession()">Kill session</button>
     </div>
   `,
   imports: [CommonModule],
@@ -274,6 +274,7 @@ export class TerminalComponent implements OnInit, OnDestroy {
               this.isRestarting = false;
               this.fitAddon.fit();
             }
+            this.term.scrollToBottom();
             console.log('[Terminal] Buffer replay complete');
             break;
 
@@ -287,6 +288,7 @@ export class TerminalComponent implements OnInit, OnDestroy {
             // Server sent full buffer replay
             this.term.clear();
             this.term.write(msg.data);
+            this.term.scrollToBottom();
             console.log('[Terminal] Buffer replay received');
             break;
 
@@ -364,7 +366,15 @@ export class TerminalComponent implements OnInit, OnDestroy {
     this.resizeObserver = new ResizeObserver(() => {
       clearTimeout(this.resizeTimeout);
       this.resizeTimeout = setTimeout(() => {
+        // Remember scroll state before fit (fit can reset viewport position)
+        const wasAtBottom = !this.isScrolledUp;
+
         this.fitAddon.fit();
+
+        // Restore scroll position — keep at bottom if user wasn't scrolled up
+        if (wasAtBottom) {
+          this.term.scrollToBottom();
+        }
 
         // Notify PTY of new terminal size
         if (this.socket?.readyState === WebSocket.OPEN) {

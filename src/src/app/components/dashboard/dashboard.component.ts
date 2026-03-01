@@ -1,18 +1,21 @@
 import { Component, Input, Output, EventEmitter, OnInit, OnDestroy, NgZone, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
-import { Subscription } from 'rxjs';
+import { Subscription, combineLatest } from 'rxjs';
 import { SessionStateService, ActiveSession } from '../../services/session-state.service';
 import { GitContextService } from '../../services/git-context.service';
 import { SessionManagerService } from '../../services/session-manager.service';
 import { LogAnalysisService } from '../../services/log-analysis.service';
+import { GroupService } from '../../services/group.service';
 import { SessionMetadata } from '../../models/session.model';
 import { TerminalComponent } from '../terminal/terminal.component';
 import { TileHeaderComponent } from '../tile-header/tile-header.component';
+import { GroupTabsComponent } from '../group-tabs/group-tabs.component';
 import { IPC_CHANNELS } from '../../../../shared/ipc-channels';
 import { TerminalStatus } from '../../models/terminal-status.model';
 import { AudioAlertService } from '../../services/audio-alert.service';
 import type { SessionPracticeScore } from '../../../../shared/analysis-types';
+import { LayoutPreset } from '../../../../shared/group-types';
 
 /**
  * Dashboard grid component for displaying and managing multiple terminal sessions.
@@ -28,7 +31,7 @@ import type { SessionPracticeScore } from '../../../../shared/analysis-types';
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, DragDropModule, TerminalComponent, TileHeaderComponent],
+  imports: [CommonModule, DragDropModule, TerminalComponent, TileHeaderComponent, GroupTabsComponent],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.css']
 })
@@ -55,6 +58,17 @@ export class DashboardComponent implements OnInit, OnDestroy {
    * Populated from SessionStateService subscription.
    */
   sessions: ActiveSession[] = [];
+
+  /**
+   * Sessions filtered by the active group tab.
+   * When no group filter is active, this equals all sessions.
+   */
+  filteredSessions: ActiveSession[] = [];
+
+  /**
+   * Active layout preset for CSS grid behavior.
+   */
+  layoutPreset: LayoutPreset = 'overview';
 
   /**
    * ID of the currently maximized session, or null if in grid view.
@@ -93,8 +107,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
   /** Minimum WORKING duration (ms) to count as "sustained" (real Claude output, not click noise). */
   private static readonly MIN_SUSTAINED_WORK_MS = 3000;
 
+  /** Whether session restore from main process is complete. Prevents premature group cleanup. */
+  private restoreComplete = false;
+
   private sessionsSubscription: Subscription | null = null;
   private scoreRefreshInterval: ReturnType<typeof setInterval> | null = null;
+  private layoutSubscription: Subscription | null = null;
 
   /** Height resize state */
   private resizing = false;
@@ -118,15 +136,36 @@ export class DashboardComponent implements OnInit, OnDestroy {
     public gitContextService: GitContextService,
     private sessionManagerService: SessionManagerService,
     private logAnalysisService: LogAnalysisService,
+    public groupService: GroupService,
     private ngZone: NgZone,
     private elementRef: ElementRef,
     public audioAlertService: AudioAlertService
   ) {}
 
   ngOnInit(): void {
-    // Subscribe to active sessions stream
-    this.sessionsSubscription = this.sessionStateService.sessions$.subscribe(sessionsMap => {
+    // Subscribe to active sessions + groups + layout combined for filtering
+    this.sessionsSubscription = combineLatest([
+      this.sessionStateService.sessions$,
+      this.groupService.groups$,
+      this.groupService.activeLayout$
+    ]).subscribe(([sessionsMap, groups, layout]) => {
       this.sessions = Array.from(sessionsMap.values());
+      this.layoutPreset = layout.preset;
+
+      // Filter sessions by active group
+      if (layout.activeGroup) {
+        const group = groups.find(g => g.name === layout.activeGroup);
+        if (group) {
+          const groupIds = new Set(group.sessionIds);
+          this.filteredSessions = this.sessions.filter(
+            s => groupIds.has(s.metadata.sessionId)
+          );
+        } else {
+          this.filteredSessions = this.sessions;
+        }
+      } else {
+        this.filteredSessions = this.sessions;
+      }
 
       // Remove pending sessions that became active
       if (this.pendingSessions.length > 0) {
@@ -136,7 +175,24 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
       // Track/untrack sessions in git context service
       this.updateGitContextTracking();
+
+      // Clean up stale session IDs from groups only after restore is complete —
+      // during startup, sessions arrive one by one and premature cleanup would wipe
+      // IDs of sessions that haven't been restored yet
+      if (this.restoreComplete) {
+        const activeIds = new Set(this.sessions.map(s => s.metadata.sessionId));
+        this.groupService.cleanupStaleSessionIds(activeIds);
+      }
     });
+
+    // Listen for session restore completion to enable group cleanup
+    if (window.electronAPI) {
+      window.electronAPI.on(IPC_CHANNELS.SESSION_RESTORE_COMPLETE, () => {
+        this.restoreComplete = true;
+      });
+    }
+    // Fallback: enable cleanup after 15s even if no restore signal (e.g., 0 saved sessions)
+    setTimeout(() => { this.restoreComplete = true; }, 15000);
 
     // Fetch home directory for path shortening
     this.fetchHomeDir();
@@ -154,6 +210,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     // Clean up subscriptions and polling
     this.sessionsSubscription?.unsubscribe();
+    this.layoutSubscription?.unsubscribe();
     this.gitContextService.stopPolling();
     if (this.scoreRefreshInterval) {
       clearInterval(this.scoreRefreshInterval);
@@ -249,12 +306,40 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * Get CSS class for layout preset.
+   */
+  get layoutClass(): string {
+    return `layout-${this.layoutPreset}`;
+  }
+
+  /**
+   * Get group color for a session's left border.
+   *
+   * @param sessionId - Session to check
+   * @returns Hex color string or empty string if not grouped
+   */
+  getGroupBorderColor(sessionId: string): string {
+    const group = this.groupService.getGroupForSession(sessionId);
+    return group?.color || '';
+  }
+
+  /**
+   * Handle native dragstart on a tile (for group tab drop targets).
+   */
+  onTileDragStart(event: DragEvent, sessionId: string): void {
+    if (event.dataTransfer) {
+      event.dataTransfer.setData('text/plain', sessionId);
+      event.dataTransfer.effectAllowed = 'move';
+    }
+  }
+
+  /**
    * Handle drag-drop reordering of tiles in grid.
    *
    * @param event - CDK drag-drop event with previous/current indices
    */
   onDrop(event: CdkDragDrop<ActiveSession[]>): void {
-    moveItemInArray(this.sessions, event.previousIndex, event.currentIndex);
+    moveItemInArray(this.filteredSessions, event.previousIndex, event.currentIndex);
   }
 
   /**

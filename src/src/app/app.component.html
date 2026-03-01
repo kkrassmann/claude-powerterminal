@@ -13,7 +13,7 @@
     <app-session-create></app-session-create>
   </header>
 
-  <app-analysis-panel *ngIf="showAnalysis"></app-analysis-panel>
+  <app-analysis-panel *ngIf="showAnalysis" [sessionPaths]="activeSessionPaths"></app-analysis-panel>
 
   <app-dashboard
     [pendingSessions]="pendingSessions"

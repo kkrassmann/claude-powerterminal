@@ -96,6 +96,16 @@ export class AppComponent implements OnInit {
     this.selectedSessionId = null;
   }
 
+  /**
+   * Get unique working directories of all active sessions for the audit dropdown.
+   */
+  get activeSessionPaths(): string[] {
+    const paths = this.sessionStateService.getAllSessions()
+      .map(s => s.metadata.workingDirectory)
+      .filter(Boolean);
+    return [...new Set(paths)];
+  }
+
   async exportLogs(): Promise<void> {
     try {
       let jsonl: string;

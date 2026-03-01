@@ -1,17 +1,25 @@
+<!-- Group tab bar -->
+<app-group-tabs [sessionStatuses]="sessionStatuses"></app-group-tabs>
+
 <!-- Grid view -->
 <div class="dashboard-grid"
+     [ngClass]="layoutClass"
      *ngIf="!maximizedSessionId"
      cdkDropList
-     [cdkDropListData]="sessions"
+     [cdkDropListData]="filteredSessions"
      (cdkDropListDropped)="onDrop($event)">
 
-  <!-- Active session tiles -->
-  <div *ngFor="let session of sessions; trackBy: trackBySessionId"
+  <!-- Active session tiles (filtered by group) -->
+  <div *ngFor="let session of filteredSessions; trackBy: trackBySessionId"
        class="tile" cdkDrag
        [ngClass]="getStatusClass(session.metadata.sessionId)"
        [style.height.px]="tileHeights[session.metadata.sessionId] || null"
        [style.flex]="tileWidths[session.metadata.sessionId] ? '0 0 ' + tileWidths[session.metadata.sessionId] + 'px' : null"
-       (click)="onTileClick(session.metadata.sessionId)">
+       [style.borderLeftColor]="getGroupBorderColor(session.metadata.sessionId)"
+       [class.has-group-border]="getGroupBorderColor(session.metadata.sessionId)"
+       (click)="onTileClick(session.metadata.sessionId)"
+       draggable="true"
+       (dragstart)="onTileDragStart($event, session.metadata.sessionId)">
     <!-- Use cdkDragHandle on tile-header to restrict drag to header only -->
     <app-tile-header
       [session]="session"
@@ -23,11 +31,16 @@
       [status]="sessionStatuses[session.metadata.sessionId] || 'WORKING'"
       [practiceScore]="getSessionScore(session.metadata.sessionId)"
       [badges]="getSessionBadges(session.metadata.sessionId)"
+      [groupName]="groupService.getGroupForSession(session.metadata.sessionId)?.name || ''"
+      [groupColor]="groupService.getGroupForSession(session.metadata.sessionId)?.color || ''"
+      [availableGroups]="(groupService.groups$ | async) || []"
       (maximize)="toggleMaximize(session.metadata.sessionId)"
       (restart)="restartSession(session.metadata.sessionId)"
       (kill)="killSession(session.metadata.sessionId)"
       (acknowledged)="onTileClick(session.metadata.sessionId)"
       (sessionSelected)="onSessionSelected($event)"
+      (assignToGroup)="groupService.addToGroup(session.metadata.sessionId, $event)"
+      (removeFromGroup)="groupService.removeFromGroup(session.metadata.sessionId)"
       cdkDragHandle>
     </app-tile-header>
     <app-terminal
@@ -54,7 +67,7 @@
   </div>
 
   <!-- Empty state -->
-  <div *ngIf="sessions.length === 0 && pendingSessions.length === 0" class="no-sessions">
+  <div *ngIf="filteredSessions.length === 0 && pendingSessions.length === 0" class="no-sessions">
     <p>No active sessions. Create one above to get started.</p>
   </div>
 </div>
@@ -71,11 +84,16 @@
     [status]="sessionStatuses[maximizedSessionId] || 'WORKING'"
     [practiceScore]="getSessionScore(maximizedSessionId)"
     [badges]="getSessionBadges(maximizedSessionId)"
+    [groupName]="groupService.getGroupForSession(maximizedSessionId)?.name || ''"
+    [groupColor]="groupService.getGroupForSession(maximizedSessionId)?.color || ''"
+    [availableGroups]="(groupService.groups$ | async) || []"
     (maximize)="toggleMaximize(maximizedSessionId)"
     (restart)="restartSession(maximizedSessionId)"
     (kill)="killSession(maximizedSessionId)"
     (acknowledged)="onTileClick(maximizedSessionId)"
-    (sessionSelected)="onSessionSelected($event)">
+    (sessionSelected)="onSessionSelected($event)"
+    (assignToGroup)="groupService.addToGroup(maximizedSessionId, $event)"
+    (removeFromGroup)="groupService.removeFromGroup(maximizedSessionId)">
   </app-tile-header>
   <app-terminal
     [sessionId]="maximizedSessionId"

@@ -1,14 +1,40 @@
-import { app, BrowserWindow, Menu, ipcMain } from 'electron';
+// === Crash logger — must be first, uses only Node built-ins ===
 import * as path from 'path';
 import * as fs from 'fs';
+
+function writeCrashLog(label: string, err: unknown): void {
+  try {
+    const logDir = path.join(
+      process.env.APPDATA || path.join(require('os').homedir(), 'AppData', 'Roaming'),
+      'claude-powerterminal'
+    );
+    fs.mkdirSync(logDir, { recursive: true });
+    const logFile = path.join(logDir, 'crash.log');
+    const timestamp = new Date().toISOString();
+    const message = err instanceof Error ? `${err.message}\n${err.stack}` : String(err);
+    const entry = `[${timestamp}] ${label}: ${message}\n`;
+    fs.appendFileSync(logFile, entry);
+  } catch { /* last resort — nothing we can do */ }
+}
+
+process.on('uncaughtException', (err) => {
+  writeCrashLog('UncaughtException', err);
+});
+process.on('unhandledRejection', (reason) => {
+  writeCrashLog('UnhandledRejection', reason);
+});
+// === End crash logger ===
+
+import { app, BrowserWindow, Menu, ipcMain } from 'electron';
 import * as pty from 'node-pty';
 import { registerPtyHandlers, getPtyProcesses, setShuttingDown, isShuttingDown, isSessionRestarting } from './ipc/pty-handlers';
 import { registerSessionHandlers } from './ipc/session-handlers';
 import { registerGitHandlers } from './ipc/git-handlers';
 import { registerAnalysisHandlers } from './ipc/analysis-handlers';
 import { registerLogHandlers } from './ipc/log-handlers';
+import { registerGroupHandlers } from './ipc/group-handlers';
 import { startWebSocketServer, stopWebSocketServer, getScrollbackBuffers, getStatusDetectors, broadcastStatus } from './websocket/ws-server';
-import { ScrollbackBuffer } from '../src/src/app/services/scrollback-buffer.service';
+import { ScrollbackBuffer } from '../src/shared/scrollback-buffer';
 import { deleteSessionFromDisk } from './ipc/session-handlers';
 import { IPC_CHANNELS } from '../src/shared/ipc-channels';
 import { killPtyProcess } from './utils/process-cleanup';
@@ -27,14 +53,6 @@ app.setPath('userData', path.join(app.getPath('appData'), 'claude-powerterminal'
 let mainWindow: BrowserWindow | null = null;
 let lanUrl: string | null = null;
 
-// Prevent unhandled exceptions from crashing Electron (e.g. node-pty AttachConsole failures)
-process.on('uncaughtException', (err) => {
-  logError('App', 'Uncaught exception', undefined, err.message);
-});
-process.on('unhandledRejection', (reason) => {
-  logError('App', 'Unhandled rejection', undefined, reason);
-});
-
 /**
  * Create the main application window.
  */
@@ -42,9 +60,14 @@ function createWindow(): void {
   // Hide default menu bar
   Menu.setApplicationMenu(null);
 
+  const iconPath = app.isPackaged
+    ? path.join(process.resourcesPath, 'icon.png')
+    : path.join(__dirname, '..', 'assets', 'icon.png');
+
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
+    icon: iconPath,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -346,6 +369,7 @@ app.whenReady().then(async () => {
   registerGitHandlers();
   registerAnalysisHandlers();
   registerLogHandlers();
+  registerGroupHandlers();
 
   // Start WebSocket server before creating window
   startWebSocketServer();

@@ -28,6 +28,41 @@
   overflow: hidden;
   background: #1e1e2e;
   position: relative;
+  border-left: 1px solid #313244;
+}
+
+/* Group color left border */
+.tile.has-group-border {
+  border-left-width: 4px;
+  border-left-style: solid;
+}
+
+/* ── Layout Presets ── */
+
+/* Focus: single tile fills container */
+.dashboard-grid.layout-focus .tile {
+  flex: 1 1 100%;
+  min-width: 100%;
+}
+
+/* Split: exactly two columns */
+.dashboard-grid.layout-split {
+  flex-wrap: wrap;
+}
+.dashboard-grid.layout-split .tile {
+  flex: 1 1 calc(50% - 4px);
+  min-width: calc(50% - 4px);
+  max-width: calc(50% - 2px);
+}
+
+/* Columns: exactly three columns */
+.dashboard-grid.layout-columns {
+  flex-wrap: wrap;
+}
+.dashboard-grid.layout-columns .tile {
+  flex: 1 1 calc(33.333% - 4px);
+  min-width: calc(33.333% - 4px);
+  max-width: calc(33.333% - 3px);
 }
 
 /* Smooth transitions for box-shadow changes on all tiles except ERROR (which has animation) */

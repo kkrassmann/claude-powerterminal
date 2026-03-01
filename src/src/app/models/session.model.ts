@@ -31,4 +31,16 @@ export interface SessionMetadata {
    * Format: YYYY-MM-DDTHH:mm:ss.sssZ
    */
   readonly createdAt: string;
+
+  /**
+   * Group name this session belongs to (e.g., "Frontend", "Backend").
+   * Undefined if the session is not assigned to any group.
+   */
+  group?: string;
+
+  /**
+   * Hex color for the group (e.g., "#89b4fa").
+   * Mirrors the group's color for quick access without group lookup.
+   */
+  groupColor?: string;
 }

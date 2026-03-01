@@ -23,6 +23,10 @@ export const IPC_CHANNELS = {
   // Git context channels
   GIT_CONTEXT: 'git:context',
 
+  // Group persistence channels
+  GROUPS_LOAD: 'groups:load',
+  GROUPS_SAVE: 'groups:save',
+
   // App info channels
   APP_HOME_DIR: 'app:home-dir',
   APP_LAN_URL: 'app:lan-url',
@@ -32,6 +36,10 @@ export const IPC_CHANNELS = {
   LOG_SESSION_SCORE: 'analysis:session-score',
   LOG_SESSION_DETAIL: 'analysis:session-detail',
   LOG_SCORE_TRENDS: 'analysis:score-trends',
+
+  // Project audit channels
+  AUDIT_PROJECTS: 'audit:projects',
+  AUDIT_RUN: 'audit:run',
 
   // Internal logging channels
   LOGS_EXPORT: 'logs:export',

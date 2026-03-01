@@ -1,8 +1,11 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, Input, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { LogAnalysisService } from '../../services/log-analysis.service';
+import { AuditService } from '../../services/audit.service';
 import type { SessionAnalysis, ToolUsageStat, Recommendation, ScoreTrends } from '../../../../shared/analysis-types';
+import type { ProjectAuditResult } from '../../../../shared/audit-types';
 
 /**
  * Collapsible analysis panel showing session log analysis results.
@@ -18,11 +21,14 @@ import type { SessionAnalysis, ToolUsageStat, Recommendation, ScoreTrends } from
 @Component({
   selector: 'app-analysis-panel',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './analysis-panel.component.html',
   styleUrls: ['./analysis-panel.component.css']
 })
 export class AnalysisPanelComponent implements OnInit, OnDestroy {
+  /** Working directories of all active sessions (for project audit dropdown) */
+  @Input() sessionPaths: string[] = [];
+
   analysis: SessionAnalysis | null = null;
   loading = false;
 
@@ -37,7 +43,27 @@ export class AnalysisPanelComponent implements OnInit, OnDestroy {
 
   private subscription: Subscription | null = null;
 
-  constructor(public analysisService: LogAnalysisService) {}
+  // ─── Audit tab state ────────────────────────────────────────────────────────
+
+  /** Active tab: session analysis or project audit */
+  activeTab: 'analysis' | 'audit' = 'analysis';
+
+  /** Currently selected project path for audit */
+  selectedProject: string = '';
+
+  /** Whether an audit is in progress */
+  auditLoading = false;
+
+  /** Error message from last audit attempt */
+  auditError: string | null = null;
+
+  /** Last audit result */
+  auditResult: ProjectAuditResult | null = null;
+
+  /** Set of file paths whose findings are expanded */
+  expandedFiles = new Set<string>();
+
+  constructor(public analysisService: LogAnalysisService, private auditService: AuditService) {}
 
   ngOnInit(): void {
     this.subscription = this.analysisService.analysis$.subscribe(data => {
@@ -162,5 +188,67 @@ export class AnalysisPanelComponent implements OnInit, OnDestroy {
       { label: 'Context', path: this.buildSparklinePath(this.trends.contextEfficiency), color: '#cba6f7', lastValue: this.trends.contextEfficiency.at(-1) ?? 0 },
       { label: 'Anti-Pattern', path: this.buildSparklinePath(this.trends.antiPatternCount), color: '#f38ba8', lastValue: this.trends.antiPatternCount.at(-1) ?? 0 },
     ];
+  }
+
+  // ─── Audit tab methods ──────────────────────────────────────────────────────
+
+  /**
+   * Handle tab switching between Session-Analyse and Projekt-Audit tabs.
+   */
+  onTabChange(tab: 'analysis' | 'audit'): void {
+    this.activeTab = tab;
+  }
+
+  /**
+   * Trigger a new audit run for the selected session project.
+   */
+  async startAudit(): Promise<void> {
+    if (!this.selectedProject || this.auditLoading) return;
+    this.auditLoading = true;
+    this.auditError = null;
+    this.expandedFiles.clear();
+    try {
+      this.auditResult = await this.auditService.runAudit(this.selectedProject);
+    } catch (err) {
+      this.auditError = String(err);
+    } finally {
+      this.auditLoading = false;
+    }
+  }
+
+  /** Shorten a path for dropdown display (last 2 segments). */
+  shortenPath(p: string): string {
+    const parts = p.replace(/\\/g, '/').split('/').filter(Boolean);
+    return parts.length >= 2 ? parts.slice(-2).join('/') : p;
+  }
+
+  /**
+   * Toggle expanded state of a file row in the audit results.
+   *
+   * @param filePath - Absolute path of the file to toggle
+   */
+  toggleFile(filePath: string): void {
+    if (this.expandedFiles.has(filePath)) {
+      this.expandedFiles.delete(filePath);
+    } else {
+      this.expandedFiles.add(filePath);
+    }
+  }
+
+  /**
+   * Map an audit finding severity to a CSS class for color coding.
+   * Matches the 5-level severity system from Phase 7.
+   *
+   * @param severity - Severity string from AuditFinding
+   * @returns CSS class name
+   */
+  severityClass(severity: string): string {
+    switch (severity) {
+      case 'praise':       return 'severity-praise';
+      case 'tip':          return 'severity-tip';
+      case 'warning':      return 'severity-warning';
+      case 'anti-pattern': return 'severity-anti-pattern';
+      default:             return 'severity-tip';
+    }
   }
 }
