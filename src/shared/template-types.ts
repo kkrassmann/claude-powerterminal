@@ -24,6 +24,8 @@ export interface SessionTemplate {
   workingDirectory: string;
   /** Optional prompt to inject after session spawn */
   initialPrompt?: string;
+  /** CLI flags to pass to Claude (e.g. ['--verbose', '--model', 'opus']) */
+  cliFlags?: string[];
   /** Optional user-visible description */
   description?: string;
   /** ISO 8601 timestamp of template creation */

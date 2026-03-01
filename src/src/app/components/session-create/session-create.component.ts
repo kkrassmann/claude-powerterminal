@@ -312,6 +312,18 @@ export class SessionCreateComponent implements OnInit {
   async applyTemplate(template: SessionTemplate): Promise<void> {
     this.workingDirectory = template.workingDirectory;
     this.pendingInitialPrompt = template.initialPrompt || '';
+
+    // Restore CLI flags from template
+    if (template.cliFlags?.length) {
+      // Reset checkboxes
+      for (const key of Object.keys(this.selectedFlags)) {
+        this.selectedFlags[key] = template.cliFlags.includes(key);
+      }
+      // Put non-checkbox flags into customFlags
+      const knownFlags = new Set(Object.keys(this.selectedFlags));
+      this.customFlags = template.cliFlags.filter(f => !knownFlags.has(f)).join(' ');
+    }
+
     await this.templateService.useTemplate(template);
     await this.loadTemplates();
   }
@@ -335,6 +347,7 @@ export class SessionCreateComponent implements OnInit {
       name: this.templateName.trim(),
       category: this.templateCategory,
       workingDirectory: this.workingDirectory.trim(),
+      cliFlags: this.combineFlags(),
       initialPrompt: this.templateInitialPrompt.trim() || undefined,
       description: this.templateDescription.trim() || undefined,
       createdAt: new Date().toISOString(),
