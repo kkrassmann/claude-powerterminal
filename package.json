@@ -1,6 +1,6 @@
 {
   "name": "@kkrassmann/claude-powerterminal",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Multi-session terminal manager for Claude CLI with status monitoring",
   "main": "dist/electron/main.js",
   "scripts": {
@@ -49,6 +49,7 @@
     },
     "files": [
       "dist/electron/**/*",
+      "dist/src/shared/**/*",
       "src/dist/claude-powerterminal-angular/browser/**/*",
       "node_modules/**/*",
       "package.json"
