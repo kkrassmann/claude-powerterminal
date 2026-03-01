@@ -17,6 +17,7 @@ import { ScrollbackBuffer } from '../../src/src/app/services/scrollback-buffer.s
 import { deleteSessionFromDisk, getSessionFromDisk } from './session-handlers';
 import { StatusDetector } from '../status/status-detector';
 import { sanitizeEnvForClaude } from '../utils/env-sanitize';
+import { info, warn as logWarn, error as logError } from '../utils/log-service';
 
 /**
  * Map of session IDs to active PTY processes.
@@ -78,13 +79,13 @@ export function getPtyProcesses(): Map<string, pty.IPty> {
  * Call this once during app initialization in main.ts.
  */
 export function registerPtyHandlers(): void {
-  console.log('[PTY Handlers] Registering PTY IPC handlers');
+  info('PTY', 'Registering PTY IPC handlers');
 
   // Handler 1: PTY_SPAWN - Create a new PTY process
   ipcMain.handle(IPC_CHANNELS.PTY_SPAWN, async (event, options: PTYSpawnOptions) => {
     const { sessionId, cwd, flags, resume } = options;
 
-    console.log(`[PTY Handlers] Spawning PTY for session ${sessionId} in ${cwd} (resume=${!!resume}) with flags:`, flags);
+    info('PTY', `Spawning PTY in ${cwd} (resume=${!!resume})`, sessionId, { flags });
 
     try {
       // Validate cwd exists
@@ -99,7 +100,7 @@ export function registerPtyHandlers(): void {
         if (existingId !== sessionId) {
           const existingSession = getSessionFromDisk(existingId);
           if (existingSession && path.resolve(existingSession.workingDirectory) === resolvedCwd) {
-            console.warn(`[PTY Handlers] Blocked: directory ${resolvedCwd} already has active session ${existingId}`);
+            logWarn('PTY', `Blocked: directory ${resolvedCwd} already has active session ${existingId}`, sessionId);
             return { success: false, error: `Directory already has an active session. Only one Claude session per directory is allowed.` };
           }
         }
@@ -112,7 +113,7 @@ export function registerPtyHandlers(): void {
         // Subtract our own managed sessions
         const ownCount = ptyProcesses.size;
         if (externalCount > ownCount) {
-          console.warn(`[PTY Handlers] Warning: ${externalCount - ownCount} external claude.exe process(es) detected. Spawning in ${resolvedCwd} may cause config corruption if an external session uses the same directory.`);
+          logWarn('PTY', `${externalCount - ownCount} external claude.exe process(es) detected — may cause config corruption`, sessionId);
         }
       } catch { /* wmic not available or timeout — skip check */ }
 
@@ -127,9 +128,8 @@ export function registerPtyHandlers(): void {
       const sessionFlag = useResume ? '--resume' : '--session-id';
       const claudeArgs = [sessionFlag, sessionId, ...flags];
 
-      console.log(`[PTY Handlers] resume flag=${resume}, existsOnDisk=${existsOnDisk}, using ${sessionFlag}`);
-
-      console.log(`[PTY Handlers] Spawning: ${claudeExe} ${claudeArgs.join(' ')} in ${resolvedCwd}`);
+      info('PTY', `resume=${resume}, existsOnDisk=${existsOnDisk}, using ${sessionFlag}`, sessionId);
+      info('PTY', `Spawning: ${claudeExe} ${claudeArgs.join(' ')} in ${resolvedCwd}`, sessionId);
 
       // Spawn PTY process with Windows ConPTY mode
       const ptyProcess = pty.spawn(claudeExe, claudeArgs, {
@@ -153,7 +153,7 @@ export function registerPtyHandlers(): void {
       });
       getStatusDetectors().set(sessionId, statusDetector);
 
-      console.log(`[PTY Handlers] PTY spawned for session ${sessionId} with PID ${ptyProcess.pid}`);
+      info('PTY', `PTY spawned with PID ${ptyProcess.pid}`, sessionId);
 
       // Setup output streaming to renderer (guard against destroyed window during quit)
       ptyProcess.onData((data) => {
@@ -177,7 +177,7 @@ export function registerPtyHandlers(): void {
       // Setup exit handling
       ptyProcess.onExit(({ exitCode, signal }) => {
         if (restartingSessions.has(sessionId)) return;
-        console.log(`[PTY Handlers] Session ${sessionId} exited with code ${exitCode}, signal ${signal}`);
+        info('PTY', `Exited with code ${exitCode}, signal ${signal}`, sessionId);
 
         // Notify status detector of exit
         const detector = getStatusDetectors().get(sessionId);
@@ -201,19 +201,19 @@ export function registerPtyHandlers(): void {
 
       return { success: true, pid: ptyProcess.pid };
     } catch (error: any) {
-      console.error(`[PTY Handlers] Failed to spawn PTY for session ${sessionId}:`, error);
+      logError('PTY', `Failed to spawn PTY`, sessionId, error);
       return { success: false, error: error.message };
     }
   });
 
   // Handler 2: PTY_KILL - Terminate a PTY process
   ipcMain.handle(IPC_CHANNELS.PTY_KILL, async (_event, sessionId: string) => {
-    console.log(`[PTY Handlers] Killing PTY for session ${sessionId}`);
+    info('PTY', `Killing PTY`, sessionId);
 
     const ptyProcess = ptyProcesses.get(sessionId);
 
     if (!ptyProcess) {
-      console.warn(`[PTY Handlers] Session ${sessionId} not found for kill`);
+      logWarn('PTY', `Session not found for kill`, sessionId);
       return { success: false, error: 'Session not found' };
     }
 
@@ -229,10 +229,10 @@ export function registerPtyHandlers(): void {
       await killPtyProcess(ptyProcess, 3000);
       ptyProcesses.delete(sessionId);
 
-      console.log(`[PTY Handlers] Successfully killed session ${sessionId}`);
+      info('PTY', `Successfully killed`, sessionId);
       return { success: true };
     } catch (error: any) {
-      console.error(`[PTY Handlers] Failed to kill session ${sessionId}:`, error);
+      logError('PTY', `Failed to kill`, sessionId, error);
       return { success: false, error: error.message };
     }
   });
@@ -244,7 +244,7 @@ export function registerPtyHandlers(): void {
     const ptyProcess = ptyProcesses.get(sessionId);
 
     if (!ptyProcess) {
-      console.warn(`[PTY Handlers] Session ${sessionId} not found for write`);
+      logWarn('PTY', `Session not found for write`, sessionId);
       return { success: false, error: 'Session not found' };
     }
 
@@ -252,7 +252,7 @@ export function registerPtyHandlers(): void {
       ptyProcess.write(data);
       return { success: true };
     } catch (error: any) {
-      console.error(`[PTY Handlers] Failed to write to session ${sessionId}:`, error);
+      logError('PTY', `Failed to write`, sessionId, error);
       return { success: false, error: error.message };
     }
   });
@@ -268,7 +268,7 @@ export function registerPtyHandlers(): void {
 
   // Handler 5: PTY_RESTART - Kill and re-spawn PTY with --resume
   ipcMain.handle(IPC_CHANNELS.PTY_RESTART, async (event, sessionId: string, cols?: number, rows?: number) => {
-    console.log(`[PTY Handlers] Restarting session ${sessionId}`);
+    info('PTY', `Restarting session`, sessionId);
 
     const oldPty = ptyProcesses.get(sessionId);
     if (!oldPty) {
@@ -337,7 +337,7 @@ export function registerPtyHandlers(): void {
 
     newPty.onExit(({ exitCode, signal }) => {
       if (restartingSessions.has(sessionId)) return;
-      console.log(`[PTY Handlers] Session ${sessionId} exited with code ${exitCode}, signal ${signal}`);
+      info('PTY', `Exited with code ${exitCode}, signal ${signal}`, sessionId);
 
       // Notify status detector of exit
       const detector = getStatusDetectors().get(sessionId);
@@ -358,9 +358,9 @@ export function registerPtyHandlers(): void {
     });
 
     restartingSessions.delete(sessionId);
-    console.log(`[PTY Handlers] Session ${sessionId} restarted (PID ${newPty.pid})`);
+    info('PTY', `Session restarted (PID ${newPty.pid})`, sessionId);
     return { success: true, pid: newPty.pid };
   });
 
-  console.log('[PTY Handlers] All PTY IPC handlers registered successfully');
+  info('PTY', 'All PTY IPC handlers registered successfully');
 }

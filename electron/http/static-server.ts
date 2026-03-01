@@ -24,6 +24,7 @@ import { IPC_CHANNELS } from '../../src/shared/ipc-channels';
 import { analyzeAllSessions, computeSessionScore } from '../analysis/log-analyzer';
 import { getTrends, HistoryEntry } from '../analysis/score-history';
 import { getAngularBuildDir } from '../utils/paths';
+import { exportAsJsonl } from '../utils/log-service';
 
 /**
  * SessionMetadata interface (matches src/app/models/session.model.ts)
@@ -368,6 +369,18 @@ export function startStaticServer(port: number): http.Server {
         res.writeHead(500, corsHeaders);
         res.end(JSON.stringify({ error: String(err) }));
       }
+      return;
+    }
+
+    // GET /api/logs - Export internal logs as JSONL download
+    if (req.method === 'GET' && pathname === '/api/logs') {
+      const jsonl = exportAsJsonl();
+      res.writeHead(200, {
+        'Access-Control-Allow-Origin': '*',
+        'Content-Type': 'application/x-ndjson',
+        'Content-Disposition': `attachment; filename="cpt-logs-${new Date().toISOString().replace(/[:.]/g, '-')}.jsonl"`,
+      });
+      res.end(jsonl);
       return;
     }
 

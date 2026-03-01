@@ -6,6 +6,7 @@ import { registerPtyHandlers, getPtyProcesses, setShuttingDown, isShuttingDown, 
 import { registerSessionHandlers } from './ipc/session-handlers';
 import { registerGitHandlers } from './ipc/git-handlers';
 import { registerAnalysisHandlers } from './ipc/analysis-handlers';
+import { registerLogHandlers } from './ipc/log-handlers';
 import { startWebSocketServer, stopWebSocketServer, getScrollbackBuffers, getStatusDetectors, broadcastStatus } from './websocket/ws-server';
 import { ScrollbackBuffer } from '../src/src/app/services/scrollback-buffer.service';
 import { deleteSessionFromDisk } from './ipc/session-handlers';
@@ -16,18 +17,22 @@ import { startStaticServer } from './http/static-server';
 import { getLocalNetworkAddress } from './utils/network-info';
 import { sanitizeEnvForClaude } from './utils/env-sanitize';
 import { getAngularBuildDir } from './utils/paths';
+import { info, warn as logWarn, error as logError } from './utils/log-service';
 
 import { setMainWindow } from './utils/window-ref';
+
+// Fix userData path — scoped package name creates nested folder, keep it flat
+app.setPath('userData', path.join(app.getPath('appData'), 'claude-powerterminal'));
 
 let mainWindow: BrowserWindow | null = null;
 let lanUrl: string | null = null;
 
 // Prevent unhandled exceptions from crashing Electron (e.g. node-pty AttachConsole failures)
-process.on('uncaughtException', (error) => {
-  console.error('[Uncaught Exception]', error.message);
+process.on('uncaughtException', (err) => {
+  logError('App', 'Uncaught exception', undefined, err.message);
 });
 process.on('unhandledRejection', (reason) => {
-  console.error('[Unhandled Rejection]', reason);
+  logError('App', 'Unhandled rejection', undefined, reason);
 });
 
 /**
@@ -124,14 +129,14 @@ function loadSessionsFromDisk(): SessionMetadata[] {
   try {
     const filePath = getSessionsFilePath();
     if (!fs.existsSync(filePath)) {
-      console.log('[Auto-Restore] No sessions file found');
+      info('Auto-Restore', 'No sessions file found');
       return [];
     }
     const data = fs.readFileSync(filePath, 'utf-8');
     const sessions = JSON.parse(data);
     return sessions;
   } catch (error: any) {
-    console.error('[Auto-Restore] Error loading sessions:', error.message);
+    logError('Auto-Restore', 'Error loading sessions', undefined, error.message);
     return [];
   }
 }
@@ -146,7 +151,7 @@ function loadSessionsFromDisk(): SessionMetadata[] {
  */
 async function spawnPtyWithResume(session: SessionMetadata): Promise<pty.IPty> {
   return new Promise((resolve, reject) => {
-    console.log(`[Auto-Restore] Attempting --resume for session ${session.sessionId}`);
+    info('Auto-Restore', `Attempting --resume`, session.sessionId);
 
     const env = sanitizeEnvForClaude();
 
@@ -169,7 +174,7 @@ async function spawnPtyWithResume(session: SessionMetadata): Promise<pty.IPty> {
     let hasResolved = false;
     const exitHandler = ({ exitCode }: { exitCode: number; signal?: number }) => {
       if (!hasResolved) {
-        console.warn(`[Auto-Restore] Resume failed for ${session.sessionId} (exit code ${exitCode})`);
+        logWarn('Auto-Restore', `Resume failed (exit code ${exitCode})`, session.sessionId);
         reject(new Error(`Resume failed with exit code ${exitCode}`));
       }
     };
@@ -179,7 +184,7 @@ async function spawnPtyWithResume(session: SessionMetadata): Promise<pty.IPty> {
     // If process still alive after 1.5s, consider resume successful
     setTimeout(() => {
       hasResolved = true;
-      console.log(`[Auto-Restore] Resume successful for ${session.sessionId} (PID ${ptyProcess.pid})`);
+      info('Auto-Restore', `Resume successful (PID ${ptyProcess.pid})`, session.sessionId);
       resolve(ptyProcess);
     }, 1500);
   });
@@ -192,7 +197,7 @@ async function spawnPtyWithResume(session: SessionMetadata): Promise<pty.IPty> {
  * @returns The spawned PTY process
  */
 async function spawnPtyFresh(session: SessionMetadata): Promise<pty.IPty> {
-  console.log(`[Auto-Restore] Starting fresh session for ${session.sessionId}`);
+  info('Auto-Restore', `Starting fresh session`, session.sessionId);
 
   const env = sanitizeEnvForClaude();
 
@@ -211,7 +216,7 @@ async function spawnPtyFresh(session: SessionMetadata): Promise<pty.IPty> {
     useConpty: true,
   });
 
-  console.log(`[Auto-Restore] Fresh session started for ${session.sessionId} (PID ${ptyProcess.pid})`);
+  info('Auto-Restore', `Fresh session started (PID ${ptyProcess.pid})`, session.sessionId);
   return ptyProcess;
 }
 
@@ -244,7 +249,7 @@ function registerRestoredPty(session: SessionMetadata, ptyProcess: pty.IPty): vo
 
   ptyProcess.onExit(({ exitCode, signal }) => {
     if (isSessionRestarting(session.sessionId)) return;
-    console.log(`[Auto-Restore] Session ${session.sessionId} exited with code ${exitCode}`);
+    info('Auto-Restore', `Session exited with code ${exitCode}`, session.sessionId);
 
     // Notify status detector of exit
     const detector = getStatusDetectors().get(session.sessionId);
@@ -271,16 +276,16 @@ function registerRestoredPty(session: SessionMetadata, ptyProcess: pty.IPty): vo
  * to Claude CLI's shared config file (~/.claude.json) which causes corruption.
  */
 async function restoreAllSessions(): Promise<void> {
-  console.log('[Auto-Restore] Starting session auto-restore');
+  info('Auto-Restore', 'Starting session auto-restore');
 
   const sessions = loadSessionsFromDisk();
 
   if (sessions.length === 0) {
-    console.log('[Auto-Restore] No sessions to restore');
+    info('Auto-Restore', 'No sessions to restore');
     return;
   }
 
-  console.log(`[Auto-Restore] Found ${sessions.length} sessions to restore`);
+  info('Auto-Restore', `Found ${sessions.length} sessions to restore`);
 
   // Deduplicate by working directory: only one session per cwd allowed
   // (multiple Claude CLI instances in the same dir corrupt .claude.json)
@@ -289,7 +294,7 @@ async function restoreAllSessions(): Promise<void> {
   for (const session of sessions) {
     const normalizedCwd = path.resolve(session.workingDirectory);
     if (seenCwds.has(normalizedCwd)) {
-      console.warn(`[Auto-Restore] Skipping duplicate cwd session ${session.sessionId} (${normalizedCwd})`);
+      logWarn('Auto-Restore', `Skipping duplicate cwd session (${normalizedCwd})`, session.sessionId);
       deleteSessionFromDisk(session.sessionId);
       continue;
     }
@@ -298,7 +303,7 @@ async function restoreAllSessions(): Promise<void> {
   }
 
   if (deduped.length < sessions.length) {
-    console.log(`[Auto-Restore] Deduplicated: ${sessions.length} → ${deduped.length} sessions`);
+    info('Auto-Restore', `Deduplicated: ${sessions.length} → ${deduped.length} sessions`);
   }
 
   // Spawn sessions sequentially with delay to prevent .claude.json write races
@@ -308,22 +313,22 @@ async function restoreAllSessions(): Promise<void> {
       try {
         ptyProcess = await spawnPtyWithResume(session);
       } catch {
-        console.warn(`[Auto-Restore] Resume failed for ${session.sessionId}, starting fresh`);
+        logWarn('Auto-Restore', `Resume failed, starting fresh`, session.sessionId);
         ptyProcess = await spawnPtyFresh(session);
       }
       registerRestoredPty(session, ptyProcess);
-      console.log(`[Auto-Restore] Session ${session.sessionId} restored`);
+      info('Auto-Restore', `Session restored`, session.sessionId);
 
       // Wait for Claude CLI to finish initializing before starting next session
       if (sessions.indexOf(session) < sessions.length - 1) {
         await new Promise(r => setTimeout(r, 3000));
       }
     } catch (error) {
-      console.error(`[Auto-Restore] Failed to restore session ${session.sessionId}:`, error);
+      logError('Auto-Restore', `Failed to restore session`, session.sessionId, error);
     }
   }
 
-  console.log('[Auto-Restore] All sessions restored');
+  info('Auto-Restore', 'All sessions restored');
 
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.webContents.send(IPC_CHANNELS.SESSION_RESTORE_COMPLETE);
@@ -340,6 +345,7 @@ app.whenReady().then(async () => {
   registerSessionHandlers();
   registerGitHandlers();
   registerAnalysisHandlers();
+  registerLogHandlers();
 
   // Start WebSocket server before creating window
   startWebSocketServer();
@@ -351,19 +357,19 @@ app.whenReady().then(async () => {
   const lanIp = getLocalNetworkAddress();
   if (lanIp) {
     lanUrl = `http://${lanIp}:9801`;
-    console.log(`\n  LAN access: ${lanUrl}\n`);
+    info('App', `LAN access: ${lanUrl}`);
   } else {
-    console.log('\n  LAN access: not available\n');
+    info('App', 'LAN access: not available');
   }
 
   // Register IPC handler for LAN URL
-  ipcMain.handle('app:lan-url', () => lanUrl);
+  ipcMain.handle(IPC_CHANNELS.APP_LAN_URL, () => lanUrl);
 
   createWindow();
 
   // Auto-restore saved sessions
   restoreAllSessions().catch((error) => {
-    console.error('[Auto-Restore] Fatal error during session restore:', error);
+    logError('Auto-Restore', 'Fatal error during session restore', undefined, error);
   });
 
   app.on('activate', () => {
@@ -396,11 +402,11 @@ app.on('will-quit', async (event) => {
   const ptyProcesses = getPtyProcesses();
 
   if (ptyProcesses.size === 0) {
-    console.log('[App Lifecycle] No active PTY processes to clean up');
+    info('App', 'No active PTY processes to clean up');
     return;
   }
 
-  console.log(`[App Lifecycle] Shutting down WebSocket server and killing ${ptyProcesses.size} active PTY processes`);
+  info('App', `Shutting down WebSocket server and killing ${ptyProcesses.size} active PTY processes`);
   isCleaningUp = true;
   setShuttingDown(true);
   event.preventDefault();
@@ -410,17 +416,17 @@ app.on('will-quit', async (event) => {
 
   // Kill all active PTY processes using taskkill /T /F to kill entire process tree
   const killPromises = Array.from(ptyProcesses.entries()).map(async ([sessionId, ptyProcess]) => {
-    console.log(`[App Lifecycle] Killing session ${sessionId} (PID ${ptyProcess.pid})`);
+    info('App', `Killing session (PID ${ptyProcess.pid})`, sessionId);
     try {
       await killPtyProcess(ptyProcess, 2000);
     } catch (error) {
-      console.log(`[App Lifecycle] Kill signal sent for ${sessionId} (errors during shutdown are expected)`);
+      info('App', `Kill signal sent (errors during shutdown are expected)`, sessionId);
     }
   });
 
   Promise.all(killPromises).then(() => {
     ptyProcesses.clear();
-    console.log('[App Lifecycle] All PTY processes cleaned up');
+    info('App', 'All PTY processes cleaned up');
     app.quit();
   });
 });

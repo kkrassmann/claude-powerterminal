@@ -15,6 +15,7 @@
  */
 
 import { stripAnsi, extractWindowTitle } from './ansi-strip';
+import { info, debug as logDebug } from '../utils/log-service';
 
 export type TerminalStatus = 'WORKING' | 'THINKING' | 'WAITING' | 'ERROR' | 'DONE';
 
@@ -103,18 +104,20 @@ export class StatusDetector {
 
       // Check input prompts FIRST (higher priority than WORKING)
       if (this.matchesAny(significant, StatusDetector.INPUT_PATTERNS)) {
-        this.transition('WAITING');
+        const matched = StatusDetector.INPUT_PATTERNS.find(p => p.test(significant));
+        this.transition('WAITING', `input pattern: ${matched}`);
         return;
       }
 
       // Check error patterns
       if (this.matchesAny(significant, StatusDetector.ERROR_PATTERNS)) {
-        this.transition('ERROR');
+        const matched = StatusDetector.ERROR_PATTERNS.find(p => p.test(significant));
+        this.transition('ERROR', `error pattern: ${matched}`);
         return;
       }
 
       // Default: real output → WORKING
-      this.transition('WORKING');
+      this.transition('WORKING', `significant text (${significant.length} chars)`);
     }
     // Otherwise: small/empty chunk or TUI noise — don't change state, let idle timer handle it
   }
@@ -167,10 +170,11 @@ export class StatusDetector {
     }
   }
 
-  private transition(newStatus: TerminalStatus): void {
+  private transition(newStatus: TerminalStatus, reason?: string): void {
     if (newStatus !== this.status) {
       const prev = this.status;
       this.status = newStatus;
+      info('StatusDetector', `${this.sessionId.slice(0, 8)} ${prev} → ${newStatus}${reason ? ` (${reason})` : ''}`, this.sessionId);
       this.onStatusChange(this.sessionId, newStatus, prev);
 
       if (newStatus === 'WORKING' && (prev === 'WAITING' || prev === 'ERROR')) {
@@ -190,14 +194,20 @@ export class StatusDetector {
 
       if (this.status === 'DONE') return;
 
+      // Log idle checks only when idle exceeds 3s to reduce noise
+      if (idleMs > 3000) {
+        logDebug('StatusDetector', `idle check: ${Math.round(idleMs / 1000)}s, title✳=${isClaudeIdle}, status=${this.status}`, this.sessionId);
+      }
+
       // WAITING: idle for threshold OR shorter idle + Claude title indicates idle
-      if (idleMs >= StatusDetector.WAITING_THRESHOLD_MS ||
-          (idleMs >= StatusDetector.THINKING_THRESHOLD_MS && isClaudeIdle)) {
-        this.transition('WAITING');
+      if (idleMs >= StatusDetector.WAITING_THRESHOLD_MS) {
+        this.transition('WAITING', `idle ${Math.round(idleMs / 1000)}s >= ${StatusDetector.WAITING_THRESHOLD_MS / 1000}s threshold`);
+      } else if (idleMs >= StatusDetector.THINKING_THRESHOLD_MS && isClaudeIdle) {
+        this.transition('WAITING', `idle ${Math.round(idleMs / 1000)}s + window title ✳`);
       }
       // THINKING: moderate idle, Claude might still be processing
       else if (this.status === 'WORKING' && idleMs >= StatusDetector.THINKING_THRESHOLD_MS) {
-        this.transition('THINKING');
+        this.transition('THINKING', `idle ${Math.round(idleMs / 1000)}s`);
       }
     }, 1000);
   }
