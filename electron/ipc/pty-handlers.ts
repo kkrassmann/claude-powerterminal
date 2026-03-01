@@ -13,7 +13,7 @@ import { ipcMain } from 'electron';
 import { IPC_CHANNELS } from '../../src/shared/ipc-channels';
 import { killPtyProcess } from '../utils/process-cleanup';
 import { getScrollbackBuffers, getStatusDetectors, broadcastStatus } from '../websocket/ws-server';
-import { ScrollbackBuffer } from '../../src/src/app/services/scrollback-buffer.service';
+import { ScrollbackBuffer } from '../../src/shared/scrollback-buffer';
 import { deleteSessionFromDisk, getSessionFromDisk } from './session-handlers';
 import { StatusDetector } from '../status/status-detector';
 import { sanitizeEnvForClaude } from '../utils/env-sanitize';

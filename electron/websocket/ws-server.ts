@@ -7,7 +7,7 @@
 
 import { WebSocketServer, WebSocket } from 'ws';
 import { getPtyProcesses } from '../ipc/pty-handlers';
-import { ScrollbackBuffer } from '../../src/src/app/services/scrollback-buffer.service';
+import { ScrollbackBuffer } from '../../src/shared/scrollback-buffer';
 import { WS_PORT, WS_CLOSE_CODES, ServerMessage, ClientMessage, TerminalStatus } from '../../src/shared/ws-protocol';
 import { StatusDetector } from '../status/status-detector';
 

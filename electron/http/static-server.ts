@@ -14,7 +14,7 @@ import { promisify } from 'util';
 import { getPtyProcesses } from '../ipc/pty-handlers';
 import { app } from 'electron';
 import { getScrollbackBuffers, getStatusDetectors, broadcastStatus } from '../websocket/ws-server';
-import { ScrollbackBuffer } from '../../src/src/app/services/scrollback-buffer.service';
+import { ScrollbackBuffer } from '../../src/shared/scrollback-buffer';
 import { StatusDetector } from '../status/status-detector';
 import { deleteSessionFromDisk } from '../ipc/session-handlers';
 import { sanitizeEnvForClaude } from '../utils/env-sanitize';
