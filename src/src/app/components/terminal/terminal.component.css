@@ -81,6 +81,31 @@
   color: #cdd6f4;
 }
 
+.scroll-bottom-btn {
+  position: absolute;
+  bottom: 12px;
+  right: 12px;
+  z-index: 5;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid #45475a;
+  border-radius: 50%;
+  background: rgba(49, 50, 68, 0.9);
+  color: #cdd6f4;
+  font-size: 16px;
+  line-height: 32px;
+  text-align: center;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+.scroll-bottom-btn:hover {
+  background: #585b70;
+  border-color: #89b4fa;
+}
+
 .context-menu {
   position: fixed;
   z-index: 10000;

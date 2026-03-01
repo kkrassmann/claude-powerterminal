@@ -33,6 +33,7 @@ import { IPC_CHANNELS } from '../../../../shared/ipc-channels';
     </div>
     <div #terminalContainer class="terminal-container" [class.hidden]="isRestarting" (contextmenu)="onContextMenu($event)"></div>
     <button class="refresh-btn" title="Terminal auffrischen" (click)="refreshBuffer()">&#x21bb;</button>
+    <button *ngIf="isScrolledUp" class="scroll-bottom-btn" title="Zum Ende scrollen" (click)="scrollToBottom()">&#x2193;</button>
     <div *ngIf="contextMenuVisible" class="context-menu" [style.left.px]="contextMenuX" [style.top.px]="contextMenuY" (mousedown)="$event.stopPropagation()">
       <button class="context-menu-item" (click)="restartSession()">Neu starten</button>
       <button class="context-menu-item danger" (click)="killSession()">Session beenden</button>
@@ -58,7 +59,9 @@ export class TerminalComponent implements OnInit, OnDestroy {
   private isBuffering = false;
   private inputDisposable: any = null; // Tracks term.onData listener to prevent leaks
   private resyncInterval?: any; // Periodic buffer resync for remote browsers
+  private scrollDisposable: any = null;
 
+  isScrolledUp = false;
   contextMenuVisible = false;
   contextMenuX = 0;
   contextMenuY = 0;
@@ -106,6 +109,11 @@ export class TerminalComponent implements OnInit, OnDestroy {
     this.contextMenuVisible = false;
     if (!window.electronAPI) return;
     window.electronAPI.invoke(IPC_CHANNELS.PTY_KILL, this.sessionId);
+  }
+
+  scrollToBottom(): void {
+    this.term.scrollToBottom();
+    this.isScrolledUp = false;
   }
 
   refreshBuffer(): void {
@@ -183,6 +191,12 @@ export class TerminalComponent implements OnInit, OnDestroy {
 
     // Fit terminal to container
     this.fitAddon.fit();
+
+    // Track scroll position to show/hide "scroll to bottom" button
+    this.scrollDisposable = this.term.onScroll(() => {
+      const buf = this.term.buffer.active;
+      this.isScrolledUp = buf.viewportY < buf.baseY;
+    });
 
     // Setup clipboard handling
     this.setupClipboard();
@@ -375,6 +389,7 @@ export class TerminalComponent implements OnInit, OnDestroy {
     if (this.resyncInterval) {
       clearInterval(this.resyncInterval);
     }
+    this.scrollDisposable?.dispose();
     this.resizeObserver?.disconnect();
     this.socket?.close();
     this.term?.dispose();
