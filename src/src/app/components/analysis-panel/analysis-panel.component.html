@@ -1,193 +1,286 @@
 <div class="analysis-panel">
-  <!-- Loading state -->
-  <div class="panel-loading" *ngIf="!analysis && analysisService.loading">
-    <span class="spinner"></span>
-    <span>Loading analysis...</span>
+
+  <!-- Tab switcher -->
+  <div class="panel-tabs">
+    <button class="tab-btn" [class.active]="activeTab === 'analysis'" (click)="onTabChange('analysis')">
+      Session-Analyse
+    </button>
+    <button class="tab-btn" [class.active]="activeTab === 'audit'" (click)="onTabChange('audit')">
+      Projekt-Audit
+    </button>
   </div>
 
-  <!-- Empty state -->
-  <div class="panel-empty" *ngIf="!analysis && !analysisService.loading">
-    <span>No analysis data available.</span>
-    <button class="refresh-btn" (click)="refresh()">Reload</button>
+  <!-- ===== SESSION ANALYSIS TAB ===== -->
+  <div *ngIf="activeTab === 'analysis'">
+
+    <!-- Loading state -->
+    <div class="panel-loading" *ngIf="!analysis && analysisService.loading">
+      <span class="spinner"></span>
+      <span>Loading analysis...</span>
+    </div>
+
+    <!-- Empty state -->
+    <div class="panel-empty" *ngIf="!analysis && !analysisService.loading">
+      <span>No analysis data available.</span>
+      <button class="refresh-btn" (click)="refresh()">Reload</button>
+    </div>
+
+    <!-- Analysis content -->
+    <div class="panel-content" *ngIf="analysis">
+
+      <!-- Header with refresh button -->
+      <div class="panel-header">
+        <span class="panel-title">Session Analysis</span>
+        <button class="refresh-btn" (click)="refresh()" [disabled]="analysisService.loading">
+          {{ analysisService.loading ? 'Loading...' : 'Refresh' }}
+        </button>
+      </div>
+
+      <!-- Section 1: Overview -->
+      <div class="section">
+        <div class="section-header" (click)="toggleSection('overview')">
+          <span class="section-toggle">{{ isCollapsed('overview') ? '+' : '-' }}</span>
+          <span class="section-title">Overview</span>
+        </div>
+        <div class="section-body" *ngIf="!isCollapsed('overview')">
+          <div class="stat-row">
+            <div class="stat-item">
+              <span class="stat-value">{{ analysis.overview.totalSessions }}</span>
+              <span class="stat-label">Sessions</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-value">{{ analysis.overview.totalMessages }}</span>
+              <span class="stat-label">Messages</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-value">{{ analysis.overview.totalToolCalls }}</span>
+              <span class="stat-label">Tool Calls</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-value-small">{{ analysis.overview.dateRange.from }} - {{ analysis.overview.dateRange.to }}</span>
+              <span class="stat-label">Date Range</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 2: Tool Usage -->
+      <div class="section" *ngIf="analysis.toolUsage.length > 0">
+        <div class="section-header" (click)="toggleSection('tools')">
+          <span class="section-toggle">{{ isCollapsed('tools') ? '+' : '-' }}</span>
+          <span class="section-title">Tool Usage</span>
+          <span class="section-badge">{{ analysis.toolUsage.length }} Tools</span>
+        </div>
+        <div class="section-body" *ngIf="!isCollapsed('tools')">
+          <div class="tool-bar-row" *ngFor="let tool of analysis.toolUsage; let i = index">
+            <span class="tool-name">{{ tool.name }}</span>
+            <div class="tool-bar-container">
+              <div class="tool-bar"
+                   [style.width.%]="getBarWidth(tool, analysis.toolUsage)"
+                   [style.backgroundColor]="getToolColor(i)">
+              </div>
+            </div>
+            <span class="tool-count">{{ tool.count }}</span>
+            <span class="tool-pct">{{ tool.percentage }}%</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 3: Token Usage -->
+      <div class="section">
+        <div class="section-header" (click)="toggleSection('tokens')">
+          <span class="section-toggle">{{ isCollapsed('tokens') ? '+' : '-' }}</span>
+          <span class="section-title">Token Usage</span>
+        </div>
+        <div class="section-body" *ngIf="!isCollapsed('tokens')">
+          <div class="token-stats">
+            <div class="cache-ratio-row">
+              <span class="cache-label">Cache Hit Rate</span>
+              <div class="cache-bar-container">
+                <div class="cache-bar" [style.width.%]="analysis.tokenUsage.cacheHitRatio"></div>
+              </div>
+              <span class="cache-pct">{{ analysis.tokenUsage.cacheHitRatio.toFixed(1) }}%</span>
+            </div>
+            <div class="token-numbers">
+              <div class="token-item">
+                <span class="token-value">{{ formatNumber(analysis.tokenUsage.totalInput) }}</span>
+                <span class="token-label">Input</span>
+              </div>
+              <div class="token-item">
+                <span class="token-value">{{ formatNumber(analysis.tokenUsage.totalOutput) }}</span>
+                <span class="token-label">Output</span>
+              </div>
+              <div class="token-item">
+                <span class="token-value">{{ formatNumber(analysis.tokenUsage.totalCacheRead) }}</span>
+                <span class="token-label">Cache Read</span>
+              </div>
+              <div class="token-item">
+                <span class="token-value">{{ formatNumber(analysis.tokenUsage.totalCacheCreation) }}</span>
+                <span class="token-label">Cache Create</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 4: Problems -->
+      <div class="section" *ngIf="analysis.problems.length > 0">
+        <div class="section-header" (click)="toggleSection('problems')">
+          <span class="section-toggle">{{ isCollapsed('problems') ? '+' : '-' }}</span>
+          <span class="section-title">Problems</span>
+          <span class="section-badge warning">{{ analysis.problems.length }}</span>
+        </div>
+        <div class="section-body" *ngIf="!isCollapsed('problems')">
+          <div class="problem-item" *ngFor="let problem of analysis.problems">
+            <span class="problem-type">{{ problem.type }}</span>
+            <span class="problem-message">{{ problem.message }}</span>
+            <span class="problem-count" *ngIf="problem.count > 1">x{{ problem.count }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 5: Recommendations (severity-styled) -->
+      <div class="section" *ngIf="analysis.recommendations.length > 0">
+        <div class="section-header" (click)="toggleSection('recommendations')">
+          <span class="section-toggle">{{ isCollapsed('recommendations') ? '+' : '-' }}</span>
+          <span class="section-title">Recommendations</span>
+          <span class="section-badge">{{ analysis.recommendations.length }}</span>
+        </div>
+        <div class="section-body" *ngIf="!isCollapsed('recommendations')">
+          <div class="recommendation-card" *ngFor="let rec of analysis.recommendations"
+               [ngClass]="getSeverityClass(rec.severity)">
+            <div class="rec-header">
+              <span class="rec-severity">{{ rec.severity }}</span>
+              <span class="rec-title">{{ rec.title }}</span>
+            </div>
+            <p class="rec-description">{{ rec.description }}</p>
+            <span class="rec-metric" *ngIf="rec.metric">{{ rec.metric }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 6: Practice Score -->
+      <div class="section">
+        <div class="section-header" (click)="toggleSection('score')">
+          <span class="section-toggle">{{ isCollapsed('score') ? '+' : '-' }}</span>
+          <span class="section-title">Practice Score</span>
+        </div>
+        <div class="section-body" *ngIf="!isCollapsed('score')">
+          <div class="score-display">
+            <span class="score-number" [style.color]="getScoreColor(analysis.practiceScore)">
+              {{ analysis.practiceScore }}
+            </span>
+            <span class="score-label">/ 100</span>
+            <div class="score-bar-container">
+              <div class="score-bar"
+                   [style.width.%]="analysis.practiceScore"
+                   [style.backgroundColor]="getScoreColor(analysis.practiceScore)">
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section 7: Trends (sparklines) -->
+      <div class="section">
+        <div class="section-header" (click)="trendsExpanded = !trendsExpanded">
+          <span class="section-toggle">{{ trendsExpanded ? '-' : '+' }}</span>
+          <span class="section-title">Trends (last 10 sessions)</span>
+        </div>
+        <div class="section-body" *ngIf="trendsExpanded">
+          <div *ngIf="!trends || trends.entries.length < 2" class="no-trends">
+            No trend data yet (at least 2 sessions required)
+          </div>
+          <div *ngIf="trends && trends.entries.length >= 2" class="sparklines-grid">
+            <div class="sparkline-row" *ngFor="let dim of sparklineDimensions">
+              <span class="sparkline-label">{{ dim.label }}</span>
+              <svg class="sparkline" width="60" height="20" viewBox="0 0 60 20">
+                <path [attr.d]="dim.path" [attr.stroke]="dim.color" stroke-width="1.5" fill="none"/>
+              </svg>
+              <span class="sparkline-last">{{ dim.lastValue }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
   </div>
 
-  <!-- Analysis content -->
-  <div class="panel-content" *ngIf="analysis">
+  <!-- ===== PROJEKT-AUDIT TAB ===== -->
+  <div *ngIf="activeTab === 'audit'" class="audit-section">
 
-    <!-- Header with refresh button -->
-    <div class="panel-header">
-      <span class="panel-title">Session Analysis</span>
-      <button class="refresh-btn" (click)="refresh()" [disabled]="analysisService.loading">
-        {{ analysisService.loading ? 'Loading...' : 'Refresh' }}
+    <!-- Controls: project dropdown + trigger button -->
+    <div class="audit-controls">
+      <select [(ngModel)]="selectedProject" class="project-select" [disabled]="auditLoading">
+        <option value="" disabled>Projekt auswahlen...</option>
+        <option *ngFor="let p of auditProjects" [value]="p">{{ formatProjectName(p) }}</option>
+      </select>
+      <button class="audit-btn" (click)="startAudit()" [disabled]="auditLoading || !selectedProject">
+        {{ auditLoading ? 'Analysiere...' : 'Audit starten' }}
       </button>
     </div>
 
-    <!-- Section 1: Overview -->
-    <div class="section">
-      <div class="section-header" (click)="toggleSection('overview')">
-        <span class="section-toggle">{{ isCollapsed('overview') ? '+' : '-' }}</span>
-        <span class="section-title">Overview</span>
-      </div>
-      <div class="section-body" *ngIf="!isCollapsed('overview')">
-        <div class="stat-row">
-          <div class="stat-item">
-            <span class="stat-value">{{ analysis.overview.totalSessions }}</span>
-            <span class="stat-label">Sessions</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-value">{{ analysis.overview.totalMessages }}</span>
-            <span class="stat-label">Messages</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-value">{{ analysis.overview.totalToolCalls }}</span>
-            <span class="stat-label">Tool Calls</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-value-small">{{ analysis.overview.dateRange.from }} - {{ analysis.overview.dateRange.to }}</span>
-            <span class="stat-label">Date Range</span>
-          </div>
-        </div>
-      </div>
+    <!-- Error state -->
+    <div *ngIf="auditError" class="audit-error">
+      Fehler: {{ auditError }}
     </div>
 
-    <!-- Section 2: Tool Usage -->
-    <div class="section" *ngIf="analysis.toolUsage.length > 0">
-      <div class="section-header" (click)="toggleSection('tools')">
-        <span class="section-toggle">{{ isCollapsed('tools') ? '+' : '-' }}</span>
-        <span class="section-title">Tool Usage</span>
-        <span class="section-badge">{{ analysis.toolUsage.length }} Tools</span>
-      </div>
-      <div class="section-body" *ngIf="!isCollapsed('tools')">
-        <div class="tool-bar-row" *ngFor="let tool of analysis.toolUsage; let i = index">
-          <span class="tool-name">{{ tool.name }}</span>
-          <div class="tool-bar-container">
-            <div class="tool-bar"
-                 [style.width.%]="getBarWidth(tool, analysis.toolUsage)"
-                 [style.backgroundColor]="getToolColor(i)">
-            </div>
-          </div>
-          <span class="tool-count">{{ tool.count }}</span>
-          <span class="tool-pct">{{ tool.percentage }}%</span>
-        </div>
-      </div>
+    <!-- Loading state -->
+    <div *ngIf="auditLoading" class="audit-loading">
+      Projekt wird analysiert...
     </div>
 
-    <!-- Section 3: Token Usage -->
-    <div class="section">
-      <div class="section-header" (click)="toggleSection('tokens')">
-        <span class="section-toggle">{{ isCollapsed('tokens') ? '+' : '-' }}</span>
-        <span class="section-title">Token Usage</span>
-      </div>
-      <div class="section-body" *ngIf="!isCollapsed('tokens')">
-        <div class="token-stats">
-          <div class="cache-ratio-row">
-            <span class="cache-label">Cache Hit Rate</span>
-            <div class="cache-bar-container">
-              <div class="cache-bar" [style.width.%]="analysis.tokenUsage.cacheHitRatio"></div>
-            </div>
-            <span class="cache-pct">{{ analysis.tokenUsage.cacheHitRatio.toFixed(1) }}%</span>
-          </div>
-          <div class="token-numbers">
-            <div class="token-item">
-              <span class="token-value">{{ formatNumber(analysis.tokenUsage.totalInput) }}</span>
-              <span class="token-label">Input</span>
-            </div>
-            <div class="token-item">
-              <span class="token-value">{{ formatNumber(analysis.tokenUsage.totalOutput) }}</span>
-              <span class="token-label">Output</span>
-            </div>
-            <div class="token-item">
-              <span class="token-value">{{ formatNumber(analysis.tokenUsage.totalCacheRead) }}</span>
-              <span class="token-label">Cache Read</span>
-            </div>
-            <div class="token-item">
-              <span class="token-value">{{ formatNumber(analysis.tokenUsage.totalCacheCreation) }}</span>
-              <span class="token-label">Cache Create</span>
-            </div>
-          </div>
+    <!-- Results -->
+    <div *ngIf="auditResult && !auditLoading" class="audit-results">
+
+      <!-- Overall score header -->
+      <div class="audit-overall">
+        <div class="overall-score-label">Gesamtscore</div>
+        <div class="overall-score-value">{{ auditResult.overallScore }}<span class="score-max">/100</span></div>
+        <div class="improvement-potential">
+          Verbesserungspotential: {{ auditResult.improvementPotential }}%
         </div>
       </div>
+
+      <!-- Per-file list -->
+      <div class="audit-file-list">
+        <div *ngFor="let file of auditResult.files" class="audit-file-row">
+
+          <!-- File header (always visible, click to expand) -->
+          <div class="file-header" (click)="toggleFile(file.filePath)">
+            <span class="file-expand-icon">{{ expandedFiles.has(file.filePath) ? '▼' : '▶' }}</span>
+            <span class="file-name">{{ file.displayName }}</span>
+            <span class="file-score" [class.score-good]="file.score >= 80" [class.score-warn]="file.score >= 50 && file.score < 80" [class.score-bad]="file.score < 50">
+              {{ file.score }}/100
+            </span>
+            <span class="file-issue-count" *ngIf="file.findings.length > 0">
+              {{ file.findings.length }} {{ file.findings.length === 1 ? 'Problem' : 'Probleme' }}
+            </span>
+            <span class="file-ok" *ngIf="file.findings.length === 0">OK</span>
+          </div>
+
+          <!-- Expanded findings -->
+          <div *ngIf="expandedFiles.has(file.filePath)" class="file-findings">
+            <div *ngIf="file.findings.length === 0" class="finding-ok">
+              Alle Regeln bestanden.
+            </div>
+            <div *ngFor="let finding of file.findings" class="finding-row" [class]="'finding-row ' + severityClass(finding.severity)">
+              <span class="finding-severity">{{ finding.severity }}</span>
+              <span class="finding-rule">{{ finding.ruleId }}</span>
+              <span class="finding-fix">{{ finding.fix }}</span>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
     </div>
 
-    <!-- Section 4: Problems -->
-    <div class="section" *ngIf="analysis.problems.length > 0">
-      <div class="section-header" (click)="toggleSection('problems')">
-        <span class="section-toggle">{{ isCollapsed('problems') ? '+' : '-' }}</span>
-        <span class="section-title">Problems</span>
-        <span class="section-badge warning">{{ analysis.problems.length }}</span>
-      </div>
-      <div class="section-body" *ngIf="!isCollapsed('problems')">
-        <div class="problem-item" *ngFor="let problem of analysis.problems">
-          <span class="problem-type">{{ problem.type }}</span>
-          <span class="problem-message">{{ problem.message }}</span>
-          <span class="problem-count" *ngIf="problem.count > 1">x{{ problem.count }}</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Section 5: Recommendations (severity-styled) -->
-    <div class="section" *ngIf="analysis.recommendations.length > 0">
-      <div class="section-header" (click)="toggleSection('recommendations')">
-        <span class="section-toggle">{{ isCollapsed('recommendations') ? '+' : '-' }}</span>
-        <span class="section-title">Recommendations</span>
-        <span class="section-badge">{{ analysis.recommendations.length }}</span>
-      </div>
-      <div class="section-body" *ngIf="!isCollapsed('recommendations')">
-        <div class="recommendation-card" *ngFor="let rec of analysis.recommendations"
-             [ngClass]="getSeverityClass(rec.severity)">
-          <div class="rec-header">
-            <span class="rec-severity">{{ rec.severity }}</span>
-            <span class="rec-title">{{ rec.title }}</span>
-          </div>
-          <p class="rec-description">{{ rec.description }}</p>
-          <span class="rec-metric" *ngIf="rec.metric">{{ rec.metric }}</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- Section 6: Practice Score -->
-    <div class="section">
-      <div class="section-header" (click)="toggleSection('score')">
-        <span class="section-toggle">{{ isCollapsed('score') ? '+' : '-' }}</span>
-        <span class="section-title">Practice Score</span>
-      </div>
-      <div class="section-body" *ngIf="!isCollapsed('score')">
-        <div class="score-display">
-          <span class="score-number" [style.color]="getScoreColor(analysis.practiceScore)">
-            {{ analysis.practiceScore }}
-          </span>
-          <span class="score-label">/ 100</span>
-          <div class="score-bar-container">
-            <div class="score-bar"
-                 [style.width.%]="analysis.practiceScore"
-                 [style.backgroundColor]="getScoreColor(analysis.practiceScore)">
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Section 7: Trends (sparklines) -->
-    <div class="section">
-      <div class="section-header" (click)="trendsExpanded = !trendsExpanded">
-        <span class="section-toggle">{{ trendsExpanded ? '-' : '+' }}</span>
-        <span class="section-title">Trends (last 10 sessions)</span>
-      </div>
-      <div class="section-body" *ngIf="trendsExpanded">
-        <div *ngIf="!trends || trends.entries.length < 2" class="no-trends">
-          No trend data yet (at least 2 sessions required)
-        </div>
-        <div *ngIf="trends && trends.entries.length >= 2" class="sparklines-grid">
-          <div class="sparkline-row" *ngFor="let dim of sparklineDimensions">
-            <span class="sparkline-label">{{ dim.label }}</span>
-            <svg class="sparkline" width="60" height="20" viewBox="0 0 60 20">
-              <path [attr.d]="dim.path" [attr.stroke]="dim.color" stroke-width="1.5" fill="none"/>
-            </svg>
-            <span class="sparkline-last">{{ dim.lastValue }}</span>
-          </div>
-        </div>
-      </div>
+    <!-- Empty state: no projects found -->
+    <div *ngIf="!auditLoading && auditProjects.length === 0 && !auditResult" class="audit-empty">
+      Keine Claude-Projekte in ~/.claude/projects/ gefunden.
     </div>
 
   </div>
+
 </div>
