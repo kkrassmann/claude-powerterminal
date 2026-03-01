@@ -8,7 +8,7 @@ import { registerGitHandlers } from './ipc/git-handlers';
 import { registerAnalysisHandlers } from './ipc/analysis-handlers';
 import { registerLogHandlers } from './ipc/log-handlers';
 import { startWebSocketServer, stopWebSocketServer, getScrollbackBuffers, getStatusDetectors, broadcastStatus } from './websocket/ws-server';
-import { ScrollbackBuffer } from '../src/src/app/services/scrollback-buffer.service';
+import { ScrollbackBuffer } from '../src/shared/scrollback-buffer';
 import { deleteSessionFromDisk } from './ipc/session-handlers';
 import { IPC_CHANNELS } from '../src/shared/ipc-channels';
 import { killPtyProcess } from './utils/process-cleanup';

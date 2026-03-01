@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { SessionMetadata } from '../models/session.model';
-import { ScrollbackBuffer } from './scrollback-buffer.service';
+import { ScrollbackBuffer } from '../../../shared/scrollback-buffer';
 
 /**
  * Represents an active terminal session with runtime state.
