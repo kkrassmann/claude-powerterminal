@@ -1,6 +1,31 @@
-import { app, BrowserWindow, Menu, ipcMain } from 'electron';
+// === Crash logger — must be first, uses only Node built-ins ===
 import * as path from 'path';
 import * as fs from 'fs';
+
+function writeCrashLog(label: string, err: unknown): void {
+  try {
+    const logDir = path.join(
+      process.env.APPDATA || path.join(require('os').homedir(), 'AppData', 'Roaming'),
+      'claude-powerterminal'
+    );
+    fs.mkdirSync(logDir, { recursive: true });
+    const logFile = path.join(logDir, 'crash.log');
+    const timestamp = new Date().toISOString();
+    const message = err instanceof Error ? `${err.message}\n${err.stack}` : String(err);
+    const entry = `[${timestamp}] ${label}: ${message}\n`;
+    fs.appendFileSync(logFile, entry);
+  } catch { /* last resort — nothing we can do */ }
+}
+
+process.on('uncaughtException', (err) => {
+  writeCrashLog('UncaughtException', err);
+});
+process.on('unhandledRejection', (reason) => {
+  writeCrashLog('UnhandledRejection', reason);
+});
+// === End crash logger ===
+
+import { app, BrowserWindow, Menu, ipcMain } from 'electron';
 import * as pty from 'node-pty';
 import { registerPtyHandlers, getPtyProcesses, setShuttingDown, isShuttingDown, isSessionRestarting } from './ipc/pty-handlers';
 import { registerSessionHandlers } from './ipc/session-handlers';
@@ -26,14 +51,6 @@ app.setPath('userData', path.join(app.getPath('appData'), 'claude-powerterminal'
 
 let mainWindow: BrowserWindow | null = null;
 let lanUrl: string | null = null;
-
-// Prevent unhandled exceptions from crashing Electron (e.g. node-pty AttachConsole failures)
-process.on('uncaughtException', (err) => {
-  logError('App', 'Uncaught exception', undefined, err.message);
-});
-process.on('unhandledRejection', (reason) => {
-  logError('App', 'Unhandled rejection', undefined, reason);
-});
 
 /**
  * Create the main application window.
