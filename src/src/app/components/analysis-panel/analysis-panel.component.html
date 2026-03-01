@@ -209,76 +209,77 @@
   <!-- ===== PROJEKT-AUDIT TAB ===== -->
   <div *ngIf="activeTab === 'audit'" class="audit-section">
 
-    <!-- Controls: project dropdown + trigger button -->
-    <div class="audit-controls">
-      <select [(ngModel)]="selectedProject" class="project-select" [disabled]="auditLoading">
-        <option value="" disabled>Projekt auswahlen...</option>
-        <option *ngFor="let p of auditProjects" [value]="p">{{ formatProjectName(p) }}</option>
-      </select>
-      <button class="audit-btn" (click)="startAudit()" [disabled]="auditLoading || !selectedProject">
-        {{ auditLoading ? 'Analysiere...' : 'Audit starten' }}
-      </button>
+    <!-- No session selected -->
+    <div *ngIf="!projectPath" class="audit-empty">
+      Session auswaehlen, um deren Projekt zu auditieren.
     </div>
 
-    <!-- Error state -->
-    <div *ngIf="auditError" class="audit-error">
-      Fehler: {{ auditError }}
-    </div>
+    <!-- Session selected: show audit controls -->
+    <div *ngIf="projectPath">
 
-    <!-- Loading state -->
-    <div *ngIf="auditLoading" class="audit-loading">
-      Projekt wird analysiert...
-    </div>
-
-    <!-- Results -->
-    <div *ngIf="auditResult && !auditLoading" class="audit-results">
-
-      <!-- Overall score header -->
-      <div class="audit-overall">
-        <div class="overall-score-label">Gesamtscore</div>
-        <div class="overall-score-value">{{ auditResult.overallScore }}<span class="score-max">/100</span></div>
-        <div class="improvement-potential">
-          Verbesserungspotential: {{ auditResult.improvementPotential }}%
-        </div>
+      <!-- Controls: project path + trigger button -->
+      <div class="audit-controls">
+        <span class="audit-project-path" [title]="projectPath">{{ projectPath }}</span>
+        <button class="audit-btn" (click)="startAudit()" [disabled]="auditLoading">
+          {{ auditLoading ? 'Analysiere...' : 'Audit starten' }}
+        </button>
       </div>
 
-      <!-- Per-file list -->
-      <div class="audit-file-list">
-        <div *ngFor="let file of auditResult.files" class="audit-file-row">
-
-          <!-- File header (always visible, click to expand) -->
-          <div class="file-header" (click)="toggleFile(file.filePath)">
-            <span class="file-expand-icon">{{ expandedFiles.has(file.filePath) ? '▼' : '▶' }}</span>
-            <span class="file-name">{{ file.displayName }}</span>
-            <span class="file-score" [class.score-good]="file.score >= 80" [class.score-warn]="file.score >= 50 && file.score < 80" [class.score-bad]="file.score < 50">
-              {{ file.score }}/100
-            </span>
-            <span class="file-issue-count" *ngIf="file.findings.length > 0">
-              {{ file.findings.length }} {{ file.findings.length === 1 ? 'Problem' : 'Probleme' }}
-            </span>
-            <span class="file-ok" *ngIf="file.findings.length === 0">OK</span>
-          </div>
-
-          <!-- Expanded findings -->
-          <div *ngIf="expandedFiles.has(file.filePath)" class="file-findings">
-            <div *ngIf="file.findings.length === 0" class="finding-ok">
-              Alle Regeln bestanden.
-            </div>
-            <div *ngFor="let finding of file.findings" class="finding-row" [class]="'finding-row ' + severityClass(finding.severity)">
-              <span class="finding-severity">{{ finding.severity }}</span>
-              <span class="finding-rule">{{ finding.ruleId }}</span>
-              <span class="finding-fix">{{ finding.fix }}</span>
-            </div>
-          </div>
-
-        </div>
+      <!-- Error state -->
+      <div *ngIf="auditError" class="audit-error">
+        Fehler: {{ auditError }}
       </div>
 
-    </div>
+      <!-- Loading state -->
+      <div *ngIf="auditLoading" class="audit-loading">
+        Projekt wird analysiert...
+      </div>
 
-    <!-- Empty state: no projects found -->
-    <div *ngIf="!auditLoading && auditProjects.length === 0 && !auditResult" class="audit-empty">
-      Keine Claude-Projekte in ~/.claude/projects/ gefunden.
+      <!-- Results -->
+      <div *ngIf="auditResult && !auditLoading" class="audit-results">
+
+        <!-- Overall score header -->
+        <div class="audit-overall">
+          <div class="overall-score-label">Gesamtscore</div>
+          <div class="overall-score-value">{{ auditResult.overallScore }}<span class="score-max">/100</span></div>
+          <div class="improvement-potential">
+            Verbesserungspotential: {{ auditResult.improvementPotential }}%
+          </div>
+        </div>
+
+        <!-- Per-file list -->
+        <div class="audit-file-list">
+          <div *ngFor="let file of auditResult.files" class="audit-file-row">
+
+            <!-- File header (always visible, click to expand) -->
+            <div class="file-header" (click)="toggleFile(file.filePath)">
+              <span class="file-expand-icon">{{ expandedFiles.has(file.filePath) ? '▼' : '▶' }}</span>
+              <span class="file-name">{{ file.displayName }}</span>
+              <span class="file-score" [class.score-good]="file.score >= 80" [class.score-warn]="file.score >= 50 && file.score < 80" [class.score-bad]="file.score < 50">
+                {{ file.score }}/100
+              </span>
+              <span class="file-issue-count" *ngIf="file.findings.length > 0">
+                {{ file.findings.length }} {{ file.findings.length === 1 ? 'Problem' : 'Probleme' }}
+              </span>
+              <span class="file-ok" *ngIf="file.findings.length === 0">OK</span>
+            </div>
+
+            <!-- Expanded findings -->
+            <div *ngIf="expandedFiles.has(file.filePath)" class="file-findings">
+              <div *ngIf="file.findings.length === 0" class="finding-ok">
+                Alle Regeln bestanden.
+              </div>
+              <div *ngFor="let finding of file.findings" class="finding-row" [class]="'finding-row ' + severityClass(finding.severity)">
+                <span class="finding-severity">{{ finding.severity }}</span>
+                <span class="finding-rule">{{ finding.ruleId }}</span>
+                <span class="finding-fix">{{ finding.fix }}</span>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
     </div>
 
   </div>

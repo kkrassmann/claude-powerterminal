@@ -96,6 +96,16 @@ export class AppComponent implements OnInit {
     this.selectedSessionId = null;
   }
 
+  /**
+   * Get the working directory of the currently selected session.
+   * Used by the analysis-panel's audit tab to know which project to audit.
+   */
+  get selectedSessionWorkingDir(): string {
+    if (!this.selectedSessionId) return '';
+    const session = this.sessionStateService.getSession(this.selectedSessionId);
+    return session?.metadata.workingDirectory ?? '';
+  }
+
   async exportLogs(): Promise<void> {
     try {
       let jsonl: string;

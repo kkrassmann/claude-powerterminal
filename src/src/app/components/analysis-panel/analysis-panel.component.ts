@@ -1,6 +1,5 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, Input, OnInit, OnDestroy, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { LogAnalysisService } from '../../services/log-analysis.service';
 import { AuditService } from '../../services/audit.service';
@@ -21,11 +20,14 @@ import type { ProjectAuditResult } from '../../../../shared/audit-types';
 @Component({
   selector: 'app-analysis-panel',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule],
   templateUrl: './analysis-panel.component.html',
   styleUrls: ['./analysis-panel.component.css']
 })
-export class AnalysisPanelComponent implements OnInit, OnDestroy {
+export class AnalysisPanelComponent implements OnInit, OnDestroy, OnChanges {
+  /** Working directory of the currently selected session (for project audit) */
+  @Input() projectPath: string = '';
+
   analysis: SessionAnalysis | null = null;
   loading = false;
 
@@ -45,12 +47,6 @@ export class AnalysisPanelComponent implements OnInit, OnDestroy {
   /** Active tab: session analysis or project audit */
   activeTab: 'analysis' | 'audit' = 'analysis';
 
-  /** Discovered Claude project paths */
-  auditProjects: string[] = [];
-
-  /** Currently selected project path for audit */
-  selectedProject: string = '';
-
   /** Whether an audit is in progress */
   auditLoading = false;
 
@@ -59,6 +55,9 @@ export class AnalysisPanelComponent implements OnInit, OnDestroy {
 
   /** Last audit result */
   auditResult: ProjectAuditResult | null = null;
+
+  /** Path that was audited (to detect changes) */
+  private auditedPath: string = '';
 
   /** Set of file paths whose findings are expanded */
   expandedFiles = new Set<string>();
@@ -74,6 +73,15 @@ export class AnalysisPanelComponent implements OnInit, OnDestroy {
     // Trigger initial load for analysis and trends
     this.analysisService.loadAnalysis();
     this.analysisService.loadTrends().then(t => { this.trends = t; });
+  }
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['projectPath'] && this.activeTab === 'audit') {
+      // Clear old results when session changes
+      this.auditResult = null;
+      this.auditError = null;
+      this.expandedFiles.clear();
+    }
   }
 
   ngOnDestroy(): void {
@@ -194,41 +202,23 @@ export class AnalysisPanelComponent implements OnInit, OnDestroy {
 
   /**
    * Handle tab switching between Session-Analyse and Projekt-Audit tabs.
-   * Lazy-loads project list when audit tab is first activated.
    */
   onTabChange(tab: 'analysis' | 'audit'): void {
     this.activeTab = tab;
-    if (tab === 'audit' && this.auditProjects.length === 0) {
-      this.loadAuditProjects();
-    }
   }
 
   /**
-   * Load available Claude project paths for the dropdown.
-   * Silently handles errors (logs to console).
-   */
-  async loadAuditProjects(): Promise<void> {
-    try {
-      this.auditProjects = await this.auditService.loadProjects();
-      if (this.auditProjects.length > 0 && !this.selectedProject) {
-        this.selectedProject = this.auditProjects[0];
-      }
-    } catch (err) {
-      console.error('Failed to load audit projects:', err);
-    }
-  }
-
-  /**
-   * Trigger a new audit run for the selected project.
-   * Clears previous results before starting.
+   * Trigger a new audit run for the current session's project.
+   * Uses projectPath @Input bound to the selected session's workingDirectory.
    */
   async startAudit(): Promise<void> {
-    if (!this.selectedProject || this.auditLoading) return;
+    if (!this.projectPath || this.auditLoading) return;
     this.auditLoading = true;
     this.auditError = null;
     this.expandedFiles.clear();
     try {
-      this.auditResult = await this.auditService.runAudit(this.selectedProject);
+      this.auditResult = await this.auditService.runAudit(this.projectPath);
+      this.auditedPath = this.projectPath;
     } catch (err) {
       this.auditError = String(err);
     } finally {
@@ -247,14 +237,6 @@ export class AnalysisPanelComponent implements OnInit, OnDestroy {
     } else {
       this.expandedFiles.add(filePath);
     }
-  }
-
-  /**
-   * Format a project path for the dropdown label.
-   * Shows the last two path segments, e.g. "Dev/my-project".
-   */
-  formatProjectName(p: string): string {
-    return this.auditService.formatProjectName(p);
   }
 
   /**
