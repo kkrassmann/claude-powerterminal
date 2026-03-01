@@ -90,13 +90,10 @@ export class TileHeaderComponent {
   }
 
   /**
-   * Handle click on header — acknowledge alert glow and select this session.
+   * Handle click on header — acknowledge (dismiss) alert glow.
    */
   onHeaderClick(): void {
     this.acknowledged.emit();
-    if (this.sessionId) {
-      this.sessionSelected.emit(this.sessionId);
-    }
   }
 
   /**

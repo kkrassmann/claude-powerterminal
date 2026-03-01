@@ -206,21 +206,23 @@
     </div>
   </div>
 
-  <!-- ===== PROJEKT-AUDIT TAB ===== -->
+  <!-- ===== PROJECT AUDIT TAB ===== -->
   <div *ngIf="activeTab === 'audit'" class="audit-section">
 
-    <!-- No session selected -->
-    <div *ngIf="!projectPath" class="audit-empty">
-      Select a session to audit its project configuration.
+    <!-- No sessions running -->
+    <div *ngIf="sessionPaths.length === 0" class="audit-empty">
+      No active sessions. Start a session to audit its project.
     </div>
 
-    <!-- Session selected: show audit controls -->
-    <div *ngIf="projectPath">
+    <!-- Sessions available: show dropdown + button -->
+    <div *ngIf="sessionPaths.length > 0">
 
-      <!-- Controls: project path + trigger button -->
       <div class="audit-controls">
-        <span class="audit-project-path" [title]="projectPath">{{ projectPath }}</span>
-        <button class="audit-btn" (click)="startAudit()" [disabled]="auditLoading">
+        <select [(ngModel)]="selectedProject" class="project-select">
+          <option value="" disabled>Select project...</option>
+          <option *ngFor="let p of sessionPaths" [value]="p">{{ shortenPath(p) }}</option>
+        </select>
+        <button class="audit-btn" (click)="startAudit()" [disabled]="auditLoading || !selectedProject">
           {{ auditLoading ? 'Analyzing...' : 'Run Audit' }}
         </button>
       </div>

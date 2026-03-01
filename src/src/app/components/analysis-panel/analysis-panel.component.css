@@ -571,15 +571,14 @@
   align-items: center;
 }
 
-.audit-project-path {
+.project-select {
   flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--subtext0, #a6adc8);
+  background: var(--surface1, #313244);
+  border: 1px solid var(--surface2, #45475a);
+  border-radius: 4px;
+  color: var(--text, #cdd6f4);
   font-size: 12px;
-  direction: rtl;
-  text-align: left;
+  padding: 4px 8px;
 }
 
 .audit-btn {

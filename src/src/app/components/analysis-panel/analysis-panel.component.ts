@@ -1,5 +1,6 @@
-import { Component, Input, OnInit, OnDestroy, OnChanges, SimpleChanges } from '@angular/core';
+import { Component, Input, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { LogAnalysisService } from '../../services/log-analysis.service';
 import { AuditService } from '../../services/audit.service';
@@ -20,13 +21,13 @@ import type { ProjectAuditResult } from '../../../../shared/audit-types';
 @Component({
   selector: 'app-analysis-panel',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './analysis-panel.component.html',
   styleUrls: ['./analysis-panel.component.css']
 })
-export class AnalysisPanelComponent implements OnInit, OnDestroy, OnChanges {
-  /** Working directory of the currently selected session (for project audit) */
-  @Input() projectPath: string = '';
+export class AnalysisPanelComponent implements OnInit, OnDestroy {
+  /** Working directories of all active sessions (for project audit dropdown) */
+  @Input() sessionPaths: string[] = [];
 
   analysis: SessionAnalysis | null = null;
   loading = false;
@@ -47,6 +48,9 @@ export class AnalysisPanelComponent implements OnInit, OnDestroy, OnChanges {
   /** Active tab: session analysis or project audit */
   activeTab: 'analysis' | 'audit' = 'analysis';
 
+  /** Currently selected project path for audit */
+  selectedProject: string = '';
+
   /** Whether an audit is in progress */
   auditLoading = false;
 
@@ -55,9 +59,6 @@ export class AnalysisPanelComponent implements OnInit, OnDestroy, OnChanges {
 
   /** Last audit result */
   auditResult: ProjectAuditResult | null = null;
-
-  /** Path that was audited (to detect changes) */
-  private auditedPath: string = '';
 
   /** Set of file paths whose findings are expanded */
   expandedFiles = new Set<string>();
@@ -73,15 +74,6 @@ export class AnalysisPanelComponent implements OnInit, OnDestroy, OnChanges {
     // Trigger initial load for analysis and trends
     this.analysisService.loadAnalysis();
     this.analysisService.loadTrends().then(t => { this.trends = t; });
-  }
-
-  ngOnChanges(changes: SimpleChanges): void {
-    if (changes['projectPath'] && this.activeTab === 'audit') {
-      // Clear old results when session changes
-      this.auditResult = null;
-      this.auditError = null;
-      this.expandedFiles.clear();
-    }
   }
 
   ngOnDestroy(): void {
@@ -208,22 +200,26 @@ export class AnalysisPanelComponent implements OnInit, OnDestroy, OnChanges {
   }
 
   /**
-   * Trigger a new audit run for the current session's project.
-   * Uses projectPath @Input bound to the selected session's workingDirectory.
+   * Trigger a new audit run for the selected session project.
    */
   async startAudit(): Promise<void> {
-    if (!this.projectPath || this.auditLoading) return;
+    if (!this.selectedProject || this.auditLoading) return;
     this.auditLoading = true;
     this.auditError = null;
     this.expandedFiles.clear();
     try {
-      this.auditResult = await this.auditService.runAudit(this.projectPath);
-      this.auditedPath = this.projectPath;
+      this.auditResult = await this.auditService.runAudit(this.selectedProject);
     } catch (err) {
       this.auditError = String(err);
     } finally {
       this.auditLoading = false;
     }
+  }
+
+  /** Shorten a path for dropdown display (last 2 segments). */
+  shortenPath(p: string): string {
+    const parts = p.replace(/\\/g, '/').split('/').filter(Boolean);
+    return parts.length >= 2 ? parts.slice(-2).join('/') : p;
   }
 
   /**

@@ -97,13 +97,13 @@ export class AppComponent implements OnInit {
   }
 
   /**
-   * Get the working directory of the currently selected session.
-   * Used by the analysis-panel's audit tab to know which project to audit.
+   * Get unique working directories of all active sessions for the audit dropdown.
    */
-  get selectedSessionWorkingDir(): string {
-    if (!this.selectedSessionId) return '';
-    const session = this.sessionStateService.getSession(this.selectedSessionId);
-    return session?.metadata.workingDirectory ?? '';
+  get activeSessionPaths(): string[] {
+    const paths = this.sessionStateService.getAllSessions()
+      .map(s => s.metadata.workingDirectory)
+      .filter(Boolean);
+    return [...new Set(paths)];
   }
 
   async exportLogs(): Promise<void> {
