@@ -107,7 +107,7 @@ export class LogAnalysisService implements OnDestroy {
   async loadSessionDetail(sessionId: string): Promise<SessionScoreDetail | null> {
     try {
       if (window.electronAPI) {
-        return await window.electronAPI.invoke('analysis:session-detail', sessionId);
+        return await window.electronAPI.invoke(IPC_CHANNELS.LOG_SESSION_DETAIL, sessionId);
       } else {
         const res = await fetch(
           `http://${window.location.hostname}:9801/api/analysis/session-detail?sessionId=${encodeURIComponent(sessionId)}`
@@ -128,7 +128,7 @@ export class LogAnalysisService implements OnDestroy {
   async loadTrends(): Promise<ScoreTrends | null> {
     try {
       if (window.electronAPI) {
-        return await window.electronAPI.invoke('analysis:score-trends');
+        return await window.electronAPI.invoke(IPC_CHANNELS.LOG_SCORE_TRENDS);
       } else {
         const res = await fetch(`http://${window.location.hostname}:9801/api/analysis/trends`);
         return await res.json();

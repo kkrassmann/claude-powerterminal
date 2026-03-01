@@ -25,12 +25,16 @@ export const IPC_CHANNELS = {
 
   // App info channels
   APP_HOME_DIR: 'app:home-dir',
+  APP_LAN_URL: 'app:lan-url',
 
   // Log analysis channels
   LOG_ANALYSIS: 'analysis:logs',
   LOG_SESSION_SCORE: 'analysis:session-score',
   LOG_SESSION_DETAIL: 'analysis:session-detail',
   LOG_SCORE_TRENDS: 'analysis:score-trends',
+
+  // Internal logging channels
+  LOGS_EXPORT: 'logs:export',
 } as const;
 
 export type IPCChannel = typeof IPC_CHANNELS[keyof typeof IPC_CHANNELS];

@@ -36,7 +36,7 @@ export class AppComponent implements OnInit {
   ngOnInit(): void {
     // Fetch LAN URL if running in Electron
     if (window.electronAPI) {
-      window.electronAPI.invoke('app:lan-url').then((url: string | null) => {
+      window.electronAPI.invoke(IPC_CHANNELS.APP_LAN_URL).then((url: string | null) => {
         this.lanUrl = url;
       }).catch((err: any) => {
         console.error('[App] Failed to fetch LAN URL:', err);
@@ -94,6 +94,34 @@ export class AppComponent implements OnInit {
    */
   closeSessionDetail(): void {
     this.selectedSessionId = null;
+  }
+
+  async exportLogs(): Promise<void> {
+    try {
+      let jsonl: string;
+      if (window.electronAPI) {
+        jsonl = await window.electronAPI.invoke(IPC_CHANNELS.LOGS_EXPORT);
+      } else {
+        const resp = await fetch(`http://${window.location.hostname}:9801/api/logs`);
+        jsonl = await resp.text();
+      }
+
+      // Trigger browser download
+      const blob = new Blob([jsonl], { type: 'application/x-ndjson' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `cpt-logs-${new Date().toISOString().replace(/[:.]/g, '-')}.jsonl`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('[App] Failed to export logs:', err);
+    }
+  }
+
+  async refreshApp(): Promise<void> {
+    this.pendingSessions = [];
+    await this.loadRestoredSessions();
   }
 
   private async loadRestoredSessions(): Promise<number> {

@@ -9,6 +9,7 @@ import { app, ipcMain } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 import { IPC_CHANNELS } from '../../src/shared/ipc-channels';
+import { info, warn as logWarn, error as logError } from '../utils/log-service';
 
 /**
  * SessionMetadata interface (matches src/app/models/session.model.ts)
@@ -36,15 +37,15 @@ function loadSessionsFromDisk(): SessionMetadata[] {
   try {
     const filePath = getSessionsFilePath();
     if (!fs.existsSync(filePath)) {
-      console.log('[Session Handlers] No sessions file found, returning empty array');
+      info('Session', 'No sessions file found, returning empty array');
       return [];
     }
     const data = fs.readFileSync(filePath, 'utf-8');
     const sessions = JSON.parse(data);
-    console.log(`[Session Handlers] Loaded ${sessions.length} sessions from disk`);
+    info('Session', `Loaded ${sessions.length} sessions from disk`);
     return sessions;
   } catch (error: any) {
-    console.error('[Session Handlers] Error loading sessions:', error.message);
+    logError('Session', 'Error loading sessions', undefined, error.message);
     return [];
   }
 }
@@ -64,9 +65,9 @@ function saveSessionsToDisk(sessions: SessionMetadata[]): void {
 
     const data = JSON.stringify(sessions, null, 2);
     fs.writeFileSync(filePath, data, 'utf-8');
-    console.log(`[Session Handlers] Saved ${sessions.length} sessions to disk`);
+    info('Session', `Saved ${sessions.length} sessions to disk`);
   } catch (error: any) {
-    console.error('[Session Handlers] Error saving sessions:', error.message);
+    logError('Session', 'Error saving sessions', undefined, error.message);
     throw error;
   }
 }
@@ -89,10 +90,10 @@ export function deleteSessionFromDisk(sessionId: string): void {
     const filtered = sessions.filter((s) => s.sessionId !== sessionId);
     if (filtered.length < sessions.length) {
       saveSessionsToDisk(filtered);
-      console.log(`[Session Handlers] Removed exited session ${sessionId} from disk`);
+      info('Session', `Removed exited session from disk`, sessionId);
     }
   } catch (error: any) {
-    console.error(`[Session Handlers] Failed to remove session ${sessionId} from disk:`, error.message);
+    logError('Session', `Failed to remove session from disk`, sessionId, error.message);
   }
 }
 
@@ -101,11 +102,11 @@ export function deleteSessionFromDisk(sessionId: string): void {
  * Call this once during app initialization in main.ts.
  */
 export function registerSessionHandlers(): void {
-  console.log('[Session Handlers] Registering session IPC handlers');
+  info('Session', 'Registering session IPC handlers');
 
   // Handler 1: SESSION_SAVE - Save a new session
   ipcMain.handle(IPC_CHANNELS.SESSION_SAVE, async (_event, session: SessionMetadata) => {
-    console.log(`[Session Handlers] Saving session ${session.sessionId}`);
+    info('Session', `Saving session`, session.sessionId);
 
     try {
       const sessions = loadSessionsFromDisk();
@@ -114,27 +115,27 @@ export function registerSessionHandlers(): void {
 
       return { success: true };
     } catch (error: any) {
-      console.error(`[Session Handlers] Failed to save session ${session.sessionId}:`, error);
+      logError('Session', `Failed to save session`, session.sessionId, error);
       return { success: false, error: error.message };
     }
   });
 
   // Handler 2: SESSION_LOAD - Load all sessions
   ipcMain.handle(IPC_CHANNELS.SESSION_LOAD, async () => {
-    console.log('[Session Handlers] Loading all sessions');
+    info('Session', 'Loading all sessions');
 
     try {
       const sessions = loadSessionsFromDisk();
       return { success: true, sessions };
     } catch (error: any) {
-      console.error('[Session Handlers] Failed to load sessions:', error);
+      logError('Session', 'Failed to load sessions', undefined, error);
       return { success: false, error: error.message, sessions: [] };
     }
   });
 
   // Handler 3: SESSION_DELETE - Delete a session by ID
   ipcMain.handle(IPC_CHANNELS.SESSION_DELETE, async (_event, sessionId: string) => {
-    console.log(`[Session Handlers] Deleting session ${sessionId}`);
+    info('Session', `Deleting session`, sessionId);
 
     try {
       const sessions = loadSessionsFromDisk();
@@ -143,10 +144,23 @@ export function registerSessionHandlers(): void {
 
       return { success: true };
     } catch (error: any) {
-      console.error(`[Session Handlers] Failed to delete session ${sessionId}:`, error);
+      logError('Session', `Failed to delete session`, sessionId, error);
       return { success: false, error: error.message };
     }
   });
 
-  console.log('[Session Handlers] All session IPC handlers registered successfully');
+  // Handler 4: SESSION_GET - Get a single session by ID
+  ipcMain.handle(IPC_CHANNELS.SESSION_GET, async (_event, sessionId: string) => {
+    info('Session', `Getting session`, sessionId);
+
+    try {
+      const session = getSessionFromDisk(sessionId);
+      return session || null;
+    } catch (error: any) {
+      logError('Session', `Failed to get session`, sessionId, error);
+      return null;
+    }
+  });
+
+  info('Session', 'All session IPC handlers registered successfully');
 }
