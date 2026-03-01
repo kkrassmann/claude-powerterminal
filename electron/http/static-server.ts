@@ -28,6 +28,7 @@ import { getAngularBuildDir } from '../utils/paths';
 import { exportAsJsonl } from '../utils/log-service';
 import { loadTemplatesFromDisk, saveTemplatesToDisk } from '../ipc/template-handlers';
 import { SessionTemplate } from '../../src/shared/template-types';
+import { WorktreeInfo, WorktreeCreateOptions } from '../../src/shared/worktree-types';
 
 /**
  * SessionMetadata interface (matches src/app/models/session.model.ts)
@@ -264,6 +265,24 @@ export function startStaticServer(port: number): http.Server {
       return;
     }
 
+    // GET /api/app/git-branch - Get git branch of the app's working directory
+    if (req.method === 'GET' && pathname === '/api/app/git-branch') {
+      const cwd = process.cwd();
+      try {
+        const result = await execFileAsync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
+          cwd,
+          timeout: 5000,
+          windowsHide: true,
+        });
+        res.writeHead(200, corsHeaders);
+        res.end(JSON.stringify({ branch: result.stdout.trim() || null, cwd }));
+      } catch {
+        res.writeHead(200, corsHeaders);
+        res.end(JSON.stringify({ branch: null, cwd }));
+      }
+      return;
+    }
+
     // GET /api/git-context?cwd=<path> - Get git context for a directory
     if (req.method === 'GET' && pathname === '/api/git-context') {
       const cwd = url.searchParams.get('cwd');
@@ -299,6 +318,47 @@ export function startStaticServer(port: number): http.Server {
       return;
     }
 
+    // GET /api/git/branches?path=... - List local and remote branches for a repository
+    if (req.method === 'GET' && pathname === '/api/git/branches') {
+      const gitPath = url.searchParams.get('path');
+      if (!gitPath) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ error: 'Missing path parameter' }));
+        return;
+      }
+
+      try {
+        const [localResult, remoteResult, currentResult] = await Promise.all([
+          execFileAsync('git', ['for-each-ref', '--format=%(refname:short)', 'refs/heads/'], {
+            cwd: gitPath,
+            timeout: 5000,
+            windowsHide: true,
+          }),
+          execFileAsync('git', ['for-each-ref', '--format=%(refname:short)', 'refs/remotes/'], {
+            cwd: gitPath,
+            timeout: 5000,
+            windowsHide: true,
+          }),
+          execFileAsync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
+            cwd: gitPath,
+            timeout: 5000,
+            windowsHide: true,
+          }),
+        ]);
+
+        const local = localResult.stdout.trim().split('\n').filter(Boolean);
+        const remote = remoteResult.stdout.trim().split('\n').filter(Boolean);
+        const current = currentResult.stdout.trim();
+
+        res.writeHead(200, corsHeaders);
+        res.end(JSON.stringify({ local, remote, current }));
+      } catch (error: any) {
+        res.writeHead(200, corsHeaders);
+        res.end(JSON.stringify({ local: [], remote: [], current: '' }));
+      }
+      return;
+    }
+
     // GET /api/analysis - Full session analysis (tool usage, recommendations, scores)
     if (req.method === 'GET' && pathname === '/api/analysis') {
       try {
@@ -309,6 +369,78 @@ export function startStaticServer(port: number): http.Server {
         console.error('[HTTP] GET /api/analysis error:', error.message);
         res.writeHead(500, corsHeaders);
         res.end(JSON.stringify({ error: 'Analysis failed' }));
+      }
+      return;
+    }
+
+    // GET /api/worktrees?repoPath=... - List worktrees
+    if (req.method === 'GET' && pathname === '/api/worktrees') {
+      const repoPath = url.searchParams.get('repoPath');
+      if (!repoPath) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ error: 'Missing repoPath parameter' }));
+        return;
+      }
+
+      try {
+        const output = execFileAsync('git', ['worktree', 'list', '--porcelain'], {
+          cwd: repoPath,
+          timeout: 5000,
+          windowsHide: true,
+        });
+
+        const result = await output;
+        const rawOutput = result.stdout;
+
+        // Build active session CWDs
+        const activeCwds = new Set<string>();
+        const savedSessions = loadSessionsFromDisk();
+        const activePtys = getPtyProcesses();
+        for (const [sessionId] of activePtys) {
+          const session = savedSessions.find(s => s.sessionId === sessionId);
+          if (session) {
+            activeCwds.add(path.resolve(session.workingDirectory));
+          }
+        }
+
+        // Parse porcelain output
+        const worktrees: WorktreeInfo[] = [];
+        const blocks = rawOutput.trim().split('\n\n');
+        for (const block of blocks) {
+          if (!block.trim()) continue;
+          const lines = block.trim().split('\n');
+          let wtPath = '';
+          let commit = '';
+          let branch = '';
+
+          for (const line of lines) {
+            if (line.startsWith('worktree ')) {
+              wtPath = line.substring('worktree '.length).trim();
+            } else if (line.startsWith('HEAD ')) {
+              commit = line.substring('HEAD '.length).trim().substring(0, 7);
+            } else if (line.startsWith('branch ')) {
+              branch = line.substring('branch '.length).trim().replace('refs/heads/', '');
+            } else if (line.trim() === 'detached') {
+              branch = '(detached)';
+            }
+          }
+          if (!wtPath) continue;
+
+          const normalized = path.resolve(wtPath);
+          worktrees.push({
+            path: normalized,
+            branch: branch || '(unknown)',
+            commit,
+            isMain: worktrees.length === 0,
+            hasSession: activeCwds.has(normalized),
+          });
+        }
+
+        res.writeHead(200, corsHeaders);
+        res.end(JSON.stringify(worktrees));
+      } catch (error: any) {
+        res.writeHead(500, corsHeaders);
+        res.end(JSON.stringify({ error: error.message || 'Failed to list worktrees' }));
       }
       return;
     }
@@ -469,6 +601,76 @@ export function startStaticServer(port: number): http.Server {
       return;
     }
 
+    // POST /api/worktrees - Create a new worktree
+    if (req.method === 'POST' && pathname === '/api/worktrees') {
+      let body = '';
+      req.on('data', chunk => body += chunk);
+      req.on('end', async () => {
+        try {
+          const options: WorktreeCreateOptions = JSON.parse(body);
+
+          if (!options.repoPath || !options.branchName) {
+            res.writeHead(400, corsHeaders);
+            res.end(JSON.stringify({ error: 'Missing repoPath or branchName' }));
+            return;
+          }
+
+          // Find the main worktree root
+          const listResult = await execFileAsync('git', ['worktree', 'list', '--porcelain'], {
+            cwd: options.repoPath,
+            timeout: 5000,
+            windowsHide: true,
+          });
+          const mainRoot = listResult.stdout.split('\n')[0].replace('worktree ', '').trim();
+          const worktreeDir = path.join(mainRoot, '.worktrees');
+
+          if (!fs.existsSync(worktreeDir)) {
+            fs.mkdirSync(worktreeDir, { recursive: true });
+          }
+
+          const dirName = options.branchName.replace(/\//g, '-');
+          const worktreePath = path.join(worktreeDir, dirName);
+
+          let args: string[];
+          if (options.useExistingBranch) {
+            args = ['worktree', 'add', worktreePath, options.branchName];
+          } else {
+            args = ['worktree', 'add', '-b', options.branchName, worktreePath];
+            if (options.baseBranch) {
+              args.push(options.baseBranch);
+            }
+          }
+
+          await execFileAsync('git', args, {
+            cwd: options.repoPath,
+            timeout: 10000,
+            windowsHide: true,
+          });
+
+          const commitResult = await execFileAsync('git', ['rev-parse', '--short', 'HEAD'], {
+            cwd: worktreePath,
+            timeout: 5000,
+            windowsHide: true,
+          });
+
+          const info: WorktreeInfo = {
+            path: path.resolve(worktreePath),
+            branch: options.branchName,
+            commit: commitResult.stdout.trim(),
+            isMain: false,
+            hasSession: false,
+          };
+
+          res.writeHead(201, corsHeaders);
+          res.end(JSON.stringify(info));
+        } catch (error: any) {
+          res.writeHead(500, corsHeaders);
+          res.end(JSON.stringify({ error: error.message || 'Failed to create worktree' }));
+        }
+      });
+      return;
+    }
+
     // DELETE /api/templates?id=... - Delete a session template
     if (req.method === 'DELETE' && pathname === '/api/templates') {
       const templateId = url.searchParams.get('id');
@@ -489,6 +691,55 @@ export function startStaticServer(port: number): http.Server {
         console.error('[HTTP] DELETE /api/templates error:', error);
         res.writeHead(500, corsHeaders);
         res.end(JSON.stringify({ success: false, error: String(error) }));
+      }
+      return;
+    }
+
+    // DELETE /api/worktrees?path=... - Delete a worktree
+    if (req.method === 'DELETE' && pathname === '/api/worktrees') {
+      const wtPath = url.searchParams.get('path');
+      if (!wtPath) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ error: 'Missing path parameter' }));
+        return;
+      }
+
+      const repoParam = url.searchParams.get('repoPath');
+
+      // Determine repo root: prefer explicit param, fall back to path walking
+      let repoRoot: string | null = repoParam || null;
+      if (!repoRoot) {
+        let dir = path.dirname(wtPath);
+        while (dir !== path.dirname(dir)) {
+          if (fs.existsSync(path.join(dir, '.git'))) {
+            repoRoot = dir;
+            break;
+          }
+          dir = path.dirname(dir);
+        }
+      }
+
+      try {
+        await execFileAsync('git', ['worktree', 'remove', wtPath, '--force'], {
+          cwd: repoRoot || undefined,
+          timeout: 10000,
+          windowsHide: true,
+        });
+
+        res.writeHead(200, corsHeaders);
+        res.end(JSON.stringify({ success: true }));
+      } catch (error: any) {
+        // Stale worktree (directory gone) — prune instead
+        if (repoRoot && (error.message?.includes('is not a working tree') || error.message?.includes('does not exist'))) {
+          try {
+            await execFileAsync('git', ['worktree', 'prune'], { cwd: repoRoot, timeout: 10000, windowsHide: true });
+            res.writeHead(200, corsHeaders);
+            res.end(JSON.stringify({ success: true }));
+            return;
+          } catch { /* fall through */ }
+        }
+        res.writeHead(500, corsHeaders);
+        res.end(JSON.stringify({ error: error.message || 'Failed to delete worktree' }));
       }
       return;
     }

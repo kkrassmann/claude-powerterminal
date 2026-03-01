@@ -1,9 +1,14 @@
 import { Component, Input, Output, EventEmitter, HostListener, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ActiveSession } from '../../services/session-state.service';
 import { GitContext } from '../../models/git-context.model';
 import { TerminalStatus, STATUS_COLORS, STATUS_LABELS } from '../../models/terminal-status.model';
 import { SessionGroup } from '../../../../shared/group-types';
+import { WorktreeService } from '../../services/worktree.service';
+import { WorktreeInfo } from '../../../../shared/worktree-types';
+import { SpawnSessionRequest } from '../../models/spawn-session.model';
+import { generateRandomBranchName } from '../../utils/random-branch-name';
 
 /**
  * Terminal tile header component displaying working directory, git context, and action buttons.
@@ -19,12 +24,15 @@ import { SessionGroup } from '../../../../shared/group-types';
 @Component({
   selector: 'app-tile-header',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   templateUrl: './tile-header.component.html',
   styleUrls: ['./tile-header.component.css']
 })
 export class TileHeaderComponent {
-  constructor(private elementRef: ElementRef) {}
+  constructor(
+    private elementRef: ElementRef,
+    private worktreeService: WorktreeService
+  ) {}
 
   @Input() session!: ActiveSession;
   @Input() sessionId: string = '';
@@ -46,9 +54,31 @@ export class TileHeaderComponent {
   @Output() sessionSelected = new EventEmitter<string>();
   @Output() assignToGroup = new EventEmitter<string>();
   @Output() removeFromGroup = new EventEmitter<void>();
+  @Output() spawnNewSession = new EventEmitter<SpawnSessionRequest>();
 
   /** Whether the group context menu is visible. */
   showGroupMenu = false;
+
+  /** Whether the spawn menu is visible. */
+  showSpawnMenu = false;
+
+  /** Worktrees loaded for the spawn menu. */
+  spawnWorktrees: WorktreeInfo[] = [];
+
+  /** Branches loaded for the spawn menu. */
+  spawnBranches: string[] = [];
+
+  /** Selected branch for "from existing branch" spawn. */
+  spawnSelectedBranch = '';
+
+  /** New branch name for "new branch" spawn. */
+  spawnNewBranchName = '';
+
+  /** Whether the branch input is expanded. */
+  showBranchInput = false;
+
+  /** Spawn mode: 'existing-branch' or 'new-branch' when branch input is shown. */
+  spawnBranchMode: 'existing-branch' | 'new-branch' = 'new-branch';
 
   /**
    * Get color for the practice score based on value.
@@ -201,12 +231,96 @@ export class TileHeaderComponent {
   }
 
   /**
-   * Close group menu on outside click (host listener on document).
+   * Toggle spawn menu and load worktrees + branches.
+   */
+  async toggleSpawnMenu(event: MouseEvent): Promise<void> {
+    event.stopPropagation();
+    this.showSpawnMenu = !this.showSpawnMenu;
+    this.showBranchInput = false;
+
+    if (this.showSpawnMenu && this.session) {
+      const cwd = this.session.metadata.workingDirectory;
+      const [worktrees, branchData] = await Promise.all([
+        this.worktreeService.listWorktrees(cwd),
+        this.worktreeService.listBranches(cwd),
+      ]);
+      this.spawnWorktrees = worktrees.filter(w => !w.isMain);
+      this.spawnBranches = branchData.local;
+      this.spawnSelectedBranch = this.spawnBranches[0] || '';
+      this.spawnNewBranchName = generateRandomBranchName();
+    }
+  }
+
+  /**
+   * Spawn a new session in an existing worktree.
+   */
+  openInWorktree(worktreePath: string): void {
+    this.spawnNewSession.emit({
+      type: 'existing-worktree',
+      cwd: this.session.metadata.workingDirectory,
+      worktreePath,
+    });
+    this.showSpawnMenu = false;
+  }
+
+  /**
+   * Clone session in same directory.
+   */
+  cloneSession(): void {
+    this.spawnNewSession.emit({
+      type: 'same-directory',
+      cwd: this.session.metadata.workingDirectory,
+    });
+    this.showSpawnMenu = false;
+  }
+
+  /**
+   * Show the branch input area for creating a new worktree.
+   */
+  showNewWorktreeInput(mode: 'existing-branch' | 'new-branch'): void {
+    this.spawnBranchMode = mode;
+    this.showBranchInput = true;
+  }
+
+  /**
+   * Confirm creating a new worktree and spawning a session in it.
+   */
+  confirmSpawnWorktree(): void {
+    if (this.spawnBranchMode === 'existing-branch' && this.spawnSelectedBranch) {
+      this.spawnNewSession.emit({
+        type: 'new-worktree',
+        cwd: this.session.metadata.workingDirectory,
+        branchName: this.spawnSelectedBranch,
+        useExistingBranch: true,
+      });
+    } else if (this.spawnBranchMode === 'new-branch' && this.spawnNewBranchName.trim()) {
+      this.spawnNewSession.emit({
+        type: 'new-worktree',
+        cwd: this.session.metadata.workingDirectory,
+        branchName: this.spawnNewBranchName.trim(),
+        useExistingBranch: false,
+      });
+    }
+    this.showSpawnMenu = false;
+    this.showBranchInput = false;
+  }
+
+  /** Generate a new random branch name. */
+  rollSpawnBranchName(): void {
+    this.spawnNewBranchName = generateRandomBranchName();
+  }
+
+  /**
+   * Close group menu and spawn menu on outside click (host listener on document).
    */
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent): void {
-    if (this.showGroupMenu && !this.elementRef.nativeElement.contains(event.target)) {
-      this.showGroupMenu = false;
+    if (!this.elementRef.nativeElement.contains(event.target)) {
+      if (this.showGroupMenu) this.showGroupMenu = false;
+      if (this.showSpawnMenu) {
+        this.showSpawnMenu = false;
+        this.showBranchInput = false;
+      }
     }
   }
 }

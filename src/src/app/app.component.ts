@@ -7,7 +7,10 @@ import { AnalysisPanelComponent } from './components/analysis-panel/analysis-pan
 import { SessionDetailComponent } from './components/session-detail/session-detail.component';
 import { SessionStateService } from './services/session-state.service';
 import { SessionManagerService } from './services/session-manager.service';
+import { PtyManagerService } from './services/pty-manager.service';
+import { WorktreeService } from './services/worktree.service';
 import { SessionMetadata } from './models/session.model';
+import { SpawnSessionRequest } from './models/spawn-session.model';
 import { IPC_CHANNELS } from '../../shared/ipc-channels';
 import { AudioAlertService } from './services/audio-alert.service';
 
@@ -23,6 +26,7 @@ export class AppComponent implements OnInit {
   pendingSessions: SessionMetadata[] = [];
   lanUrl: string | null = null;
   showAnalysis = false;
+  appBranch: string | null = null;
 
   /** ID of the session whose detail panel is currently open, or null if closed. */
   selectedSessionId: string | null = null;
@@ -30,17 +34,31 @@ export class AppComponent implements OnInit {
   constructor(
     private sessionStateService: SessionStateService,
     private sessionManager: SessionManagerService,
+    private ptyManager: PtyManagerService,
+    private worktreeService: WorktreeService,
     public audioAlertService: AudioAlertService
   ) {}
 
   ngOnInit(): void {
-    // Fetch LAN URL if running in Electron
+    // Fetch LAN URL and app git branch
     if (window.electronAPI) {
       window.electronAPI.invoke(IPC_CHANNELS.APP_LAN_URL).then((url: string | null) => {
         this.lanUrl = url;
       }).catch((err: any) => {
         console.error('[App] Failed to fetch LAN URL:', err);
       });
+
+      window.electronAPI.invoke(IPC_CHANNELS.APP_GIT_BRANCH).then((result: { branch: string | null }) => {
+        this.appBranch = result.branch;
+        console.log('[App] Git branch:', result.branch);
+      }).catch((err: any) => {
+        console.error('[App] Failed to fetch git branch:', err);
+      });
+    } else {
+      fetch(`http://${window.location.hostname}:9801/api/app/git-branch`)
+        .then(r => r.json())
+        .then((result: { branch: string | null }) => { this.appBranch = result.branch; })
+        .catch(() => {});
     }
 
     // Step 1: Show pending placeholders FIRST, then start resolving
@@ -132,6 +150,62 @@ export class AppComponent implements OnInit {
   async refreshApp(): Promise<void> {
     this.pendingSessions = [];
     await this.loadRestoredSessions();
+  }
+
+  /**
+   * Handle spawn request from tile-header → dashboard.
+   * Creates worktree if needed, then spawns a new terminal session.
+   */
+  async onSpawnNewSession(request: SpawnSessionRequest): Promise<void> {
+    const sessionId = crypto.randomUUID
+      ? crypto.randomUUID()
+      : Array.from(crypto.getRandomValues(new Uint8Array(16)))
+          .map(b => b.toString(16).padStart(2, '0'))
+          .join('')
+          .replace(/(.{8})(.{4})(.{4})(.{4})(.{12})/, '$1-$2-$3-$4-$5');
+
+    let effectiveCwd = request.cwd;
+
+    try {
+      if (request.type === 'existing-worktree' && request.worktreePath) {
+        effectiveCwd = request.worktreePath;
+      } else if (request.type === 'new-worktree' && request.branchName) {
+        const wt = await this.worktreeService.createWorktree({
+          repoPath: request.cwd,
+          branchName: request.branchName,
+          useExistingBranch: request.useExistingBranch,
+        });
+        if (!wt) {
+          console.error('[App] Failed to create worktree for spawn request');
+          return;
+        }
+        effectiveCwd = wt.path;
+      }
+
+      const metadata: SessionMetadata = {
+        sessionId,
+        workingDirectory: effectiveCwd,
+        cliFlags: [],
+        createdAt: new Date().toISOString(),
+      };
+
+      const result = await this.ptyManager.spawnSession({
+        sessionId,
+        cwd: effectiveCwd,
+        flags: [],
+      });
+
+      if (!result.success) {
+        console.error('[App] Failed to spawn session:', result.error);
+        return;
+      }
+
+      await this.sessionManager.saveSession(metadata);
+      this.sessionStateService.addSession(metadata, result.pid!);
+      console.log(`[App] Spawned session ${sessionId} in ${effectiveCwd}`);
+    } catch (error) {
+      console.error('[App] Failed to spawn session:', error);
+    }
   }
 
   private async loadRestoredSessions(): Promise<number> {

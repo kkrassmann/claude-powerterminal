@@ -22,6 +22,7 @@ export const IPC_CHANNELS = {
 
   // Git context channels
   GIT_CONTEXT: 'git:context',
+  GIT_BRANCHES: 'git:branches',
 
   // Group persistence channels
   GROUPS_LOAD: 'groups:load',
@@ -30,6 +31,7 @@ export const IPC_CHANNELS = {
   // App info channels
   APP_HOME_DIR: 'app:home-dir',
   APP_LAN_URL: 'app:lan-url',
+  APP_GIT_BRANCH: 'app:git-branch',
 
   // Log analysis channels
   LOG_ANALYSIS: 'analysis:logs',
@@ -48,6 +50,11 @@ export const IPC_CHANNELS = {
   TEMPLATE_LIST: 'template:list',
   TEMPLATE_SAVE: 'template:save',
   TEMPLATE_DELETE: 'template:delete',
+
+  // Git worktree channels
+  WORKTREE_LIST: 'worktree:list',
+  WORKTREE_CREATE: 'worktree:create',
+  WORKTREE_DELETE: 'worktree:delete',
 } as const;
 
 export type IPCChannel = typeof IPC_CHANNELS[keyof typeof IPC_CHANNELS];

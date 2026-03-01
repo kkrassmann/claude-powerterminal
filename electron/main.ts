@@ -34,6 +34,7 @@ import { registerAnalysisHandlers } from './ipc/analysis-handlers';
 import { registerLogHandlers } from './ipc/log-handlers';
 import { registerGroupHandlers } from './ipc/group-handlers';
 import { registerTemplateHandlers } from './ipc/template-handlers';
+import { registerWorktreeHandlers } from './ipc/worktree-handlers';
 import { startWebSocketServer, stopWebSocketServer, getScrollbackBuffers, getStatusDetectors, broadcastStatus } from './websocket/ws-server';
 import { ScrollbackBuffer } from '../src/shared/scrollback-buffer';
 import { deleteSessionFromDisk } from './ipc/session-handlers';
@@ -372,6 +373,7 @@ app.whenReady().then(async () => {
   registerLogHandlers();
   registerGroupHandlers();
   registerTemplateHandlers();
+  registerWorktreeHandlers();
 
   // Start WebSocket server before creating window
   startWebSocketServer();

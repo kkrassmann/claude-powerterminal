@@ -5,8 +5,12 @@ import { PtyManagerService } from '../../services/pty-manager.service';
 import { SessionManagerService } from '../../services/session-manager.service';
 import { SessionStateService } from '../../services/session-state.service';
 import { TemplateService } from '../../services/template.service';
+import { WorktreeService } from '../../services/worktree.service';
 import { SessionMetadata } from '../../models/session.model';
 import { SessionTemplate, TemplateCategory } from '../../../../shared/template-types';
+import { WorktreeInfo } from '../../../../shared/worktree-types';
+import { IPC_CHANNELS } from '../../../../shared/ipc-channels';
+import { generateRandomBranchName } from '../../utils/random-branch-name';
 
 /**
  * Component for creating new Claude CLI terminal sessions.
@@ -144,11 +148,41 @@ export class SessionCreateComponent implements OnInit {
    */
   templateInitialPrompt: string = '';
 
+  // --- Git worktree state ---
+
+  /** Whether the selected directory is a git repository. */
+  isGitRepo = false;
+
+  /** Current branch of the selected directory. */
+  currentBranch = '';
+
+  /** Existing worktrees for the selected directory. */
+  worktrees: WorktreeInfo[] = [];
+
+  /** Available branches for branch picker. */
+  branches: string[] = [];
+
+  /** Selected worktree mode. */
+  worktreeMode: 'root' | 'existing-worktree' | 'existing-branch' | 'new-branch' = 'root';
+
+  /** Path of selected existing worktree. */
+  selectedWorktreePath = '';
+
+  /** Selected existing branch for worktree creation. */
+  selectedBranch = '';
+
+  /** Name for new branch. */
+  newBranchName = '';
+
+  /** Whether git detection is in progress. */
+  checkingGit = false;
+
   constructor(
     private ptyManager: PtyManagerService,
     private sessionManager: SessionManagerService,
     private sessionState: SessionStateService,
-    private templateService: TemplateService
+    private templateService: TemplateService,
+    private worktreeService: WorktreeService
   ) {
     this.loadRecentDirectories();
   }
@@ -192,6 +226,96 @@ export class SessionCreateComponent implements OnInit {
    */
   onDirectorySelect(dir: string): void {
     this.workingDirectory = dir;
+    this.checkGitRepo(dir);
+  }
+
+  /**
+   * Called on directory input blur to trigger git check for manually typed paths.
+   */
+  onDirectoryInputBlur(): void {
+    if (this.workingDirectory.trim()) {
+      this.checkGitRepo(this.workingDirectory.trim());
+    }
+  }
+
+  /**
+   * Check if a directory is a git repository and load worktrees + branches.
+   */
+  async checkGitRepo(dir: string): Promise<void> {
+    if (!dir.trim()) {
+      this.resetGitState();
+      return;
+    }
+
+    this.checkingGit = true;
+
+    try {
+      // Check git context
+      let gitContext: { isGitRepo: boolean; branch: string | null };
+      if (window.electronAPI) {
+        gitContext = await window.electronAPI.invoke(IPC_CHANNELS.GIT_CONTEXT, dir);
+      } else {
+        const resp = await fetch(`http://${window.location.hostname}:9801/api/git-context?cwd=${encodeURIComponent(dir)}`);
+        gitContext = await resp.json();
+      }
+
+      if (!gitContext.isGitRepo) {
+        this.resetGitState();
+        return;
+      }
+
+      this.isGitRepo = true;
+      this.currentBranch = gitContext.branch || 'unknown';
+
+      // Load worktrees and branches in parallel
+      const [worktrees, branchData] = await Promise.all([
+        this.worktreeService.listWorktrees(dir),
+        this.worktreeService.listBranches(dir),
+      ]);
+
+      this.worktrees = worktrees.filter(w => !w.isMain); // exclude main worktree (that's "root")
+      this.branches = branchData.local.filter(b => b !== this.currentBranch);
+      this.selectedBranch = this.branches[0] || '';
+      this.newBranchName = generateRandomBranchName();
+    } catch {
+      this.resetGitState();
+    } finally {
+      this.checkingGit = false;
+    }
+  }
+
+  /** Generate a new random branch name for the input field. */
+  rollNewBranchName(): void {
+    this.newBranchName = generateRandomBranchName();
+  }
+
+  /** Delete a worktree after confirmation. */
+  async deleteWorktree(event: Event, wt: WorktreeInfo): Promise<void> {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!confirm(`Delete worktree "${wt.branch}" at ${wt.path}?`)) return;
+    try {
+      await this.worktreeService.deleteWorktree(wt.path, this.workingDirectory);
+      this.worktrees = this.worktrees.filter(w => w.path !== wt.path);
+      if (this.selectedWorktreePath === wt.path) {
+        this.selectedWorktreePath = '';
+        this.worktreeMode = 'root';
+      }
+    } catch (error) {
+      this.showError(`Failed to delete worktree: ${error}`);
+    }
+  }
+
+  private resetGitState(): void {
+    this.isGitRepo = false;
+    this.currentBranch = '';
+    this.worktrees = [];
+    this.branches = [];
+    this.worktreeMode = 'root';
+    this.selectedWorktreePath = '';
+    this.selectedBranch = '';
+    this.newBranchName = '';
+    this.checkingGit = false;
   }
 
   /**
@@ -226,10 +350,35 @@ export class SessionCreateComponent implements OnInit {
       // Step 2: Combine flags
       const flags = this.combineFlags();
 
+      // Step 2.5: Determine effective working directory (may involve worktree creation)
+      let effectiveCwd = this.workingDirectory;
+
+      if (this.isGitRepo) {
+        if (this.worktreeMode === 'existing-worktree' && this.selectedWorktreePath) {
+          effectiveCwd = this.selectedWorktreePath;
+        } else if (this.worktreeMode === 'existing-branch' && this.selectedBranch) {
+          const wt = await this.worktreeService.createWorktree({
+            repoPath: this.workingDirectory,
+            branchName: this.selectedBranch,
+            useExistingBranch: true,
+          });
+          if (!wt) throw new Error('Failed to create worktree from existing branch');
+          effectiveCwd = wt.path;
+        } else if (this.worktreeMode === 'new-branch' && this.newBranchName.trim()) {
+          const wt = await this.worktreeService.createWorktree({
+            repoPath: this.workingDirectory,
+            branchName: this.newBranchName.trim(),
+          });
+          if (!wt) throw new Error('Failed to create worktree with new branch');
+          effectiveCwd = wt.path;
+        }
+        // 'root' mode: keep workingDirectory as-is
+      }
+
       // Step 3: Create session metadata
       const metadata: SessionMetadata = {
         sessionId,
-        workingDirectory: this.workingDirectory,
+        workingDirectory: effectiveCwd,
         cliFlags: flags,
         createdAt: new Date().toISOString()
       };
@@ -237,7 +386,7 @@ export class SessionCreateComponent implements OnInit {
       // Step 4: Spawn PTY process (resume if user provided a session ID)
       const spawnResult = await this.ptyManager.spawnSession({
         sessionId,
-        cwd: this.workingDirectory,
+        cwd: effectiveCwd,
         flags,
         resume: !!this.sessionId.trim()
       });
@@ -326,6 +475,9 @@ export class SessionCreateComponent implements OnInit {
 
     await this.templateService.useTemplate(template);
     await this.loadTemplates();
+
+    // Check git repo for the template's working directory
+    this.checkGitRepo(template.workingDirectory);
   }
 
   /**
@@ -419,6 +571,7 @@ export class SessionCreateComponent implements OnInit {
       '--dangerously-skip-permissions': false,
     };
     this.customFlags = '';
+    this.resetGitState();
   }
 
   /**

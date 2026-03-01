@@ -16,6 +16,7 @@ import { TerminalStatus } from '../../models/terminal-status.model';
 import { AudioAlertService } from '../../services/audio-alert.service';
 import type { SessionPracticeScore } from '../../../../shared/analysis-types';
 import { LayoutPreset } from '../../../../shared/group-types';
+import { SpawnSessionRequest } from '../../models/spawn-session.model';
 
 /**
  * Dashboard grid component for displaying and managing multiple terminal sessions.
@@ -52,6 +53,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
    * Bubbles the sessionSelected event from TileHeaderComponent up to AppComponent.
    */
   @Output() sessionSelected = new EventEmitter<string>();
+
+  /**
+   * Emitted when a tile-header requests spawning a new session (worktree or clone).
+   */
+  @Output() spawnNewSession = new EventEmitter<SpawnSessionRequest>();
 
   /**
    * Active sessions (with live PTY processes and scrollback buffers).
@@ -370,6 +376,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
    */
   onSessionSelected(sessionId: string): void {
     this.sessionSelected.emit(sessionId);
+  }
+
+  /**
+   * Relay spawn request from tile-header up to app component.
+   */
+  onSpawnNewSession(request: SpawnSessionRequest): void {
+    this.spawnNewSession.emit(request);
   }
 
   /**

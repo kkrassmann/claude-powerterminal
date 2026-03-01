@@ -78,8 +78,77 @@
             placeholder="C:\Users\username\projects\my-app"
             class="form-control"
             required
+            (blur)="onDirectoryInputBlur()"
           />
         </div>
+      </div>
+
+      <!-- Git Worktree Section (shown when directory is a git repo) -->
+      <div class="worktree-section" *ngIf="isGitRepo">
+        <label class="section-label worktree-section-label">
+          <span class="git-icon-label">&#x2387;</span> Git Repository ({{ currentBranch }})
+        </label>
+
+        <div class="worktree-radio-group">
+          <!-- Option: Start in repo root -->
+          <label class="worktree-radio">
+            <input type="radio" name="worktreeMode" value="root"
+                   [(ngModel)]="worktreeMode" />
+            <span class="radio-label">Start in repo root (default)</span>
+          </label>
+
+          <!-- Existing worktrees -->
+          <div class="worktree-divider" *ngIf="worktrees.length > 0">Existing Worktrees</div>
+          <label class="worktree-radio" *ngFor="let wt of worktrees">
+            <input type="radio" name="worktreeMode"
+                   [checked]="worktreeMode === 'existing-worktree' && selectedWorktreePath === wt.path"
+                   (change)="worktreeMode = 'existing-worktree'; selectedWorktreePath = wt.path" />
+            <span class="radio-label">
+              <span class="wt-branch">{{ wt.branch }}</span>
+              <span class="wt-path">{{ wt.path }}</span>
+              <span class="wt-session-badge" *ngIf="wt.hasSession">active</span>
+              <button type="button" class="wt-delete-btn" (click)="deleteWorktree($event, wt)" title="Delete worktree">&times;</button>
+            </span>
+          </label>
+
+          <!-- New worktree options -->
+          <div class="worktree-divider">New Worktree</div>
+
+          <!-- From existing branch -->
+          <label class="worktree-radio" *ngIf="branches.length > 0">
+            <input type="radio" name="worktreeMode" value="existing-branch"
+                   [(ngModel)]="worktreeMode" />
+            <span class="radio-label">
+              From existing branch
+              <select class="branch-select" [(ngModel)]="selectedBranch"
+                      [ngModelOptions]="{standalone: true}"
+                      (click)="$event.stopPropagation()"
+                      (focus)="worktreeMode = 'existing-branch'">
+                <option *ngFor="let b of branches" [value]="b">{{ b }}</option>
+              </select>
+            </span>
+          </label>
+
+          <!-- New branch -->
+          <label class="worktree-radio">
+            <input type="radio" name="worktreeMode" value="new-branch"
+                   [(ngModel)]="worktreeMode" />
+            <span class="radio-label">
+              New branch
+              <input type="text" class="branch-input" [(ngModel)]="newBranchName"
+                     [ngModelOptions]="{standalone: true}"
+                     placeholder="branch-name"
+                     (click)="$event.stopPropagation()"
+                     (focus)="worktreeMode = 'new-branch'" />
+              <button type="button" class="dice-btn" (click)="rollNewBranchName(); $event.stopPropagation()" title="Random name">&#x1F3B2;</button>
+            </span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Git check loading indicator -->
+      <div class="git-checking" *ngIf="checkingGit">
+        <span class="spinner-small"></span> Checking git repository...
       </div>
 
       <div class="form-section">
