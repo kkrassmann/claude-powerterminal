@@ -78,15 +78,46 @@ export class WorktreeService {
   }
 
   /**
+   * List local and remote branches for a repository.
+   *
+   * @param repoPath - Path to any directory within the repository
+   * @returns Object with local branches, remote branches, and current branch
+   */
+  async listBranches(repoPath: string): Promise<{ local: string[]; remote: string[]; current: string }> {
+    const empty = { local: [], remote: [], current: '' };
+
+    if (window.electronAPI) {
+      try {
+        return await window.electronAPI.invoke(IPC_CHANNELS.GIT_BRANCHES, repoPath);
+      } catch (error) {
+        console.error('[WorktreeService] Failed to list branches via IPC:', error);
+        return empty;
+      }
+    }
+
+    try {
+      const resp = await fetch(
+        `http://${window.location.hostname}:9801/api/git/branches?path=${encodeURIComponent(repoPath)}`
+      );
+      if (!resp.ok) return empty;
+      return await resp.json();
+    } catch (error) {
+      console.error('[WorktreeService] Failed to list branches via HTTP:', error);
+      return empty;
+    }
+  }
+
+  /**
    * Delete a worktree.
    *
    * @param worktreePath - Absolute path to the worktree to remove
+   * @param repoPath - Path to the owning repository (needed for stale worktrees outside the repo tree)
    * @returns true on success
    */
-  async deleteWorktree(worktreePath: string): Promise<boolean> {
+  async deleteWorktree(worktreePath: string, repoPath?: string): Promise<boolean> {
     if (window.electronAPI) {
       try {
-        return await window.electronAPI.invoke(IPC_CHANNELS.WORKTREE_DELETE, worktreePath);
+        return await window.electronAPI.invoke(IPC_CHANNELS.WORKTREE_DELETE, worktreePath, repoPath);
       } catch (error) {
         console.error('[WorktreeService] Failed to delete worktree via IPC:', error);
         throw error;
@@ -94,10 +125,11 @@ export class WorktreeService {
     }
 
     try {
-      const resp = await fetch(
-        `http://${window.location.hostname}:9801/api/worktrees?path=${encodeURIComponent(worktreePath)}`,
-        { method: 'DELETE' }
-      );
+      let url = `http://${window.location.hostname}:9801/api/worktrees?path=${encodeURIComponent(worktreePath)}`;
+      if (repoPath) {
+        url += `&repoPath=${encodeURIComponent(repoPath)}`;
+      }
+      const resp = await fetch(url, { method: 'DELETE' });
       if (!resp.ok) {
         const err = await resp.json();
         throw new Error(err.error || `HTTP ${resp.status}`);

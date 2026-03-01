@@ -78,6 +78,21 @@ function parseWorktreeList(output: string, activeCwds: Set<string>): WorktreeInf
 }
 
 /**
+ * Walk up from a worktree path to find the owning git repository root.
+ * Needed because `git worktree prune` must run inside the correct repo.
+ */
+function findRepoRoot(worktreePath: string): string | null {
+  let dir = path.dirname(worktreePath);
+  while (dir !== path.dirname(dir)) {
+    if (fs.existsSync(path.join(dir, '.git'))) {
+      return dir;
+    }
+    dir = path.dirname(dir);
+  }
+  return null;
+}
+
+/**
  * Get the set of normalized working directories for all active PTY sessions.
  */
 function getActiveSessionCwds(): Set<string> {
@@ -119,10 +134,10 @@ export function registerWorktreeHandlers(): void {
     }
   });
 
-  // Handler 2: worktree:create - Create a new worktree with a new branch
+  // Handler 2: worktree:create - Create a new worktree (new or existing branch)
   ipcMain.handle(IPC_CHANNELS.WORKTREE_CREATE, async (_event, options: WorktreeCreateOptions): Promise<WorktreeInfo | null> => {
     try {
-      const { repoPath, branchName, baseBranch } = options;
+      const { repoPath, branchName, baseBranch, useExistingBranch } = options;
 
       // Find the main worktree root to place .worktrees/ there
       const mainRoot = execFileSync('git', ['worktree', 'list', '--porcelain'], {
@@ -139,12 +154,21 @@ export function registerWorktreeHandlers(): void {
         fs.mkdirSync(worktreeDir, { recursive: true });
       }
 
-      const worktreePath = path.join(worktreeDir, branchName);
+      // Use sanitized directory name (replace slashes in branch names like feature/auth)
+      const dirName = branchName.replace(/\//g, '-');
+      const worktreePath = path.join(worktreeDir, dirName);
 
       // Build git worktree add command
-      const args = ['worktree', 'add', '-b', branchName, worktreePath];
-      if (baseBranch) {
-        args.push(baseBranch);
+      let args: string[];
+      if (useExistingBranch) {
+        // Checkout existing branch: git worktree add <path> <branch>
+        args = ['worktree', 'add', worktreePath, branchName];
+      } else {
+        // Create new branch: git worktree add -b <branch> <path> [base]
+        args = ['worktree', 'add', '-b', branchName, worktreePath];
+        if (baseBranch) {
+          args.push(baseBranch);
+        }
       }
 
       execFileSync('git', args, {
@@ -178,9 +202,12 @@ export function registerWorktreeHandlers(): void {
   });
 
   // Handler 3: worktree:delete - Remove a worktree
-  ipcMain.handle(IPC_CHANNELS.WORKTREE_DELETE, async (_event, worktreePath: string): Promise<boolean> => {
+  ipcMain.handle(IPC_CHANNELS.WORKTREE_DELETE, async (_event, worktreePath: string, repoPath?: string): Promise<boolean> => {
+    const repoRoot = repoPath || findRepoRoot(worktreePath);
+
     try {
       execFileSync('git', ['worktree', 'remove', worktreePath, '--force'], {
+        cwd: repoRoot || undefined,
         timeout: 10000,
         windowsHide: true,
         encoding: 'utf-8',
@@ -188,9 +215,28 @@ export function registerWorktreeHandlers(): void {
 
       console.log(`[Worktree Handlers] Deleted worktree: ${worktreePath}`);
       return true;
-    } catch (error: any) {
-      console.error(`[Worktree Handlers] Failed to delete worktree ${worktreePath}:`, error.message);
-      throw new Error(error.message || 'Failed to delete worktree');
+    } catch (firstError: any) {
+      // If the directory no longer exists, prune stale worktree entries
+      if (firstError.message?.includes('is not a working tree') || firstError.message?.includes('does not exist')) {
+        if (!repoRoot) {
+          throw new Error(`Cannot prune: unable to find git repo for ${worktreePath}`);
+        }
+        try {
+          execFileSync('git', ['worktree', 'prune'], {
+            cwd: repoRoot,
+            timeout: 10000,
+            windowsHide: true,
+            encoding: 'utf-8',
+          });
+          console.log(`[Worktree Handlers] Pruned stale worktree: ${worktreePath}`);
+          return true;
+        } catch (pruneError: any) {
+          console.error(`[Worktree Handlers] Prune also failed:`, pruneError.message);
+          throw new Error(pruneError.message || 'Failed to prune worktree');
+        }
+      }
+      console.error(`[Worktree Handlers] Failed to delete worktree ${worktreePath}:`, firstError.message);
+      throw new Error(firstError.message || 'Failed to delete worktree');
     }
   });
 

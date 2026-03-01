@@ -14,6 +14,57 @@
     </span>
 
     <div class="header-actions">
+      <!-- Spawn session button (only in git repos) -->
+      <div class="spawn-menu-wrapper" *ngIf="gitContext?.isGitRepo">
+        <button class="header-btn spawn-btn"
+                (click)="toggleSpawnMenu($event)"
+                title="New session in worktree">
+          &#x2442;
+        </button>
+        <div class="spawn-dropdown" *ngIf="showSpawnMenu" (click)="$event.stopPropagation()">
+          <!-- Clone session -->
+          <button class="spawn-dropdown-item" (click)="cloneSession()">
+            Clone session here
+          </button>
+
+          <!-- Existing worktrees -->
+          <div class="spawn-dropdown-divider" *ngIf="spawnWorktrees.length > 0">Existing Worktrees</div>
+          <button class="spawn-dropdown-item"
+                  *ngFor="let wt of spawnWorktrees"
+                  (click)="openInWorktree(wt.path)">
+            <span class="spawn-wt-branch">{{ wt.branch }}</span>
+            <span class="spawn-wt-badge" *ngIf="wt.hasSession">active</span>
+          </button>
+
+          <!-- New worktree options -->
+          <div class="spawn-dropdown-divider">New Worktree</div>
+
+          <button class="spawn-dropdown-item" *ngIf="spawnBranches.length > 0"
+                  (click)="showNewWorktreeInput('existing-branch')">
+            From existing branch...
+          </button>
+          <button class="spawn-dropdown-item"
+                  (click)="showNewWorktreeInput('new-branch')">
+            New branch...
+          </button>
+
+          <!-- Branch input area -->
+          <div class="spawn-branch-input" *ngIf="showBranchInput">
+            <select class="spawn-branch-select" *ngIf="spawnBranchMode === 'existing-branch'"
+                    [(ngModel)]="spawnSelectedBranch">
+              <option *ngFor="let b of spawnBranches" [value]="b">{{ b }}</option>
+            </select>
+            <div class="spawn-new-branch-row" *ngIf="spawnBranchMode === 'new-branch'">
+              <input type="text" class="spawn-branch-name-input"
+                     [(ngModel)]="spawnNewBranchName"
+                     placeholder="branch-name" />
+              <button class="spawn-dice-btn" (click)="rollSpawnBranchName()" title="Random name">&#x1F3B2;</button>
+            </div>
+            <button class="spawn-confirm-btn" (click)="confirmSpawnWorktree()">Create</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Group assign button -->
       <div class="group-menu-wrapper">
         <button class="header-btn"

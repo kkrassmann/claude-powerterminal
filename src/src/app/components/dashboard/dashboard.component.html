@@ -41,6 +41,7 @@
       (sessionSelected)="onSessionSelected($event)"
       (assignToGroup)="groupService.addToGroup(session.metadata.sessionId, $event)"
       (removeFromGroup)="groupService.removeFromGroup(session.metadata.sessionId)"
+      (spawnNewSession)="onSpawnNewSession($event)"
       cdkDragHandle>
     </app-tile-header>
     <app-terminal
@@ -93,7 +94,8 @@
     (acknowledged)="onTileClick(maximizedSessionId)"
     (sessionSelected)="onSessionSelected($event)"
     (assignToGroup)="groupService.addToGroup(maximizedSessionId, $event)"
-    (removeFromGroup)="groupService.removeFromGroup(maximizedSessionId)">
+    (removeFromGroup)="groupService.removeFromGroup(maximizedSessionId)"
+    (spawnNewSession)="onSpawnNewSession($event)">
   </app-tile-header>
   <app-terminal
     [sessionId]="maximizedSessionId"

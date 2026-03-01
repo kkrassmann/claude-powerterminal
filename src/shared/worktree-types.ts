@@ -12,7 +12,8 @@ export interface WorktreeInfo {
 }
 
 export interface WorktreeCreateOptions {
-  repoPath: string;       // path to any worktree in the repo
-  branchName: string;     // new branch name
-  baseBranch?: string;    // base branch (default: current HEAD)
+  repoPath: string;           // path to any worktree in the repo
+  branchName: string;         // branch name (new or existing)
+  baseBranch?: string;        // base branch (default: current HEAD) — only for new branches
+  useExistingBranch?: boolean; // if true, checkout existing branch instead of creating new
 }
