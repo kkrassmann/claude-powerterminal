@@ -47,6 +47,9 @@ export class TileHeaderComponent {
   @Input() groupColor: string = '';
   @Input() availableGroups: SessionGroup[] = [];
 
+  /** Whether the session has uncommitted git changes (determines Review button visibility) */
+  @Input() hasUncommittedChanges: boolean = false;
+
   @Output() maximize = new EventEmitter<void>();
   @Output() restart = new EventEmitter<void>();
   @Output() kill = new EventEmitter<void>();
@@ -55,6 +58,8 @@ export class TileHeaderComponent {
   @Output() assignToGroup = new EventEmitter<string>();
   @Output() removeFromGroup = new EventEmitter<void>();
   @Output() spawnNewSession = new EventEmitter<SpawnSessionRequest>();
+  /** Emitted when the "Review Changes" button is clicked */
+  @Output() reviewChanges = new EventEmitter<{ sessionId: string; cwd: string }>();
 
   /** Whether the group context menu is visible. */
   showGroupMenu = false;
@@ -79,6 +84,25 @@ export class TileHeaderComponent {
 
   /** Spawn mode: 'existing-branch' or 'new-branch' when branch input is shown. */
   spawnBranchMode: 'existing-branch' | 'new-branch' = 'new-branch';
+
+  /**
+   * Show the "Review Changes" button when:
+   * - Session status is WAITING or DONE (Claude finished its work)
+   * - There are uncommitted git changes to review
+   */
+  get showReviewButton(): boolean {
+    return (this.status === 'WAITING' || this.status === 'DONE') && this.hasUncommittedChanges;
+  }
+
+  /**
+   * Emit reviewChanges event with session ID and working directory.
+   */
+  onReviewChanges(): void {
+    this.reviewChanges.emit({
+      sessionId: this.sessionId,
+      cwd: this.session.metadata.workingDirectory,
+    });
+  }
 
   /**
    * Get color for the practice score based on value.

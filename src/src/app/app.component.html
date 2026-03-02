@@ -20,7 +20,8 @@
     [pendingSessions]="pendingSessions"
     (sessionExited)="onSessionExited($event)"
     (sessionSelected)="onSessionSelected($event)"
-    (spawnNewSession)="onSpawnNewSession($event)">
+    (spawnNewSession)="onSpawnNewSession($event)"
+    (reviewChanges)="onReviewChanges($event)">
   </app-dashboard>
 
   <app-session-detail
@@ -28,4 +29,11 @@
     [sessionId]="selectedSessionId"
     (close)="closeSessionDetail()">
   </app-session-detail>
+
+  <app-code-review-panel
+    *ngIf="reviewSessionId"
+    [sessionId]="reviewSessionId!"
+    [cwd]="reviewCwd!"
+    (close)="closeReview()">
+  </app-code-review-panel>
 </div>

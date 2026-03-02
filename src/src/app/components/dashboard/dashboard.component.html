@@ -42,6 +42,8 @@
       (assignToGroup)="groupService.addToGroup(session.metadata.sessionId, $event)"
       (removeFromGroup)="groupService.removeFromGroup(session.metadata.sessionId)"
       (spawnNewSession)="onSpawnNewSession($event)"
+      (reviewChanges)="onReviewChanges($event)"
+      [hasUncommittedChanges]="hasUncommittedChanges(session.metadata.sessionId)"
       cdkDragHandle>
     </app-tile-header>
     <app-terminal
@@ -95,7 +97,9 @@
     (sessionSelected)="onSessionSelected($event)"
     (assignToGroup)="groupService.addToGroup(maximizedSessionId, $event)"
     (removeFromGroup)="groupService.removeFromGroup(maximizedSessionId)"
-    (spawnNewSession)="onSpawnNewSession($event)">
+    (spawnNewSession)="onSpawnNewSession($event)"
+    (reviewChanges)="onReviewChanges($event)"
+    [hasUncommittedChanges]="hasUncommittedChanges(maximizedSessionId)">
   </app-tile-header>
   <app-terminal
     [sessionId]="maximizedSessionId"

@@ -60,6 +60,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
   @Output() spawnNewSession = new EventEmitter<SpawnSessionRequest>();
 
   /**
+   * Emitted when the "Review Changes" button is clicked in a tile header.
+   * Bubbles the event up to AppComponent.
+   */
+  @Output() reviewChanges = new EventEmitter<{ sessionId: string; cwd: string }>();
+
+  /**
    * Active sessions (with live PTY processes and scrollback buffers).
    * Populated from SessionStateService subscription.
    */
@@ -383,6 +389,22 @@ export class DashboardComponent implements OnInit, OnDestroy {
    */
   onSpawnNewSession(request: SpawnSessionRequest): void {
     this.spawnNewSession.emit(request);
+  }
+
+  /**
+   * Bubble review changes event from tile-header to app component.
+   */
+  onReviewChanges(event: { sessionId: string; cwd: string }): void {
+    this.reviewChanges.emit(event);
+  }
+
+  /**
+   * Check if a session has uncommitted git changes.
+   */
+  hasUncommittedChanges(sessionId: string): boolean {
+    const ctx = this.gitContextService.getContext(sessionId);
+    if (!ctx) return false;
+    return (ctx.added || 0) + (ctx.modified || 0) + (ctx.deleted || 0) > 0;
   }
 
   /**

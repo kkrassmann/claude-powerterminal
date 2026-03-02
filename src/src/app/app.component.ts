@@ -5,6 +5,7 @@ import { SessionCreateComponent } from './components/session-create/session-crea
 import { DashboardComponent } from './components/dashboard/dashboard.component';
 import { AnalysisPanelComponent } from './components/analysis-panel/analysis-panel.component';
 import { SessionDetailComponent } from './components/session-detail/session-detail.component';
+import { CodeReviewPanelComponent } from './components/code-review/code-review-panel.component';
 import { SessionStateService } from './services/session-state.service';
 import { SessionManagerService } from './services/session-manager.service';
 import { PtyManagerService } from './services/pty-manager.service';
@@ -17,7 +18,7 @@ import { AudioAlertService } from './services/audio-alert.service';
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, SessionCreateComponent, DashboardComponent, AnalysisPanelComponent, SessionDetailComponent],
+  imports: [CommonModule, RouterOutlet, SessionCreateComponent, DashboardComponent, AnalysisPanelComponent, SessionDetailComponent, CodeReviewPanelComponent],
   templateUrl: './app.component.html',
   styleUrl: './app.component.css'
 })
@@ -30,6 +31,11 @@ export class AppComponent implements OnInit {
 
   /** ID of the session whose detail panel is currently open, or null if closed. */
   selectedSessionId: string | null = null;
+
+  /** Session ID for the currently open code review panel, or null if closed. */
+  reviewSessionId: string | null = null;
+  /** Working directory for the currently open code review panel. */
+  reviewCwd: string | null = null;
 
   constructor(
     private sessionStateService: SessionStateService,
@@ -122,6 +128,22 @@ export class AppComponent implements OnInit {
       .map(s => s.metadata.workingDirectory)
       .filter(Boolean);
     return [...new Set(paths)];
+  }
+
+  /**
+   * Open the code review panel for a session.
+   */
+  onReviewChanges(event: { sessionId: string; cwd: string }): void {
+    this.reviewSessionId = event.sessionId;
+    this.reviewCwd = event.cwd;
+  }
+
+  /**
+   * Close the code review panel.
+   */
+  closeReview(): void {
+    this.reviewSessionId = null;
+    this.reviewCwd = null;
   }
 
   async exportLogs(): Promise<void> {

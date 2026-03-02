@@ -110,6 +110,14 @@
       <span class="git-modified">~{{ gitContext?.modified }}</span>
       <span class="git-deleted">-{{ gitContext?.deleted }}</span>
     </span>
+    <!-- Review Changes button: visible when WAITING/DONE with uncommitted changes -->
+    <button
+      class="review-btn"
+      *ngIf="showReviewButton"
+      (click)="onReviewChanges(); $event.stopPropagation()"
+      title="Open Code Review panel">
+      Review
+    </button>
     <!-- Practice score + badges inline with git info -->
     <span class="practice-score score-chip" *ngIf="practiceScore !== null" [style.color]="scoreColor" (click)="onScoreClick(); $event.stopPropagation()">{{ practiceScore }}</span>
     <span class="badge" *ngFor="let badge of badges" [class.achievement-badge]="isAchievementBadge(badge)">{{ getBadgeEmoji(badge) }} {{ badge }}</span>
