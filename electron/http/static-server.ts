@@ -9,7 +9,7 @@ import * as http from 'http';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as pty from 'node-pty';
-import { execFile } from 'child_process';
+import { execFile, spawn } from 'child_process';
 import { promisify } from 'util';
 import { getPtyProcesses } from '../ipc/pty-handlers';
 import { app } from 'electron';
@@ -778,6 +778,135 @@ export function startStaticServer(port: number): http.Server {
         res.writeHead(500, corsHeaders);
         res.end(JSON.stringify({ error: error.message || 'Failed to delete worktree' }));
       }
+      return;
+    }
+
+    // GET /api/review/diff?cwd=<path> - Get full unified diff of all uncommitted changes
+    if (req.method === 'GET' && pathname === '/api/review/diff') {
+      const cwd = url.searchParams.get('cwd');
+      if (!cwd) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ diff: '', error: 'Missing cwd parameter' }));
+        return;
+      }
+      try {
+        const result = await execFileAsync(
+          'git',
+          ['diff', 'HEAD', '--unified=3'],
+          {
+            cwd,
+            timeout: 15000,
+            windowsHide: true,
+            maxBuffer: 10 * 1024 * 1024,
+          }
+        );
+
+        let diff = result.stdout;
+
+        if (!diff.trim()) {
+          // Fallback: check staged-only changes (repo with no prior commits)
+          const cached = await execFileAsync(
+            'git',
+            ['diff', '--cached', '--unified=3'],
+            {
+              cwd,
+              timeout: 15000,
+              windowsHide: true,
+              maxBuffer: 10 * 1024 * 1024,
+            }
+          );
+          diff = cached.stdout;
+        }
+
+        res.writeHead(200, corsHeaders);
+        res.end(JSON.stringify({ diff }));
+      } catch (error: any) {
+        console.warn(`[HTTP] GET /api/review/diff failed for ${cwd}: ${error.message}`);
+        res.writeHead(200, corsHeaders);
+        res.end(JSON.stringify({ diff: '', error: error.message }));
+      }
+      return;
+    }
+
+    // POST /api/review/reject-hunk - Revert a single hunk via git apply --reverse
+    if (req.method === 'POST' && pathname === '/api/review/reject-hunk') {
+      let body = '';
+      req.on('data', chunk => body += chunk);
+      req.on('end', async () => {
+        try {
+          const { cwd, patchContent } = JSON.parse(body);
+
+          if (!cwd || !patchContent) {
+            res.writeHead(400, corsHeaders);
+            res.end(JSON.stringify({ success: false, error: 'Missing cwd or patchContent' }));
+            return;
+          }
+
+          const result = await new Promise<{ success: boolean; error?: string }>((resolve) => {
+            const proc = spawn(
+              'git',
+              ['apply', '--reverse', '--unidiff-zero'],
+              { cwd, windowsHide: true }
+            );
+
+            let stderr = '';
+            proc.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString(); });
+
+            proc.on('close', (code: number | null) => {
+              if (code === 0) {
+                resolve({ success: true });
+              } else {
+                resolve({ success: false, error: stderr.trim() || `Exit code ${code}` });
+              }
+            });
+
+            proc.on('error', (err: Error) => {
+              resolve({ success: false, error: err.message });
+            });
+
+            proc.stdin.write(patchContent);
+            proc.stdin.end();
+          });
+
+          res.writeHead(200, corsHeaders);
+          res.end(JSON.stringify(result));
+        } catch (error: any) {
+          console.error('[HTTP] POST /api/review/reject-hunk error:', error.message);
+          res.writeHead(500, corsHeaders);
+          res.end(JSON.stringify({ success: false, error: String(error) }));
+        }
+      });
+      return;
+    }
+
+    // POST /api/review/reject-file - Revert all changes to a file via git checkout HEAD
+    if (req.method === 'POST' && pathname === '/api/review/reject-file') {
+      let body = '';
+      req.on('data', chunk => body += chunk);
+      req.on('end', async () => {
+        try {
+          const { cwd, filePath: fileToRevert } = JSON.parse(body);
+
+          if (!cwd || !fileToRevert) {
+            res.writeHead(400, corsHeaders);
+            res.end(JSON.stringify({ success: false, error: 'Missing cwd or filePath' }));
+            return;
+          }
+
+          await execFileAsync(
+            'git',
+            ['checkout', 'HEAD', '--', fileToRevert],
+            { cwd, timeout: 5000, windowsHide: true }
+          );
+
+          res.writeHead(200, corsHeaders);
+          res.end(JSON.stringify({ success: true }));
+        } catch (error: any) {
+          console.error('[HTTP] POST /api/review/reject-file error:', error.message);
+          res.writeHead(500, corsHeaders);
+          res.end(JSON.stringify({ success: false, error: error.message }));
+        }
+      });
       return;
     }
 
