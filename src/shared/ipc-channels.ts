@@ -60,6 +60,11 @@ export const IPC_CHANNELS = {
   WORKTREE_LIST: 'worktree:list',
   WORKTREE_CREATE: 'worktree:create',
   WORKTREE_DELETE: 'worktree:delete',
+
+  // Code review channels
+  REVIEW_DIFF: 'review:diff',
+  REVIEW_REJECT_HUNK: 'review:reject-hunk',
+  REVIEW_REJECT_FILE: 'review:reject-file',
 } as const;
 
 export type IPCChannel = typeof IPC_CHANNELS[keyof typeof IPC_CHANNELS];
