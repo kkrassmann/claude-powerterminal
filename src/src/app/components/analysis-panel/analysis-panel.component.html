@@ -209,21 +209,27 @@
   <!-- ===== PROJECT AUDIT TAB ===== -->
   <div *ngIf="activeTab === 'audit'" class="audit-section">
 
-    <!-- No sessions running -->
-    <div *ngIf="sessionPaths.length === 0" class="audit-empty">
-      No active sessions. Start a session to audit its project.
+    <!-- No projects available -->
+    <div *ngIf="allProjectPaths.length === 0" class="audit-empty">
+      No projects available. Start a session or create a template first.
     </div>
 
-    <!-- Sessions available: show dropdown + button -->
-    <div *ngIf="sessionPaths.length > 0">
+    <!-- Projects available: show dropdown + button -->
+    <div *ngIf="allProjectPaths.length > 0">
 
       <div class="audit-controls">
         <select [(ngModel)]="selectedProject" class="project-select">
           <option value="" disabled>Select project...</option>
-          <option *ngFor="let p of sessionPaths" [value]="p">{{ shortenPath(p) }}</option>
+          <option *ngFor="let p of allProjectPaths" [value]="p">{{ shortenPath(p) }}</option>
         </select>
         <button class="audit-btn" (click)="startAudit()" [disabled]="auditLoading || !selectedProject">
           {{ auditLoading ? 'Analyzing...' : 'Run Audit' }}
+        </button>
+        <button *ngIf="!deepAuditLoading" class="deep-audit-btn" (click)="confirmDeepAudit()" [disabled]="!selectedProject">
+          Deep Audit
+        </button>
+        <button *ngIf="deepAuditLoading" class="deep-audit-cancel-btn" (click)="cancelDeepAudit()">
+          Cancel Audit
         </button>
       </div>
 
@@ -237,53 +243,190 @@
         Analyzing project...
       </div>
 
-      <!-- Results -->
-      <div *ngIf="auditResult && !auditLoading" class="audit-results">
-
-        <!-- Overall score header -->
-        <div class="audit-overall">
-          <div class="overall-score-label">Overall Score</div>
-          <div class="overall-score-value">{{ auditResult.overallScore }}<span class="score-max">/100</span></div>
-          <div class="improvement-potential">
-            Improvement potential: {{ auditResult.improvementPotential }}%
-          </div>
+      <!-- Results (collapsible accordion) -->
+      <div *ngIf="auditResult" class="audit-results">
+        <div class="accordion-header" (click)="auditResultsExpanded = !auditResultsExpanded">
+          <span class="accordion-toggle">{{ auditResultsExpanded ? '&#9660;' : '&#9654;' }}</span>
+          <span class="accordion-title">Static Audit</span>
+          <span class="accordion-score" [style.color]="getScoreColor(auditResult.overallScore)">{{ auditResult.overallScore }}/100</span>
+          <span class="accordion-meta">{{ auditResult.files.length }} files</span>
         </div>
 
-        <!-- Per-file list -->
-        <div class="audit-file-list">
-          <div *ngFor="let file of auditResult.files" class="audit-file-row">
+        <div *ngIf="auditResultsExpanded" class="accordion-body">
+          <!-- Per-file list -->
+          <div class="audit-file-list">
+            <div *ngFor="let file of auditResult.files" class="audit-file-row">
 
-            <!-- File header (always visible, click to expand) -->
-            <div class="file-header" (click)="toggleFile(file.filePath)">
-              <span class="file-expand-icon">{{ expandedFiles.has(file.filePath) ? '▼' : '▶' }}</span>
-              <span class="file-name">{{ file.displayName }}</span>
-              <span class="file-score" [class.score-good]="file.score >= 80" [class.score-warn]="file.score >= 50 && file.score < 80" [class.score-bad]="file.score < 50">
-                {{ file.score }}/100
-              </span>
-              <span class="file-issue-count" *ngIf="file.findings.length > 0">
-                {{ file.findings.length }} {{ file.findings.length === 1 ? 'issue' : 'issues' }}
-              </span>
-              <span class="file-ok" *ngIf="file.findings.length === 0">OK</span>
-            </div>
-
-            <!-- Expanded findings -->
-            <div *ngIf="expandedFiles.has(file.filePath)" class="file-findings">
-              <div *ngIf="file.findings.length === 0" class="finding-ok">
-                All rules passed.
+              <!-- File header (always visible, click to expand) -->
+              <div class="file-header" (click)="toggleFile(file.filePath)">
+                <span class="file-expand-icon">{{ expandedFiles.has(file.filePath) ? '&#9660;' : '&#9654;' }}</span>
+                <span class="file-name">{{ file.displayName }}</span>
+                <span class="file-score" [class.score-good]="file.score >= 80" [class.score-warn]="file.score >= 50 && file.score < 80" [class.score-bad]="file.score < 50">
+                  {{ file.score }}/100
+                </span>
+                <span class="file-rule-summary">
+                  {{ countPassed(file) }}/{{ file.findings.length }} rules passed
+                </span>
+                <span class="file-issue-count" *ngIf="countFailed(file) > 0">
+                  {{ countFailed(file) }} {{ countFailed(file) === 1 ? 'issue' : 'issues' }}
+                </span>
               </div>
-              <div *ngFor="let finding of file.findings" class="finding-row" [class]="'finding-row ' + severityClass(finding.severity)">
-                <span class="finding-severity">{{ finding.severity }}</span>
-                <span class="finding-rule">{{ finding.ruleId }}</span>
-                <span class="finding-fix">{{ finding.fix }}</span>
-              </div>
-            </div>
 
+              <!-- Expanded findings: all rules with pass/fail indicator -->
+              <div *ngIf="expandedFiles.has(file.filePath)" class="file-findings">
+                <div *ngIf="file.findings.length === 0" class="finding-ok">
+                  No rules applicable for this file type.
+                </div>
+                <div *ngFor="let finding of file.findings"
+                     class="finding-row"
+                     [class.finding-passed]="finding.passed"
+                     [class]="finding.passed ? 'finding-row finding-passed' : 'finding-row ' + severityClass(finding.severity)">
+                  <div class="finding-header">
+                    <span class="finding-status" [class.status-pass]="finding.passed" [class.status-fail]="!finding.passed">
+                      {{ finding.passed ? '&#10003;' : '&#10007;' }}
+                    </span>
+                    <span class="finding-rule">{{ finding.ruleId }}</span>
+                    <span class="finding-severity" *ngIf="!finding.passed">{{ finding.severity }}</span>
+                  </div>
+                  <span class="finding-fix">{{ finding.fix }}</span>
+                  <div class="finding-actions" *ngIf="finding.promptSuggestion || finding.reference">
+                    <button *ngIf="finding.promptSuggestion"
+                            class="copy-prompt-btn"
+                            (click)="copyPrompt(finding.promptSuggestion!, finding.ruleId); $event.stopPropagation()">
+                      {{ copiedRuleId === finding.ruleId ? 'Copied!' : 'Copy Fix Prompt' }}
+                    </button>
+                    <a *ngIf="finding.reference"
+                       class="finding-reference"
+                       [href]="finding.reference"
+                       target="_blank"
+                       rel="noopener noreferrer"
+                       (click)="$event.stopPropagation()">
+                      Reference
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+            </div>
           </div>
         </div>
-
       </div>
+
+      <!-- ===== DEEP AUDIT SECTION ===== -->
+
+      <!-- Deep audit loading: before file list arrives -->
+      <div *ngIf="deepAuditLoading && deepAuditFiles.length === 0" class="deep-audit-loading">
+        <span class="spinner"></span>
+        <span>{{ deepAuditProgress?.phase || 'Starting deep audit...' }}</span>
+      </div>
+
+      <!-- Deep audit error -->
+      <div *ngIf="deepAuditError" class="audit-error">
+        Deep Audit Error: {{ deepAuditError }}
+      </div>
+
+      <!-- Deep audit results (collapsible accordion) -->
+      <div *ngIf="deepAuditFiles.length > 0 || (deepAuditResult && !deepAuditLoading)" class="deep-audit-results">
+
+        <div class="accordion-header accordion-header-deep" (click)="deepAuditResultsExpanded = !deepAuditResultsExpanded">
+          <span class="accordion-toggle">{{ deepAuditResultsExpanded ? '&#9660;' : '&#9654;' }}</span>
+          <span class="accordion-title">Deep Audit</span>
+          <span *ngIf="deepAuditResult && !deepAuditLoading" class="accordion-meta">
+            {{ deepAuditResult.findings.length }} findings in {{ deepAuditResult.analyzedFiles }} files
+            ({{ (deepAuditResult.durationMs / 1000).toFixed(1) }}s)
+            <span *ngIf="deepAuditResult.cancelled" class="deep-audit-cancelled-badge">cancelled</span>
+          </span>
+          <span *ngIf="deepAuditLoading" class="accordion-meta">
+            {{ deepAuditProgress?.current || 0 }}/{{ deepAuditProgress?.total || 0 }} files &middot;
+            {{ activeFindings.length }} findings so far...
+          </span>
+        </div>
+
+        <div *ngIf="deepAuditResultsExpanded" class="accordion-body">
+          <!-- No findings (only after completion) -->
+          <div *ngIf="deepAuditResult && deepAuditResult.findings.length === 0 && !deepAuditLoading" class="deep-audit-clean">
+            All files follow best practices. No issues found.
+          </div>
+
+          <!-- Per-file list with state indicators -->
+          <div *ngFor="let filePath of deepAuditFiles" class="deep-file-group">
+
+            <!-- File header with per-file state -->
+            <div class="deep-file-header"
+                 [class.deep-file-pending]="getDeepFileState(filePath) === 'pending'"
+                 [class.deep-file-analyzing]="getDeepFileState(filePath) === 'analyzing'"
+                 [class.deep-file-done]="getDeepFileState(filePath) === 'done'"
+                 (click)="getDeepFileState(filePath) === 'done' ? toggleDeepFile(filePath) : null">
+              <!-- State indicator -->
+              <span *ngIf="getDeepFileState(filePath) === 'pending'" class="deep-file-state-icon pending-icon">&#9711;</span>
+              <span *ngIf="getDeepFileState(filePath) === 'analyzing'" class="deep-file-state-icon"><span class="spinner spinner-inline"></span></span>
+              <span *ngIf="getDeepFileState(filePath) === 'done'" class="file-expand-icon">{{ expandedDeepFiles.has(filePath) ? '&#9660;' : '&#9654;' }}</span>
+
+              <span class="file-name">{{ getDeepFileDisplayName(filePath) }}</span>
+
+              <!-- Status labels -->
+              <span *ngIf="getDeepFileState(filePath) === 'analyzing'" class="deep-file-status-label analyzing-label">Analyzing...</span>
+              <span *ngIf="getDeepFileState(filePath) === 'done' && getDeepFindingsForFile(filePath).length > 0"
+                    class="deep-finding-count">{{ getDeepFindingsForFile(filePath).length }} findings</span>
+              <span *ngIf="getDeepFileState(filePath) === 'done' && getDeepFindingsForFile(filePath).length === 0"
+                    class="deep-file-check">&#10003; No issues</span>
+
+              <button *ngIf="getDeepFileState(filePath) === 'done' && hasFixPrompt(filePath)"
+                      class="copy-fix-prompt-btn"
+                      (click)="copyDeepFixPrompt(filePath); $event.stopPropagation()"
+                      title="Copy a prompt to fix all findings for this file">
+                {{ copiedDeepFixFile === filePath ? 'Copied!' : 'Copy Fix Prompt' }}
+              </button>
+            </div>
+
+            <!-- Expanded findings (only for completed files) -->
+            <div *ngIf="getDeepFileState(filePath) === 'done' && expandedDeepFiles.has(filePath)" class="deep-file-findings">
+              <div *ngIf="getDeepFindingsForFile(filePath).length === 0" class="deep-file-clean">
+                All checks passed — no issues found.
+              </div>
+              <div *ngFor="let finding of getDeepFindingsForFile(filePath); let i = index"
+                   class="deep-finding-card"
+                   [ngClass]="severityClass(finding.severity)">
+                <div class="deep-finding-header">
+                  <span class="deep-finding-severity">{{ finding.severity }}</span>
+                  <span class="deep-finding-title">{{ finding.title }}</span>
+                </div>
+                <div class="deep-finding-reasoning"
+                     (click)="toggleDeepReasoning(deepFindingKey(filePath, i))"
+                     [class.expanded]="expandedDeepReasonings.has(deepFindingKey(filePath, i))">
+                  <span class="reasoning-toggle">{{ expandedDeepReasonings.has(deepFindingKey(filePath, i)) ? '&#9662;' : '&#9656;' }} Reasoning</span>
+                  <p *ngIf="expandedDeepReasonings.has(deepFindingKey(filePath, i))" class="reasoning-text">{{ finding.reasoning }}</p>
+                </div>
+                <div *ngIf="finding.fixSuggestion" class="deep-finding-fix">
+                  <span class="fix-label">Fix:</span> {{ finding.fixSuggestion }}
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
     </div>
 
+  </div>
+
+  <!-- Deep Audit confirmation dialog -->
+  <div *ngIf="showDeepAuditConfirm" class="confirm-overlay" (click)="showDeepAuditConfirm = false">
+    <div class="confirm-dialog" (click)="$event.stopPropagation()">
+      <div class="confirm-title">Start Deep Audit?</div>
+      <div class="confirm-body">
+        Deep Audit runs <strong>Claude CLI</strong> (<code>claude -p</code>) for each configuration file in the project.
+        This consumes tokens from your Claude subscription.
+        <div class="confirm-cost">
+          Estimated cost: ~$0.01 per file (Haiku)
+        </div>
+      </div>
+      <div class="confirm-actions">
+        <button class="confirm-cancel" (click)="showDeepAuditConfirm = false">Cancel</button>
+        <button class="confirm-start" (click)="showDeepAuditConfirm = false; startDeepAudit()">Start</button>
+      </div>
+    </div>
   </div>
 
 </div>

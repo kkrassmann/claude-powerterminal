@@ -23,6 +23,7 @@ import { parseGitStatus } from '../utils/git-status-parser';
 import { IPC_CHANNELS } from '../../src/shared/ipc-channels';
 import { analyzeAllSessions, computeSessionScore } from '../analysis/log-analyzer';
 import { discoverClaudeProjects, runProjectAudit } from '../analysis/audit-engine';
+import { runDeepAudit, cancelDeepAudit } from '../analysis/deep-audit-engine';
 import { getTrends, HistoryEntry } from '../analysis/score-history';
 import { getAngularBuildDir } from '../utils/paths';
 import { exportAsJsonl } from '../utils/log-service';
@@ -536,6 +537,43 @@ export function startStaticServer(port: number): http.Server {
         res.writeHead(500, corsHeaders);
         res.end(JSON.stringify({ error: String(err) }));
       }
+      return;
+    }
+
+    // GET /api/deep-audit/run?path=<encoded> - Run LLM-based deep audit with SSE progress
+    if (req.method === 'GET' && pathname === '/api/deep-audit/run') {
+      const projectPath = url.searchParams.get('path') ?? '';
+      if (!projectPath) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ error: 'path parameter required' }));
+        return;
+      }
+
+      // SSE headers for streaming progress
+      res.writeHead(200, {
+        'Access-Control-Allow-Origin': '*',
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+      });
+
+      try {
+        const result = await runDeepAudit(projectPath, (progress) => {
+          res.write(`event: progress\ndata: ${JSON.stringify(progress)}\n\n`);
+        });
+        res.write(`event: result\ndata: ${JSON.stringify(result)}\n\n`);
+      } catch (err) {
+        res.write(`event: error\ndata: ${JSON.stringify({ error: String(err) })}\n\n`);
+      }
+      res.end();
+      return;
+    }
+
+    // POST /api/deep-audit/cancel - Cancel a running deep audit
+    if (req.method === 'POST' && pathname === '/api/deep-audit/cancel') {
+      const cancelled = cancelDeepAudit();
+      res.writeHead(200, corsHeaders);
+      res.end(JSON.stringify({ cancelled }));
       return;
     }
 

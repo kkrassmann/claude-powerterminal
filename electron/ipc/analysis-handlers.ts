@@ -6,12 +6,14 @@
  * and score trend tracking across sessions.
  */
 
-import { ipcMain } from 'electron';
+import { ipcMain, BrowserWindow } from 'electron';
 import { IPC_CHANNELS } from '../../src/shared/ipc-channels';
 import { analyzeAllSessions, computeSessionScore } from '../analysis/log-analyzer';
 import { appendScoreHistory, getTrends } from '../analysis/score-history';
 import { discoverClaudeProjects, runProjectAudit } from '../analysis/audit-engine';
+import { runDeepAudit, cancelDeepAudit } from '../analysis/deep-audit-engine';
 import type { SessionAnalysis, SessionScoreDetail } from '../../src/shared/analysis-types';
+import type { DeepAuditResult } from '../../src/shared/audit-types';
 
 // Per-session detail cache with 5-minute TTL
 // Avoids re-parsing when user opens multiple session details in sequence
@@ -109,6 +111,23 @@ export function registerAnalysisHandlers(): void {
   // Handler 6: audit:run - Run heuristic audit for a given project path
   ipcMain.handle(IPC_CHANNELS.AUDIT_RUN, async (_event, projectPath: string) => {
     return runProjectAudit(projectPath);
+  });
+
+  // Handler 7: deep-audit:run - Run LLM-based deep audit for a project
+  ipcMain.handle(IPC_CHANNELS.DEEP_AUDIT_RUN, async (event, projectPath: string): Promise<DeepAuditResult> => {
+    const sender = event.sender;
+    const window = BrowserWindow.fromWebContents(sender);
+
+    return runDeepAudit(projectPath, (progress) => {
+      if (window && !window.isDestroyed()) {
+        sender.send(IPC_CHANNELS.DEEP_AUDIT_PROGRESS, progress);
+      }
+    });
+  });
+
+  // Handler 8: deep-audit:cancel - Cancel a running deep audit
+  ipcMain.handle(IPC_CHANNELS.DEEP_AUDIT_CANCEL, async (): Promise<boolean> => {
+    return cancelDeepAudit();
   });
 
   console.log('[Analysis Handlers] All analysis IPC handlers registered successfully');

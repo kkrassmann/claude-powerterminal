@@ -51,6 +51,11 @@ export const IPC_CHANNELS = {
   TEMPLATE_SAVE: 'template:save',
   TEMPLATE_DELETE: 'template:delete',
 
+  // Deep audit channels (LLM-based content analysis)
+  DEEP_AUDIT_RUN: 'deep-audit:run',
+  DEEP_AUDIT_PROGRESS: 'deep-audit:progress',
+  DEEP_AUDIT_CANCEL: 'deep-audit:cancel',
+
   // Git worktree channels
   WORKTREE_LIST: 'worktree:list',
   WORKTREE_CREATE: 'worktree:create',
