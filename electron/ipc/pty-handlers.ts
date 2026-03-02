@@ -94,14 +94,13 @@ export function registerPtyHandlers(): void {
         return { success: false, error: `Directory does not exist: ${resolvedCwd}` };
       }
 
-      // Prevent duplicate sessions in the same directory (causes .claude.json corruption)
-      // Check 1: Our own managed sessions
+      // Warn about duplicate sessions in the same directory (multiple sessions use
+      // separate --session-id flags, so .claude.json corruption is not a concern)
       for (const [existingId] of ptyProcesses) {
         if (existingId !== sessionId) {
           const existingSession = getSessionFromDisk(existingId);
           if (existingSession && path.resolve(existingSession.workingDirectory) === resolvedCwd) {
-            logWarn('PTY', `Blocked: directory ${resolvedCwd} already has active session ${existingId}`, sessionId);
-            return { success: false, error: `Directory already has an active session. Only one Claude session per directory is allowed.` };
+            logWarn('PTY', `Directory ${resolvedCwd} already has active session ${existingId} — spawning anyway`, sessionId);
           }
         }
       }

@@ -77,6 +77,22 @@ Monitor from any device on your network. Open `http://<your-ip>:9801` on your ph
 
 <img width="150" alt="Mobile LAN access" src="https://github.com/user-attachments/assets/0263331b-7e11-4fd3-b2fd-c7ab4b4fddb1" />
 
+### Terminal Grouping & Layout Presets
+
+Organize sessions into named groups. Apply layout presets (2-column, 3-column, focus mode) per group. Groups persist across restarts.
+
+### Session Templates
+
+Save reusable session configurations &mdash; working directory, CLI flags, initial prompt &mdash; and spawn new sessions from templates with one click.
+
+### Git Worktree Manager
+
+Create, list, and delete Git worktrees directly from the session creation dialog. Spin up isolated worktrees for parallel feature work without leaving the app.
+
+### Project Configuration Audit
+
+A built-in audit engine checks your project setup against a rule checklist and scores configuration quality. Deep audit mode uses LLM-based per-file analysis for detailed findings with collapsible accordion results.
+
 ### Git Context
 
 Each tile header shows the current branch and file change counts (added/modified/deleted), updated every 30 seconds.

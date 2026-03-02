@@ -153,15 +153,14 @@ export function startStaticServer(port: number): http.Server {
             return;
           }
 
-          // Check for duplicate cwd (multiple CLI instances in same dir corrupt .claude.json)
+          // Log if another session already runs in this directory (not blocking —
+          // Claude CLI sessions are isolated via --session-id)
           const activePtys = getPtyProcesses();
           const savedSessions = loadSessionsFromDisk();
           for (const [existingId] of activePtys) {
             const existing = savedSessions.find(s => s.sessionId === existingId);
             if (existing && path.resolve(existing.workingDirectory) === resolvedCwd) {
-              res.writeHead(409, corsHeaders);
-              res.end(JSON.stringify({ error: 'Directory already has an active session' }));
-              return;
+              console.log(`[HTTP] Directory ${resolvedCwd} already has session ${existingId} — spawning anyway`);
             }
           }
 

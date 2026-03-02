@@ -225,12 +225,6 @@
         <button class="audit-btn" (click)="startAudit()" [disabled]="auditLoading || !selectedProject">
           {{ auditLoading ? 'Analyzing...' : 'Run Audit' }}
         </button>
-        <button *ngIf="!deepAuditLoading" class="deep-audit-btn" (click)="confirmDeepAudit()" [disabled]="!selectedProject">
-          Deep Audit
-        </button>
-        <button *ngIf="deepAuditLoading" class="deep-audit-cancel-btn" (click)="cancelDeepAudit()">
-          Cancel Audit
-        </button>
       </div>
 
       <!-- Error state -->
@@ -312,121 +306,8 @@
         </div>
       </div>
 
-      <!-- ===== DEEP AUDIT SECTION ===== -->
-
-      <!-- Deep audit loading: before file list arrives -->
-      <div *ngIf="deepAuditLoading && deepAuditFiles.length === 0" class="deep-audit-loading">
-        <span class="spinner"></span>
-        <span>{{ deepAuditProgress?.phase || 'Starting deep audit...' }}</span>
-      </div>
-
-      <!-- Deep audit error -->
-      <div *ngIf="deepAuditError" class="audit-error">
-        Deep Audit Error: {{ deepAuditError }}
-      </div>
-
-      <!-- Deep audit results (collapsible accordion) -->
-      <div *ngIf="deepAuditFiles.length > 0 || (deepAuditResult && !deepAuditLoading)" class="deep-audit-results">
-
-        <div class="accordion-header accordion-header-deep" (click)="deepAuditResultsExpanded = !deepAuditResultsExpanded">
-          <span class="accordion-toggle">{{ deepAuditResultsExpanded ? '&#9660;' : '&#9654;' }}</span>
-          <span class="accordion-title">Deep Audit</span>
-          <span *ngIf="deepAuditResult && !deepAuditLoading" class="accordion-meta">
-            {{ deepAuditResult.findings.length }} findings in {{ deepAuditResult.analyzedFiles }} files
-            ({{ (deepAuditResult.durationMs / 1000).toFixed(1) }}s)
-            <span *ngIf="deepAuditResult.cancelled" class="deep-audit-cancelled-badge">cancelled</span>
-          </span>
-          <span *ngIf="deepAuditLoading" class="accordion-meta">
-            {{ deepAuditProgress?.current || 0 }}/{{ deepAuditProgress?.total || 0 }} files &middot;
-            {{ activeFindings.length }} findings so far...
-          </span>
-        </div>
-
-        <div *ngIf="deepAuditResultsExpanded" class="accordion-body">
-          <!-- No findings (only after completion) -->
-          <div *ngIf="deepAuditResult && deepAuditResult.findings.length === 0 && !deepAuditLoading" class="deep-audit-clean">
-            All files follow best practices. No issues found.
-          </div>
-
-          <!-- Per-file list with state indicators -->
-          <div *ngFor="let filePath of deepAuditFiles" class="deep-file-group">
-
-            <!-- File header with per-file state -->
-            <div class="deep-file-header"
-                 [class.deep-file-pending]="getDeepFileState(filePath) === 'pending'"
-                 [class.deep-file-analyzing]="getDeepFileState(filePath) === 'analyzing'"
-                 [class.deep-file-done]="getDeepFileState(filePath) === 'done'"
-                 (click)="getDeepFileState(filePath) === 'done' ? toggleDeepFile(filePath) : null">
-              <!-- State indicator -->
-              <span *ngIf="getDeepFileState(filePath) === 'pending'" class="deep-file-state-icon pending-icon">&#9711;</span>
-              <span *ngIf="getDeepFileState(filePath) === 'analyzing'" class="deep-file-state-icon"><span class="spinner spinner-inline"></span></span>
-              <span *ngIf="getDeepFileState(filePath) === 'done'" class="file-expand-icon">{{ expandedDeepFiles.has(filePath) ? '&#9660;' : '&#9654;' }}</span>
-
-              <span class="file-name">{{ getDeepFileDisplayName(filePath) }}</span>
-
-              <!-- Status labels -->
-              <span *ngIf="getDeepFileState(filePath) === 'analyzing'" class="deep-file-status-label analyzing-label">Analyzing...</span>
-              <span *ngIf="getDeepFileState(filePath) === 'done' && getDeepFindingsForFile(filePath).length > 0"
-                    class="deep-finding-count">{{ getDeepFindingsForFile(filePath).length }} findings</span>
-              <span *ngIf="getDeepFileState(filePath) === 'done' && getDeepFindingsForFile(filePath).length === 0"
-                    class="deep-file-check">&#10003; No issues</span>
-
-              <button *ngIf="getDeepFileState(filePath) === 'done' && hasFixPrompt(filePath)"
-                      class="copy-fix-prompt-btn"
-                      (click)="copyDeepFixPrompt(filePath); $event.stopPropagation()"
-                      title="Copy a prompt to fix all findings for this file">
-                {{ copiedDeepFixFile === filePath ? 'Copied!' : 'Copy Fix Prompt' }}
-              </button>
-            </div>
-
-            <!-- Expanded findings (only for completed files) -->
-            <div *ngIf="getDeepFileState(filePath) === 'done' && expandedDeepFiles.has(filePath)" class="deep-file-findings">
-              <div *ngIf="getDeepFindingsForFile(filePath).length === 0" class="deep-file-clean">
-                All checks passed — no issues found.
-              </div>
-              <div *ngFor="let finding of getDeepFindingsForFile(filePath); let i = index"
-                   class="deep-finding-card"
-                   [ngClass]="severityClass(finding.severity)">
-                <div class="deep-finding-header">
-                  <span class="deep-finding-severity">{{ finding.severity }}</span>
-                  <span class="deep-finding-title">{{ finding.title }}</span>
-                </div>
-                <div class="deep-finding-reasoning"
-                     (click)="toggleDeepReasoning(deepFindingKey(filePath, i))"
-                     [class.expanded]="expandedDeepReasonings.has(deepFindingKey(filePath, i))">
-                  <span class="reasoning-toggle">{{ expandedDeepReasonings.has(deepFindingKey(filePath, i)) ? '&#9662;' : '&#9656;' }} Reasoning</span>
-                  <p *ngIf="expandedDeepReasonings.has(deepFindingKey(filePath, i))" class="reasoning-text">{{ finding.reasoning }}</p>
-                </div>
-                <div *ngIf="finding.fixSuggestion" class="deep-finding-fix">
-                  <span class="fix-label">Fix:</span> {{ finding.fixSuggestion }}
-                </div>
-              </div>
-            </div>
-
-          </div>
-        </div>
-      </div>
-
     </div>
 
-  </div>
-
-  <!-- Deep Audit confirmation dialog -->
-  <div *ngIf="showDeepAuditConfirm" class="confirm-overlay" (click)="showDeepAuditConfirm = false">
-    <div class="confirm-dialog" (click)="$event.stopPropagation()">
-      <div class="confirm-title">Start Deep Audit?</div>
-      <div class="confirm-body">
-        Deep Audit runs <strong>Claude CLI</strong> (<code>claude -p</code>) for each configuration file in the project.
-        This consumes tokens from your Claude subscription.
-        <div class="confirm-cost">
-          Estimated cost: ~$0.01 per file (Haiku)
-        </div>
-      </div>
-      <div class="confirm-actions">
-        <button class="confirm-cancel" (click)="showDeepAuditConfirm = false">Cancel</button>
-        <button class="confirm-start" (click)="showDeepAuditConfirm = false; startDeepAudit()">Start</button>
-      </div>
-    </div>
   </div>
 
 </div>
