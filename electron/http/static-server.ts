@@ -910,6 +910,57 @@ export function startStaticServer(port: number): http.Server {
       return;
     }
 
+    // POST /api/review/apply-patch - Apply a patch directly (forward, used for undo)
+    if (req.method === 'POST' && pathname === '/api/review/apply-patch') {
+      let body = '';
+      req.on('data', (chunk: string) => body += chunk);
+      req.on('end', async () => {
+        try {
+          const { cwd, patchContent } = JSON.parse(body);
+
+          if (!cwd || !patchContent) {
+            res.writeHead(400, corsHeaders);
+            res.end(JSON.stringify({ success: false, error: 'Missing cwd or patchContent' }));
+            return;
+          }
+
+          const result = await new Promise<{ success: boolean; error?: string }>((resolve) => {
+            const proc = spawn(
+              'git',
+              ['apply', '--unidiff-zero'],
+              { cwd, windowsHide: true }
+            );
+
+            let stderr = '';
+            proc.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString(); });
+
+            proc.on('close', (code: number | null) => {
+              if (code === 0) {
+                resolve({ success: true });
+              } else {
+                resolve({ success: false, error: stderr.trim() || `Exit code ${code}` });
+              }
+            });
+
+            proc.on('error', (err: Error) => {
+              resolve({ success: false, error: err.message });
+            });
+
+            proc.stdin.write(patchContent);
+            proc.stdin.end();
+          });
+
+          res.writeHead(200, corsHeaders);
+          res.end(JSON.stringify(result));
+        } catch (error: any) {
+          console.error('[HTTP] POST /api/review/apply-patch error:', error.message);
+          res.writeHead(500, corsHeaders);
+          res.end(JSON.stringify({ success: false, error: String(error) }));
+        }
+      });
+      return;
+    }
+
     // Default to index.html for root requests
     let filePath = req.url === '/' ? '/index.html' : req.url || '/index.html';
 

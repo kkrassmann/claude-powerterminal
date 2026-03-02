@@ -245,6 +245,255 @@ app-diff-viewer {
   border-bottom: 1px solid #313244;
 }
 
+/* -------------------------------------------------------------------------
+ * File-level action bar (Reviewed toggle)
+ * ---------------------------------------------------------------------- */
+
+.diff-file-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: #181825;
+  border-bottom: 1px solid #313244;
+  flex-shrink: 0;
+}
+
+.reviewed-toggle {
+  background: #313244;
+  border: 1px solid #45475a;
+  color: #cdd6f4;
+  border-radius: 5px;
+  padding: 3px 10px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+  font-family: inherit;
+}
+
+.reviewed-toggle:hover {
+  background: #45475a;
+}
+
+.reviewed-toggle.active {
+  background: rgba(166, 227, 161, 0.15);
+  border-color: #a6e3a1;
+  color: #a6e3a1;
+}
+
+/* -------------------------------------------------------------------------
+ * Per-hunk and file-level Accept/Reject controls
+ * Injected via DOM manipulation into diff2html rendered output
+ * ---------------------------------------------------------------------- */
+
+.hunk-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: #11111b; /* crust */
+  border-top: 1px solid #313244;
+  flex-wrap: wrap;
+}
+
+.hunk-controls.file-controls {
+  background: rgba(30, 30, 46, 0.8);
+  border-top: none;
+  border-bottom: 1px solid #313244;
+  padding: 5px 12px;
+}
+
+.hunk-label {
+  font-size: 0.7rem;
+  color: #6c7086;
+  font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  margin-right: 2px;
+}
+
+.hunk-btn {
+  background: #313244;
+  border: 1px solid #45475a;
+  border-radius: 4px;
+  padding: 2px 9px;
+  font-size: 0.7rem;
+  cursor: pointer;
+  font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  transition: background 0.15s ease, color 0.15s ease;
+  color: #cdd6f4;
+}
+
+.hunk-btn:hover:not(:disabled) {
+  background: #45475a;
+}
+
+.hunk-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.hunk-btn.accept-btn {
+  color: #a6e3a1;
+  border-color: rgba(166, 227, 161, 0.3);
+}
+
+.hunk-btn.accept-btn:hover:not(:disabled) {
+  background: rgba(166, 227, 161, 0.15);
+}
+
+.hunk-btn.accept-btn.active {
+  background: rgba(166, 227, 161, 0.15);
+  border-color: #a6e3a1;
+}
+
+.hunk-btn.reject-btn {
+  color: #f38ba8;
+  border-color: rgba(243, 139, 168, 0.3);
+}
+
+.hunk-btn.reject-btn:hover:not(:disabled) {
+  background: rgba(243, 139, 168, 0.15);
+}
+
+/* -------------------------------------------------------------------------
+ * Undo toast — appears after a hunk reject, fixed at bottom of diff area
+ * ---------------------------------------------------------------------- */
+
+.undo-toast {
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: #313244;
+  border-left: 3px solid #f38ba8; /* red */
+  border-radius: 0 6px 6px 0;
+  padding: 8px 14px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  z-index: 10;
+  min-width: 220px;
+  animation: toast-slide-up 0.2s ease;
+}
+
+@keyframes toast-slide-up {
+  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.undo-message {
+  color: #cdd6f4;
+  font-size: 0.78rem;
+  font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  flex: 1;
+}
+
+.undo-btn {
+  background: #89b4fa;
+  border: none;
+  color: #1e1e2e;
+  border-radius: 4px;
+  padding: 3px 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s ease;
+}
+
+.undo-btn:hover {
+  background: #b4d0ff;
+}
+
+.undo-dismiss {
+  background: none;
+  border: none;
+  color: #6c7086;
+  cursor: pointer;
+  font-size: 0.75rem;
+  padding: 2px 4px;
+  border-radius: 3px;
+  transition: color 0.15s;
+}
+
+.undo-dismiss:hover {
+  color: #cdd6f4;
+}
+
+/* -------------------------------------------------------------------------
+ * Inline comment input row (injected into diff2html table)
+ * ---------------------------------------------------------------------- */
+
+.inline-comment-row td {
+  background: #181825;
+  border-top: 1px solid #89b4fa;
+  border-bottom: 1px solid #89b4fa;
+  padding: 0;
+}
+
+.inline-comment-form {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+}
+
+.inline-comment-input {
+  flex: 1;
+  background: #1e1e2e;
+  border: 1px solid #45475a;
+  border-radius: 4px;
+  color: #cdd6f4;
+  padding: 4px 8px;
+  font-size: 0.78rem;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  outline: none;
+}
+
+.inline-comment-input:focus {
+  border-color: #89b4fa;
+}
+
+.inline-comment-add {
+  background: #89b4fa;
+  border: none;
+  color: #1e1e2e;
+  border-radius: 4px;
+  padding: 4px 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.inline-comment-add:hover {
+  background: #b4d0ff;
+}
+
+.inline-comment-cancel {
+  background: #313244;
+  border: 1px solid #45475a;
+  color: #6c7086;
+  border-radius: 4px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.inline-comment-cancel:hover {
+  background: #45475a;
+  color: #cdd6f4;
+}
+
+/* -------------------------------------------------------------------------
+ * Position wrapper for undo toast (relative parent)
+ * ---------------------------------------------------------------------- */
+
+.diff-viewer-wrapper {
+  position: relative;
+}
+
 /* Scrollbar for diff container */
 .diff-container::-webkit-scrollbar {
   width: 7px;

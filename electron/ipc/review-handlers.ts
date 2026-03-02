@@ -128,5 +128,46 @@ export function registerReviewHandlers(): void {
     }
   );
 
+  // Handler 4: review:apply-patch
+  // Applies a patch directly (forward, not reverse) — used for undo operations.
+  // MUST use spawn + stdin because execFile does not support stdin input.
+  ipcMain.handle(
+    IPC_CHANNELS.REVIEW_APPLY_PATCH,
+    (_event, cwd: string, patchContent: string): Promise<{ success: boolean; error?: string }> => {
+      return new Promise((resolve) => {
+        const proc = spawn(
+          'git',
+          ['apply', '--unidiff-zero'],
+          {
+            cwd,
+            windowsHide: true,
+          }
+        );
+
+        let stderr = '';
+        proc.stderr.on('data', (chunk: Buffer) => {
+          stderr += chunk.toString();
+        });
+
+        proc.on('close', (code: number | null) => {
+          if (code === 0) {
+            resolve({ success: true });
+          } else {
+            console.warn(`[Review Handlers] review:apply-patch failed (exit ${code}): ${stderr}`);
+            resolve({ success: false, error: stderr.trim() || `Exit code ${code}` });
+          }
+        });
+
+        proc.on('error', (err: Error) => {
+          console.error('[Review Handlers] review:apply-patch spawn error:', err.message);
+          resolve({ success: false, error: err.message });
+        });
+
+        proc.stdin.write(patchContent);
+        proc.stdin.end();
+      });
+    }
+  );
+
   console.log('[Review Handlers] All code review IPC handlers registered successfully');
 }

@@ -1,0 +1,71 @@
+<div class="comment-sidebar">
+
+  <!-- Header -->
+  <div class="sidebar-header">
+    <span class="sidebar-title">Comments</span>
+    <span class="sidebar-count" *ngIf="comments.length > 0">{{ comments.length }}</span>
+  </div>
+
+  <!-- Empty state -->
+  <div class="sidebar-empty" *ngIf="comments.length === 0">
+    <p>Click a line number in the diff to add a comment.</p>
+  </div>
+
+  <!-- Comment list -->
+  <div class="comment-list" *ngIf="comments.length > 0">
+    <div
+      class="comment-card"
+      [class.resolved]="comment.resolved"
+      *ngFor="let comment of comments">
+
+      <!-- Comment header: line number + resolved checkbox -->
+      <div class="comment-card-header">
+        <button
+          class="line-number-btn"
+          (click)="onLineClick(comment.line)"
+          [title]="'Jump to line ' + comment.line">
+          Line {{ comment.line }}
+        </button>
+        <label class="resolved-label" [title]="comment.resolved ? 'Mark unresolved' : 'Mark resolved'">
+          <input
+            type="checkbox"
+            [checked]="comment.resolved"
+            (change)="onToggleResolved(comment)" />
+          <span>Done</span>
+        </label>
+      </div>
+
+      <!-- Comment text -->
+      <p class="comment-text">{{ comment.text }}</p>
+
+      <!-- Actions -->
+      <div class="comment-actions">
+        <button
+          class="send-now-btn"
+          (click)="onSendNow(comment)"
+          [disabled]="comment.resolved"
+          title="Send this comment to the terminal">
+          &#x27A4; Send Now
+        </button>
+        <button
+          class="delete-btn"
+          (click)="onDelete(comment)"
+          title="Delete comment">
+          &#x2715;
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Send Summary footer -->
+  <div class="sidebar-footer" *ngIf="comments.length > 0">
+    <button
+      class="send-summary-btn"
+      (click)="onSendSummary()"
+      [disabled]="unresolvedCount === 0"
+      title="Send all unresolved comments as a structured prompt">
+      Send Summary ({{ unresolvedCount }} unresolved)
+    </button>
+  </div>
+
+</div>

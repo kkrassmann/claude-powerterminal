@@ -127,6 +127,40 @@ export class CodeReviewService {
     }
   }
 
+  /**
+   * Apply a patch directly (forward apply, not reverse).
+   * Used for undo operations: re-applying a rejected hunk's patch.
+   *
+   * @param cwd - Working directory of the session
+   * @param patchContent - The raw unified diff to apply
+   * @returns Success/error result
+   */
+  async applyPatch(cwd: string, patchContent: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      if (window.electronAPI) {
+        return (await window.electronAPI.invoke(
+          IPC_CHANNELS.REVIEW_APPLY_PATCH,
+          cwd,
+          patchContent
+        )) as { success: boolean; error?: string };
+      } else {
+        const resp = await fetch(
+          `http://${window.location.hostname}:9801/api/review/apply-patch`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ cwd, patchContent }),
+          }
+        );
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        return await resp.json() as { success: boolean; error?: string };
+      }
+    } catch (error: any) {
+      console.warn('[CodeReviewService] applyPatch failed:', error.message);
+      return { success: false, error: error.message };
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Comment state management
   // ---------------------------------------------------------------------------

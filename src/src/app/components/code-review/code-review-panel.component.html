@@ -38,6 +38,15 @@
           title="Toggle reviewed status">
           {{ reviewedIndices.has(selectedFileIndex) ? '&#x2713; Reviewed' : 'Mark Reviewed' }}
         </button>
+
+        <button
+          class="ctrl-btn comments-btn"
+          (click)="toggleCommentSidebar()"
+          [class.active]="showCommentSidebar"
+          [title]="showCommentSidebar ? 'Hide comments' : 'Show comments'"
+          *ngIf="commentsForCurrentFile.length > 0">
+          &#x1F4AC; {{ commentsForCurrentFile.length }}
+        </button>
       </div>
 
       <div class="header-spacer"></div>
@@ -60,7 +69,7 @@
         <button class="ctrl-btn" (click)="close.emit()">Close</button>
       </div>
 
-      <!-- Content: file tree + diff viewer -->
+      <!-- Content: file tree + diff viewer + comment sidebar -->
       <ng-container *ngIf="!loading && !error">
         <app-file-tree
           [files]="files"
@@ -72,8 +81,26 @@
         <app-diff-viewer
           [file]="selectedFile"
           [outputFormat]="outputFormat"
-          [rawDiff]="rawDiff">
+          [rawDiff]="rawDiff"
+          [sessionId]="sessionId"
+          [cwd]="cwd"
+          (hunkRejected)="onHunkRejected()"
+          (fileRejected)="onFileRejected()"
+          (fileReviewed)="onFileReviewedFromViewer($event)"
+          (commentSubmitted)="onCommentSubmitted($event)">
         </app-diff-viewer>
+
+        <!-- Comment sidebar: shown when comments exist or sidebar is explicitly toggled open -->
+        <app-comment-sidebar
+          *ngIf="showCommentSidebar || commentsForCurrentFile.length > 0"
+          [sessionId]="sessionId"
+          [filename]="currentFilename"
+          [comments]="commentsForCurrentFile"
+          (sendNow)="onSendNow($event)"
+          (sendSummary)="onSendSummary($event)"
+          (commentResolved)="onCommentResolved($event)"
+          (commentDeleted)="onCommentDeleted($event)">
+        </app-comment-sidebar>
       </ng-container>
 
     </div>

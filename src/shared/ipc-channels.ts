@@ -65,6 +65,7 @@ export const IPC_CHANNELS = {
   REVIEW_DIFF: 'review:diff',
   REVIEW_REJECT_HUNK: 'review:reject-hunk',
   REVIEW_REJECT_FILE: 'review:reject-file',
+  REVIEW_APPLY_PATCH: 'review:apply-patch',
 } as const;
 
 export type IPCChannel = typeof IPC_CHANNELS[keyof typeof IPC_CHANNELS];

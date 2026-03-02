@@ -1,5 +1,16 @@
 <div class="diff-viewer-wrapper">
 
+  <!-- File-level action bar: Reviewed toggle -->
+  <div class="diff-file-actions" *ngIf="file">
+    <button
+      class="reviewed-toggle"
+      [class.active]="isReviewed"
+      (click)="onToggleReviewed()"
+      title="Toggle reviewed status for this file">
+      {{ isReviewed ? '&#x2713; Reviewed' : 'Mark Reviewed' }}
+    </button>
+  </div>
+
   <!-- Added file: collapsed state -->
   <div
     *ngIf="file && (file.oldName === '/dev/null' || file.oldName === 'dev/null') && !isAddedFileExpanded"
@@ -24,6 +35,13 @@
   <!-- Empty state when no file is selected -->
   <div *ngIf="!file" class="diff-empty-state">
     <p>Select a file from the tree to view its diff</p>
+  </div>
+
+  <!-- Undo toast: appears after a hunk reject, auto-dismisses after 10s -->
+  <div class="undo-toast" *ngIf="undoVisible">
+    <span class="undo-message">{{ undoMessage }}</span>
+    <button class="undo-btn" (click)="onUndo()">Undo</button>
+    <button class="undo-dismiss" (click)="undoVisible = false">&#x2715;</button>
   </div>
 
 </div>

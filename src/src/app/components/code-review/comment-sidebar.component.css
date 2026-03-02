@@ -1,0 +1,233 @@
+/**
+ * Comment sidebar styles — Catppuccin Mocha dark theme.
+ * 300px fixed-width panel attached to the right of the diff viewer.
+ */
+
+:host {
+  display: flex;
+  flex-direction: column;
+  width: 300px;
+  min-width: 300px;
+  max-width: 300px;
+  background: #181825; /* mantle */
+  border-left: 1px solid #313244;
+  overflow: hidden;
+  font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.8rem;
+}
+
+/* Header */
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid #313244;
+  flex-shrink: 0;
+}
+
+.sidebar-title {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #cdd6f4;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.sidebar-count {
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: rgba(137, 180, 250, 0.2);
+  color: #89b4fa;
+  border-radius: 10px;
+  padding: 1px 7px;
+  min-width: 20px;
+  text-align: center;
+}
+
+/* Empty state */
+.sidebar-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 14px;
+  text-align: center;
+}
+
+.sidebar-empty p {
+  color: #45475a;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  margin: 0;
+}
+
+/* Comment list */
+.comment-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px 0;
+}
+
+.comment-list::-webkit-scrollbar {
+  width: 5px;
+}
+
+.comment-list::-webkit-scrollbar-track {
+  background: #11111b;
+}
+
+.comment-list::-webkit-scrollbar-thumb {
+  background: #45475a;
+  border-radius: 3px;
+}
+
+/* Comment card */
+.comment-card {
+  margin: 4px 8px;
+  padding: 8px 10px;
+  background: #1e1e2e; /* base */
+  border-left: 3px solid #89b4fa; /* blue */
+  border-radius: 0 4px 4px 0;
+  transition: opacity 0.2s ease;
+}
+
+.comment-card.resolved {
+  opacity: 0.45;
+  border-left-color: #45475a;
+}
+
+/* Comment header: line number + resolved toggle */
+.comment-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.line-number-btn {
+  background: none;
+  border: none;
+  color: #89b4fa;
+  font-size: 0.72rem;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.line-number-btn:hover {
+  color: #b4d0ff;
+}
+
+.resolved-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  color: #6c7086;
+  font-size: 0.72rem;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.resolved-label input[type='checkbox'] {
+  width: 12px;
+  height: 12px;
+  accent-color: #a6e3a1;
+  cursor: pointer;
+}
+
+/* Comment text */
+.comment-text {
+  margin: 0 0 6px;
+  color: #cdd6f4;
+  font-size: 0.77rem;
+  line-height: 1.4;
+  word-break: break-word;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+.comment-card.resolved .comment-text {
+  text-decoration: line-through;
+  color: #6c7086;
+}
+
+/* Action buttons */
+.comment-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.send-now-btn {
+  background: rgba(137, 180, 250, 0.12);
+  border: 1px solid rgba(137, 180, 250, 0.3);
+  color: #89b4fa;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 0.7rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  flex: 1;
+}
+
+.send-now-btn:hover:not(:disabled) {
+  background: rgba(137, 180, 250, 0.22);
+}
+
+.send-now-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.delete-btn {
+  background: none;
+  border: none;
+  color: #6c7086;
+  cursor: pointer;
+  font-size: 0.78rem;
+  padding: 2px 4px;
+  border-radius: 3px;
+  line-height: 1;
+  transition: color 0.15s ease, background 0.15s ease;
+  flex-shrink: 0;
+}
+
+.delete-btn:hover {
+  color: #f38ba8;
+  background: rgba(243, 139, 168, 0.12);
+}
+
+/* Footer: Send Summary */
+.sidebar-footer {
+  border-top: 1px solid #313244;
+  padding: 8px;
+  flex-shrink: 0;
+}
+
+.send-summary-btn {
+  width: 100%;
+  background: rgba(166, 227, 161, 0.12);
+  border: 1px solid rgba(166, 227, 161, 0.35);
+  color: #a6e3a1;
+  border-radius: 5px;
+  padding: 6px 10px;
+  font-size: 0.75rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  text-align: center;
+}
+
+.send-summary-btn:hover:not(:disabled) {
+  background: rgba(166, 227, 161, 0.22);
+}
+
+.send-summary-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}

@@ -10,25 +10,33 @@ import { CommonModule } from '@angular/common';
 import { parse as parseDiff } from 'diff2html';
 import type { DiffFile } from 'diff2html/lib/types';
 import { CodeReviewService } from '../../services/code-review.service';
+import { ReviewComment } from '../../models/code-review.model';
 import { detectProjectType, sortFilesByLayer } from '../../models/code-review.model';
 import { FileTreeComponent } from './file-tree.component';
 import { DiffViewerComponent } from './diff-viewer.component';
+import { CommentSidebarComponent } from './comment-sidebar.component';
+import { IPC_CHANNELS } from '../../../../shared/ipc-channels';
+
+declare const window: Window & {
+  electronAPI?: { invoke: (channel: string, ...args: unknown[]) => Promise<unknown> };
+};
 
 /**
  * Fullscreen overlay for the local code review panel.
  *
- * Orchestrates the file tree and diff viewer:
+ * Orchestrates the file tree, diff viewer, and comment sidebar:
  * - Fetches the full git diff via CodeReviewService.fetchDiff()
  * - Parses with diff2html to get DiffFile[]
  * - Sorts files by architectural layer using detectProjectType() + sortFilesByLayer()
  * - Manages file selection and Prev/Next navigation
  * - Handles loading and error states
+ * - Comment management: add, resolve, delete, send to terminal
  * - Closes on Escape key or X button
  */
 @Component({
   selector: 'app-code-review-panel',
   standalone: true,
-  imports: [CommonModule, FileTreeComponent, DiffViewerComponent],
+  imports: [CommonModule, FileTreeComponent, DiffViewerComponent, CommentSidebarComponent],
   templateUrl: './code-review-panel.component.html',
   styleUrls: ['./code-review-panel.component.css'],
 })
@@ -58,9 +66,18 @@ export class CodeReviewPanelComponent implements OnInit {
   /** Set of file indices that have been reviewed */
   reviewedIndices = new Set<number>();
 
+  /** Whether the comment sidebar is shown */
+  showCommentSidebar = false;
+
   constructor(private codeReviewService: CodeReviewService) {}
 
   async ngOnInit(): Promise<void> {
+    await this.loadDiff();
+  }
+
+  private async loadDiff(): Promise<void> {
+    this.loading = true;
+    this.error = null;
     try {
       this.rawDiff = await this.codeReviewService.fetchDiff(this.cwd);
 
@@ -95,6 +112,17 @@ export class CodeReviewPanelComponent implements OnInit {
     return this.files[this.selectedFileIndex] ?? null;
   }
 
+  get currentFilename(): string {
+    const f = this.selectedFile;
+    if (!f) return '';
+    return f.newName !== '/dev/null' ? f.newName : f.oldName;
+  }
+
+  get commentsForCurrentFile(): ReviewComment[] {
+    if (!this.sessionId || !this.currentFilename) return [];
+    return this.codeReviewService.getCommentsForFile(this.sessionId, this.currentFilename);
+  }
+
   prevFile(): void {
     if (this.selectedFileIndex > 0) {
       this.selectedFileIndex--;
@@ -123,6 +151,115 @@ export class CodeReviewPanelComponent implements OnInit {
     }
     // Force change detection by replacing the set reference
     this.reviewedIndices = new Set(this.reviewedIndices);
+  }
+
+  toggleCommentSidebar(): void {
+    this.showCommentSidebar = !this.showCommentSidebar;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Diff viewer event handlers
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Handle hunk/file rejected — re-fetch diff so it stays in sync.
+   */
+  async onHunkRejected(): Promise<void> {
+    await this.loadDiff();
+  }
+
+  async onFileRejected(): Promise<void> {
+    await this.loadDiff();
+    // If the current file index is now out of bounds, reset to 0
+    if (this.selectedFileIndex >= this.files.length) {
+      this.selectedFileIndex = Math.max(0, this.files.length - 1);
+    }
+  }
+
+  /**
+   * Handle file reviewed event from diff viewer.
+   */
+  onFileReviewedFromViewer(event: { filename: string; reviewed: boolean }): void {
+    if (event.reviewed) {
+      this.reviewedIndices.add(this.selectedFileIndex);
+    } else {
+      this.reviewedIndices.delete(this.selectedFileIndex);
+    }
+    this.reviewedIndices = new Set(this.reviewedIndices);
+  }
+
+  /**
+   * Handle comment submitted from inline diff input.
+   * Adds to service, shows sidebar.
+   */
+  onCommentSubmitted(event: { line: number; text: string }): void {
+    if (!this.sessionId || !this.currentFilename) return;
+    this.codeReviewService.addComment(this.sessionId, this.currentFilename, event.line, event.text);
+    this.showCommentSidebar = true;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Comment sidebar event handlers
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Send a single comment as a prompt to the terminal.
+   */
+  async onSendNow(comment: ReviewComment): Promise<void> {
+    const prompt = `Review-Feedback fuer ${comment.filename}:\n- Zeile ${comment.line}: ${comment.text}\n`;
+    await this.writeToTerminal(prompt);
+  }
+
+  /**
+   * Send all unresolved comments for the current file as a structured prompt.
+   */
+  async onSendSummary(comments: ReviewComment[]): Promise<void> {
+    if (comments.length === 0) return;
+
+    const lines = comments.map(c => `- Zeile ${c.line}: ${c.text}`);
+    const prompt = `Review-Feedback fuer ${this.currentFilename}:\n${lines.join('\n')}\n`;
+    await this.writeToTerminal(prompt);
+  }
+
+  /**
+   * Toggle resolved status of a comment.
+   */
+  onCommentResolved(commentId: string): void {
+    if (!this.sessionId) return;
+    this.codeReviewService.toggleResolved(this.sessionId, commentId);
+  }
+
+  /**
+   * Delete a comment.
+   */
+  onCommentDeleted(commentId: string): void {
+    if (!this.sessionId) return;
+    this.codeReviewService.removeComment(this.sessionId, commentId);
+    // Hide sidebar if no more comments
+    if (this.commentsForCurrentFile.length === 0) {
+      this.showCommentSidebar = false;
+    }
+  }
+
+  /**
+   * Write a prompt string to the terminal PTY.
+   * Uses IPC in Electron mode, or HTTP WebSocket write in remote browser mode.
+   */
+  private async writeToTerminal(prompt: string): Promise<void> {
+    try {
+      if (window.electronAPI) {
+        await window.electronAPI.invoke(IPC_CHANNELS.PTY_WRITE, this.sessionId, prompt);
+      } else {
+        // Remote browser: use HTTP API to write to PTY
+        await fetch(`http://${window.location.hostname}:9801/api/pty/write`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sessionId: this.sessionId, data: prompt }),
+        });
+      }
+    } catch (err: any) {
+      console.error('[CodeReviewPanel] writeToTerminal failed:', err.message);
+    }
   }
 
   @HostListener('document:keydown.escape')
