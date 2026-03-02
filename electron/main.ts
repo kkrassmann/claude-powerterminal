@@ -42,6 +42,7 @@ import { IPC_CHANNELS } from '../src/shared/ipc-channels';
 import { killPtyProcess } from './utils/process-cleanup';
 import { StatusDetector } from './status/status-detector';
 import { startStaticServer } from './http/static-server';
+import { killAllDeepAuditProcesses } from './analysis/deep-audit-engine';
 import { getLocalNetworkAddress } from './utils/network-info';
 import { sanitizeEnvForClaude } from './utils/env-sanitize';
 import { getAngularBuildDir } from './utils/paths';
@@ -438,6 +439,9 @@ app.on('will-quit', async (event) => {
   isCleaningUp = true;
   setShuttingDown(true);
   event.preventDefault();
+
+  // Kill any active deep audit claude processes
+  killAllDeepAuditProcesses();
 
   // Stop WebSocket server first (closes all WebSocket connections)
   stopWebSocketServer();

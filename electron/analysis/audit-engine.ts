@@ -45,7 +45,7 @@ export function loadAuditRules(): AuditRule[] {
     blocks.push({ id: lastId, body: content.slice(lastIndex) });
   }
 
-  const keyValueRe = /\*\*(\w[\w\s-]+)\*\*:\s*(.+)/g;
+  const keyValueRe = /\*\*(\w[\w\s-]+?):\*\*\s*(.+)/g;
 
   const rules: AuditRule[] = [];
   for (const block of blocks) {
@@ -70,6 +70,8 @@ export function loadAuditRules(): AuditRule[] {
       min: fields['min'] !== undefined ? parseInt(fields['min'], 10) : undefined,
       max: fields['max'] !== undefined ? parseInt(fields['max'], 10) : undefined,
       fix: fields['fix'],
+      promptSuggestion: fields['promptsuggestion'],
+      reference: fields['reference'],
     };
     rules.push(rule);
   }
@@ -263,6 +265,9 @@ export function evaluateRule(
     case 'content-regex':
       return new RegExp(rule.pattern!, 'im').test(content);
 
+    case 'content-regex-absent':
+      return !new RegExp(rule.pattern!, 'im').test(content);
+
     case 'file-exists':
       return rule.pattern ? fs.existsSync(path.join(projectPath, rule.pattern)) : false;
 
@@ -306,21 +311,22 @@ export function runProjectAudit(projectPath: string): ProjectAuditResult {
     const applicable = rules.filter(r => r.category === file.fileType);
 
     let passedCount = 0;
-    const failedFindings: AuditFinding[] = [];
+    const allFindings: AuditFinding[] = [];
 
     for (const rule of applicable) {
       const passed = evaluateRule(rule, content, lines, projectPath);
-      if (passed) {
-        passedCount++;
-      } else {
-        failedFindings.push({
-          ruleId: rule.id,
-          severity: rule.severity,
-          passed: false,
-          detail: `Rule ${rule.id} failed`,
-          fix: rule.fix,
-        });
-      }
+      if (passed) passedCount++;
+      allFindings.push({
+        ruleId: rule.id,
+        severity: rule.severity,
+        passed,
+        detail: passed ? `Rule ${rule.id} passed` : `Rule ${rule.id} failed`,
+        fix: rule.fix,
+        promptSuggestion: passed ? undefined : rule.promptSuggestion
+          ?.replace(/\{filePath\}/g, file.path)
+          ?.replace(/\{displayName\}/g, file.displayName),
+        reference: passed ? undefined : rule.reference,
+      });
     }
 
     const score = applicable.length > 0
@@ -332,7 +338,7 @@ export function runProjectAudit(projectPath: string): ProjectAuditResult {
       fileType: file.fileType,
       displayName: file.displayName,
       score,
-      findings: failedFindings,
+      findings: allFindings,
     });
   }
 
