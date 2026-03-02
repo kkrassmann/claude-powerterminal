@@ -1,0 +1,139 @@
+/**
+ * File tree component styles — VS Code-style directory tree with Catppuccin Mocha theme.
+ */
+
+:host {
+  display: block;
+  width: 280px;
+  min-width: 280px;
+  overflow-y: auto;
+  background: #181825; /* mantle */
+  border-right: 1px solid #313244; /* surface0 */
+}
+
+.file-tree {
+  outline: none;
+  padding: 4px 0;
+}
+
+.tree-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: background 0.1s ease;
+  box-sizing: border-box;
+  padding-right: 8px;
+}
+
+.tree-item:hover {
+  background: #232338;
+}
+
+/* Directory styles */
+.tree-item.directory {
+  color: #6c7086; /* overlay0 */
+}
+
+.chevron {
+  font-size: 0.65rem;
+  color: #585b70; /* overlay1 */
+  transition: transform 0.15s ease;
+  transform: rotate(0deg);
+  display: inline-block;
+  width: 12px;
+  text-align: center;
+}
+
+.chevron.expanded {
+  transform: rotate(90deg);
+}
+
+.dir-name {
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: #6c7086;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: 0.01em;
+}
+
+/* File styles */
+.tree-item.file {
+  color: #cdd6f4; /* text */
+}
+
+.tree-item.file.selected {
+  background: #313244; /* surface0 */
+}
+
+.tree-item.file.reviewed {
+  opacity: 0.55;
+}
+
+.tree-item.file.reviewed .file-name {
+  text-decoration: line-through;
+  color: #6c7086;
+}
+
+.file-name {
+  font-size: 0.82rem;
+  color: #cdd6f4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+/* Status badge (A / M / D) */
+.status-badge {
+  font-size: 0.65rem;
+  font-weight: 700;
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  letter-spacing: 0;
+}
+
+.status-A {
+  color: #a6e3a1; /* green */
+  background: rgba(166, 227, 161, 0.15);
+}
+
+.status-M {
+  color: #f9e2af; /* yellow */
+  background: rgba(249, 226, 175, 0.15);
+}
+
+.status-D {
+  color: #f38ba8; /* red */
+  background: rgba(243, 139, 168, 0.15);
+}
+
+/* Reviewed checkmark */
+.reviewed-check {
+  font-size: 0.75rem;
+  color: #a6e3a1;
+  flex-shrink: 0;
+}
+
+/* Scrollbar */
+:host::-webkit-scrollbar {
+  width: 5px;
+}
+
+:host::-webkit-scrollbar-track {
+  background: #11111b;
+}
+
+:host::-webkit-scrollbar-thumb {
+  background: #45475a;
+  border-radius: 3px;
+}

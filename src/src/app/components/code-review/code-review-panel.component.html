@@ -1,0 +1,81 @@
+<div class="review-overlay" (click)="close.emit()">
+  <div class="review-container" (click)="$event.stopPropagation()">
+
+    <!-- Header -->
+    <div class="review-header">
+      <h2 class="review-title">Code Review</h2>
+
+      <div class="review-controls" *ngIf="!loading && !error">
+        <button
+          class="ctrl-btn format-btn"
+          (click)="toggleFormat()"
+          [title]="outputFormat === 'side-by-side' ? 'Switch to Unified view' : 'Switch to Side-by-Side view'">
+          {{ outputFormat === 'side-by-side' ? 'Unified' : 'Side-by-Side' }}
+        </button>
+
+        <div class="file-nav">
+          <button
+            class="ctrl-btn nav-btn"
+            (click)="prevFile()"
+            [disabled]="selectedFileIndex === 0"
+            title="Previous file (ArrowLeft)">
+            &#x2039; Prev
+          </button>
+          <span class="file-counter">{{ selectedFileIndex + 1 }} / {{ files.length }}</span>
+          <button
+            class="ctrl-btn nav-btn"
+            (click)="nextFile()"
+            [disabled]="selectedFileIndex === files.length - 1"
+            title="Next file (ArrowRight)">
+            Next &#x203A;
+          </button>
+        </div>
+
+        <button
+          class="ctrl-btn reviewed-btn"
+          (click)="markReviewed(selectedFileIndex)"
+          [class.active]="reviewedIndices.has(selectedFileIndex)"
+          title="Toggle reviewed status">
+          {{ reviewedIndices.has(selectedFileIndex) ? '&#x2713; Reviewed' : 'Mark Reviewed' }}
+        </button>
+      </div>
+
+      <div class="header-spacer"></div>
+
+      <button class="close-btn" (click)="close.emit()" title="Close (Escape)">&#x2715;</button>
+    </div>
+
+    <!-- Body -->
+    <div class="review-body">
+
+      <!-- Loading state -->
+      <div *ngIf="loading" class="state-placeholder">
+        <div class="loading-spinner"></div>
+        <p>Loading diff...</p>
+      </div>
+
+      <!-- Error state -->
+      <div *ngIf="!loading && error" class="state-placeholder error-state">
+        <p>&#x26A0; {{ error }}</p>
+        <button class="ctrl-btn" (click)="close.emit()">Close</button>
+      </div>
+
+      <!-- Content: file tree + diff viewer -->
+      <ng-container *ngIf="!loading && !error">
+        <app-file-tree
+          [files]="files"
+          [selectedIndex]="selectedFileIndex"
+          [reviewedIndices]="reviewedIndices"
+          (fileSelected)="onFileSelected($event)">
+        </app-file-tree>
+
+        <app-diff-viewer
+          [file]="selectedFile"
+          [outputFormat]="outputFormat"
+          [rawDiff]="rawDiff">
+        </app-diff-viewer>
+      </ng-container>
+
+    </div>
+  </div>
+</div>

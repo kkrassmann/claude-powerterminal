@@ -1,0 +1,39 @@
+<div class="file-tree" tabindex="0" role="tree" aria-label="Changed files">
+  <ng-container *ngTemplateOutlet="treeNodes; context: { nodes: rootNodes, depth: 0 }"></ng-container>
+</div>
+
+<ng-template #treeNodes let-nodes="nodes" let-depth="depth">
+  <ng-container *ngFor="let node of nodes">
+    <!-- Directory node -->
+    <div
+      *ngIf="node.isDirectory"
+      class="tree-item directory"
+      [style.padding-left]="(depth * 12 + 8) + 'px'"
+      (click)="toggleDirectory(node)"
+      role="treeitem"
+      [attr.aria-expanded]="isExpanded(node)">
+      <span class="chevron" [class.expanded]="isExpanded(node)">&#x203A;</span>
+      <span class="dir-name">{{ node.name }}</span>
+    </div>
+
+    <!-- Expanded children -->
+    <ng-container *ngIf="node.isDirectory && isExpanded(node)">
+      <ng-container *ngTemplateOutlet="treeNodes; context: { nodes: node.children, depth: depth + 1 }"></ng-container>
+    </ng-container>
+
+    <!-- File node -->
+    <div
+      *ngIf="!node.isDirectory"
+      class="tree-item file"
+      [class.selected]="node.fileIndex === selectedIndex"
+      [class.reviewed]="isReviewed(node.fileIndex!)"
+      [style.padding-left]="(depth * 12 + 8) + 'px'"
+      (click)="selectFile(node.fileIndex!)"
+      role="treeitem"
+      [attr.aria-selected]="node.fileIndex === selectedIndex">
+      <span class="status-badge" [class]="'status-' + node.status">{{ node.status }}</span>
+      <span class="file-name">{{ node.name }}</span>
+      <span *ngIf="isReviewed(node.fileIndex!)" class="reviewed-check" title="Reviewed">&#x2713;</span>
+    </div>
+  </ng-container>
+</ng-template>
