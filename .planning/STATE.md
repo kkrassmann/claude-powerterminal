@@ -5,16 +5,16 @@
 See: .planning/PROJECT.md (updated 2026-02-24)
 
 **Core value:** Never lose track of which terminal needs attention — instant visibility into the status of every running Claude instance, with alerts that pull you back when action is needed.
-**Current focus:** Phase 7 - Advanced Recommendations Engine
+**Current focus:** Phase 9 - Local Code Review Panel
 
 ## Current Position
 
-Phase: 7 of 7 (Advanced Recommendations Engine)
-Plan: 3 of 3 in current phase
-Status: Complete
-Last activity: 2026-02-28 — Plan 07-03 (Angular UI - Session Detail Panel, Sparklines, Severity Styling) complete — HUMAN VERIFIED
+Phase: 9 of 9 (Local Code Review Panel)
+Plan: 1 of 3 in current phase
+Status: In Progress
+Last activity: 2026-03-02 — Plan 09-01 (Backend Foundation: IPC+HTTP transport, Angular service, shared types) complete
 
-Progress: [██████████] 100%
+Progress: [████████░░] 80%
 
 ### Roadmap Evolution
 
@@ -68,6 +68,7 @@ Progress: [██████████] 100%
 | Phase 07 P01 | 6 | 3 tasks | 3 files |
 | Phase 07 P02 | 3 | 3 tasks | 4 files |
 | Phase 07 P03 | 30 | 4 tasks + checkpoint | 12 files |
+| Phase 09 P01 | 3 | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -134,6 +135,9 @@ Recent decisions affecting current work:
 - [Phase 07]: Session detail panel uses fixed position overlay (not routed) to avoid URL management complexity
 - [Phase 07]: sparklineDimensions computed as getter to avoid per-change-detection recalculation in Angular
 - [Phase 07]: Recommendation texts give actionable CLAUDE.md-style advice, not tool-choice hints users cannot control
+- [Phase 09]: review:reject-hunk uses spawn (not execFile) — stdin write is only possible with spawn, execFile does not support stdin input
+- [Phase 09]: git diff HEAD as primary diff source; --cached fallback for repos with no prior commits
+- [Phase 09]: In-memory comment/review state in Angular CodeReviewService — no persistence needed for review sessions
 
 ### Pending Todos
 
