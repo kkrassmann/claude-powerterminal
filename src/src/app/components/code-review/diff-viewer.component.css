@@ -1,0 +1,265 @@
+/**
+ * Diff viewer component styles.
+ *
+ * Uses ViewEncapsulation.None so these styles apply to diff2html's generated DOM.
+ * Scope is controlled by .d2h-dark-color-scheme parent class to avoid broad leakage.
+ *
+ * diff2html CSS is imported in angular.json styles array:
+ *   "node_modules/diff2html/bundles/css/diff2html.min.css"
+ */
+
+/* -------------------------------------------------------------------------
+ * Host/wrapper layout
+ * ---------------------------------------------------------------------- */
+
+app-diff-viewer {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.diff-viewer-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #1e1e2e; /* Catppuccin base */
+}
+
+.diff-container {
+  flex: 1;
+  overflow: auto;
+  background: #1e1e2e;
+}
+
+.diff-container.hidden {
+  display: none;
+}
+
+/* -------------------------------------------------------------------------
+ * Added/new file collapsed state
+ * ---------------------------------------------------------------------- */
+
+.added-file-collapsed {
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.added-file-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.added-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  background: rgba(166, 227, 161, 0.2);
+  color: #a6e3a1;
+  border: 1px solid rgba(166, 227, 161, 0.4);
+  border-radius: 4px;
+  padding: 2px 7px;
+}
+
+.added-file-name {
+  font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.85rem;
+  color: #cdd6f4;
+}
+
+.added-line-count {
+  font-size: 0.8rem;
+  color: #a6e3a1;
+  font-family: monospace;
+}
+
+.expand-btn {
+  background: #313244;
+  border: 1px solid #45475a;
+  color: #89b4fa;
+  border-radius: 5px;
+  padding: 5px 14px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  width: fit-content;
+  transition: background 0.15s ease;
+}
+
+.expand-btn:hover {
+  background: #45475a;
+}
+
+/* -------------------------------------------------------------------------
+ * Empty state
+ * ---------------------------------------------------------------------- */
+
+.diff-empty-state {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #45475a;
+  font-size: 0.85rem;
+}
+
+.diff-empty {
+  padding: 16px;
+  color: #6c7086;
+  font-size: 0.85rem;
+}
+
+/* -------------------------------------------------------------------------
+ * Catppuccin Mocha — diff2html dark mode CSS variable overrides
+ * ---------------------------------------------------------------------- */
+
+.d2h-dark-color-scheme {
+  --d2h-dark-bg-color: #1e1e2e;                       /* base */
+  --d2h-dark-border-color: #313244;                   /* surface0 */
+  --d2h-dark-color: #cdd6f4;                          /* text */
+  --d2h-dark-file-header-bg-color: #181825;           /* mantle */
+  --d2h-dark-line-number-color: #6c7086;              /* overlay0 */
+  --d2h-dark-empty-line-bg-color: #11111b;            /* crust */
+  --d2h-dark-ins-bg-color: rgba(166, 227, 161, 0.15); /* green with alpha */
+  --d2h-dark-ins-highlight-bg-color: rgba(166, 227, 161, 0.30);
+  --d2h-dark-del-bg-color: rgba(243, 139, 168, 0.15); /* red with alpha */
+  --d2h-dark-del-highlight-bg-color: rgba(243, 139, 168, 0.30);
+  --d2h-dark-info-bg-color: #181825;                  /* mantle */
+  --d2h-dark-info-color: #89b4fa;                     /* blue */
+}
+
+/* -------------------------------------------------------------------------
+ * Catppuccin Mocha — highlight.js syntax highlighting overrides
+ * ---------------------------------------------------------------------- */
+
+.d2h-dark-color-scheme .hljs {
+  background: #1e1e2e;
+  color: #cdd6f4;
+}
+
+.d2h-dark-color-scheme .hljs-keyword,
+.d2h-dark-color-scheme .hljs-selector-tag,
+.d2h-dark-color-scheme .hljs-literal {
+  color: #cba6f7; /* mauve */
+}
+
+.d2h-dark-color-scheme .hljs-string,
+.d2h-dark-color-scheme .hljs-template-string,
+.d2h-dark-color-scheme .hljs-doctag {
+  color: #a6e3a1; /* green */
+}
+
+.d2h-dark-color-scheme .hljs-number,
+.d2h-dark-color-scheme .hljs-regexp {
+  color: #fab387; /* peach */
+}
+
+.d2h-dark-color-scheme .hljs-comment,
+.d2h-dark-color-scheme .hljs-quote {
+  color: #6c7086; /* overlay0 */
+  font-style: italic;
+}
+
+.d2h-dark-color-scheme .hljs-title,
+.d2h-dark-color-scheme .hljs-function {
+  color: #89b4fa; /* blue */
+}
+
+.d2h-dark-color-scheme .hljs-type,
+.d2h-dark-color-scheme .hljs-class {
+  color: #f9e2af; /* yellow */
+}
+
+.d2h-dark-color-scheme .hljs-built_in,
+.d2h-dark-color-scheme .hljs-name {
+  color: #f38ba8; /* red */
+}
+
+.d2h-dark-color-scheme .hljs-attr,
+.d2h-dark-color-scheme .hljs-attribute {
+  color: #f9e2af; /* yellow */
+}
+
+.d2h-dark-color-scheme .hljs-variable,
+.d2h-dark-color-scheme .hljs-params {
+  color: #cdd6f4; /* text */
+}
+
+.d2h-dark-color-scheme .hljs-symbol,
+.d2h-dark-color-scheme .hljs-bullet {
+  color: #f5c2e7; /* pink */
+}
+
+/* -------------------------------------------------------------------------
+ * diff2html structural tweaks for Catppuccin Mocha
+ * ---------------------------------------------------------------------- */
+
+/* File header */
+.d2h-dark-color-scheme .d2h-file-header {
+  background: #181825;
+  border-bottom: 1px solid #313244;
+}
+
+.d2h-dark-color-scheme .d2h-file-name {
+  color: #cdd6f4;
+  font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.82rem;
+}
+
+/* File wrapper */
+.d2h-dark-color-scheme .d2h-file-wrapper {
+  border: 1px solid #313244;
+  border-radius: 6px;
+  overflow: hidden;
+  margin: 8px 8px 12px;
+}
+
+/* Line number cells */
+.d2h-dark-color-scheme .d2h-code-linenumber,
+.d2h-dark-color-scheme .d2h-code-side-linenumber {
+  color: #6c7086;
+  border-right: 1px solid #313244;
+  min-width: 40px;
+}
+
+.d2h-dark-color-scheme .d2h-code-linenumber:hover,
+.d2h-dark-color-scheme .d2h-code-side-linenumber:hover {
+  background: rgba(137, 180, 250, 0.1);
+  color: #89b4fa;
+}
+
+/* Code content */
+.d2h-dark-color-scheme td.d2h-code-line,
+.d2h-dark-color-scheme td.d2h-code-side-line {
+  font-family: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.8rem;
+}
+
+/* Hunk info bar */
+.d2h-dark-color-scheme .d2h-info {
+  background: #181825;
+  color: #89b4fa;
+  border-top: 1px solid #313244;
+  border-bottom: 1px solid #313244;
+}
+
+/* Scrollbar for diff container */
+.diff-container::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+
+.diff-container::-webkit-scrollbar-track {
+  background: #11111b;
+}
+
+.diff-container::-webkit-scrollbar-thumb {
+  background: #45475a;
+  border-radius: 4px;
+}
+
+.diff-container::-webkit-scrollbar-corner {
+  background: #11111b;
+}

@@ -1,0 +1,29 @@
+<div class="diff-viewer-wrapper">
+
+  <!-- Added file: collapsed state -->
+  <div
+    *ngIf="file && (file.oldName === '/dev/null' || file.oldName === 'dev/null') && !isAddedFileExpanded"
+    class="added-file-collapsed">
+    <div class="added-file-header">
+      <span class="added-badge">NEW FILE</span>
+      <span class="added-file-name">{{ file.newName }}</span>
+      <span class="added-line-count">+{{ file.addedLines }} lines</span>
+    </div>
+    <button class="expand-btn" (click)="expandAddedFile()">
+      Show diff &#x25BE;
+    </button>
+  </div>
+
+  <!-- Diff container — diff2html renders into this via nativeElement.innerHTML -->
+  <div
+    #diffContainer
+    class="diff-container d2h-dark-color-scheme"
+    [class.hidden]="file && (file.oldName === '/dev/null' || file.oldName === 'dev/null') && !isAddedFileExpanded">
+  </div>
+
+  <!-- Empty state when no file is selected -->
+  <div *ngIf="!file" class="diff-empty-state">
+    <p>Select a file from the tree to view its diff</p>
+  </div>
+
+</div>
