@@ -1,6 +1,6 @@
 {
   "name": "claude-powerterminal",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Multi-session terminal manager for Claude CLI",
   "bin": {
     "claude-powerterminal": "./bin/cli.js"
