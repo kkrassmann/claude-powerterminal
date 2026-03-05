@@ -17,6 +17,8 @@ jobs:
             platform: win
           - os: ubuntu-latest
             platform: linux
+          - os: macos-latest
+            platform: mac
     runs-on: ${{ matrix.os }}
 
     steps:
