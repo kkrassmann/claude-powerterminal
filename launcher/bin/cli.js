@@ -51,7 +51,8 @@ async function main() {
   console.log('');
 
   try {
-    const binaryPath = await downloadBinary(VERSION, artifactName);
+    await downloadBinary(VERSION, artifactName);
+    const binaryPath = getCachedBinaryPath(VERSION, executableName);
     console.log('');
     launchBinary(binaryPath, args);
   } catch (err) {

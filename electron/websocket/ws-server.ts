@@ -200,6 +200,9 @@ export function startWebSocketServer(): WebSocketServer {
 
           case 'input':
             ptyProcess.write(msg.data);
+            // Reset idle timer on user input
+            const inputDetector = statusDetectors.get(sessionId);
+            if (inputDetector) inputDetector.notifyInput();
             break;
 
           case 'resize':

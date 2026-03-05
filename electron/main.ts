@@ -48,11 +48,13 @@ import { getLocalNetworkAddress } from './utils/network-info';
 import { sanitizeEnvForClaude } from './utils/env-sanitize';
 import { getAngularBuildDir } from './utils/paths';
 import { info, warn as logWarn, error as logError } from './utils/log-service';
+import { initSessionLogDir, appendSessionLog, loadSessionLog, deleteSessionLog, cleanupOrphanedLogs } from './utils/session-log';
 
 import { setMainWindow } from './utils/window-ref';
 
-// Fix userData path — scoped package name creates nested folder, keep it flat
-app.setPath('userData', path.join(app.getPath('appData'), 'claude-powerterminal'));
+// Scope userData by mode: dev uses separate directory to avoid conflicts with release builds
+const userDataName = app.isPackaged ? 'claude-powerterminal' : 'claude-powerterminal-dev';
+app.setPath('userData', path.join(app.getPath('appData'), userDataName));
 
 let mainWindow: BrowserWindow | null = null;
 let lanUrl: string | null = null;
@@ -83,7 +85,7 @@ function createWindow(): void {
   setMainWindow(mainWindow);
 
   // Load Angular UI: prefer dev server in dev mode, fall back to built files
-  const devServerUrl = 'http://localhost:4800';
+  const devServerUrl = 'http://localhost:4500';
   const builtFilePath = path.join(getAngularBuildDir(), 'index.html');
 
   if (!app.isPackaged) {
@@ -255,6 +257,13 @@ function registerRestoredPty(session: SessionMetadata, ptyProcess: pty.IPty): vo
   ptyProcesses.set(session.sessionId, ptyProcess);
   getScrollbackBuffers().set(session.sessionId, new ScrollbackBuffer(10000));
 
+  // Load saved scrollback from disk (persisted from previous run)
+  const savedData = loadSessionLog(session.sessionId);
+  if (savedData) {
+    getScrollbackBuffers().get(session.sessionId)!.append(savedData);
+    info('Auto-Restore', `Loaded ${savedData.length} chars of saved scrollback`, session.sessionId);
+  }
+
   // Create status detector for restored session
   const statusDetector = new StatusDetector(session.sessionId, (sid, status) => {
     broadcastStatus(sid, status);
@@ -264,6 +273,7 @@ function registerRestoredPty(session: SessionMetadata, ptyProcess: pty.IPty): vo
   ptyProcess.onData((data) => {
     const buffer = getScrollbackBuffers().get(session.sessionId);
     if (buffer) buffer.append(data);
+    appendSessionLog(session.sessionId, data);
 
     // Feed to status detector
     const detector = getStatusDetectors().get(session.sessionId);
@@ -293,6 +303,7 @@ function registerRestoredPty(session: SessionMetadata, ptyProcess: pty.IPty): vo
     getScrollbackBuffers().delete(session.sessionId);
     if (!isShuttingDown()) {
       deleteSessionFromDisk(session.sessionId);
+      deleteSessionLog(session.sessionId);
     }
   });
 }
@@ -382,12 +393,12 @@ app.whenReady().then(async () => {
   startWebSocketServer();
 
   // Start HTTP static server for LAN access
-  startStaticServer(9801);
+  startStaticServer(9821);
 
   // Discover LAN IP and log access URL
   const lanIp = getLocalNetworkAddress();
   if (lanIp) {
-    lanUrl = `http://${lanIp}:9801`;
+    lanUrl = `http://${lanIp}:9821`;
     info('App', `LAN access: ${lanUrl}`);
   } else {
     info('App', 'LAN access: not available');
@@ -396,10 +407,16 @@ app.whenReady().then(async () => {
   // Register IPC handler for LAN URL
   ipcMain.handle(IPC_CHANNELS.APP_LAN_URL, () => lanUrl);
 
+  // Init scrollback persistence directory before restoring sessions
+  initSessionLogDir(path.join(app.getPath('userData'), 'scrollback'));
+
   createWindow();
 
-  // Auto-restore saved sessions
-  restoreAllSessions().catch((error) => {
+  // Auto-restore saved sessions, then clean up orphaned log files
+  restoreAllSessions().then(() => {
+    const activeIds = new Set(loadSessionsFromDisk().map(s => s.sessionId));
+    cleanupOrphanedLogs(activeIds);
+  }).catch((error) => {
     logError('Auto-Restore', 'Fatal error during session restore', undefined, error);
   });
 

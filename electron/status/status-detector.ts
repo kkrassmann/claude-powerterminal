@@ -122,6 +122,11 @@ export class StatusDetector {
     // Otherwise: small/empty chunk or TUI noise — don't change state, let idle timer handle it
   }
 
+  /** Signal that the user sent input — resets idle timer. */
+  notifyInput(): void {
+    this.lastSignificantTime = Date.now();
+  }
+
   processExit(): void {
     this.clearIdleTimer();
     this.transition('DONE');

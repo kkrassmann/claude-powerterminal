@@ -15,10 +15,12 @@
     "predist": "npm run build && npm run check:imports",
     "predist:win": "npm run build && npm run check:imports",
     "predist:linux": "npm run build && npm run check:imports",
+    "predist:mac": "npm run build && npm run check:imports",
     "pack": "electron-builder --dir",
     "dist": "electron-builder",
     "dist:win": "electron-builder --win",
-    "dist:linux": "electron-builder --linux"
+    "dist:linux": "electron-builder --linux",
+    "dist:mac": "electron-builder --mac"
   },
   "keywords": [
     "electron",
@@ -89,6 +91,15 @@
       ],
       "artifactName": "claude-powerterminal-${version}-linux-x64.${ext}",
       "category": "Development"
+    },
+    "mac": {
+      "target": [
+        { "target": "dmg", "arch": ["x64", "arm64"] },
+        { "target": "zip", "arch": ["x64", "arm64"] }
+      ],
+      "artifactName": "claude-powerterminal-${version}-mac-${arch}.${ext}",
+      "category": "public.app-category.developer-tools",
+      "identity": null
     }
   }
 }

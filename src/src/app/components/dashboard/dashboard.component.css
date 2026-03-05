@@ -31,6 +31,13 @@
   border-left: 1px solid #313244;
 }
 
+/* Tiles with explicit inline height (set by resize handle) need fixed flex
+   so flexbox respects the height and the container can scroll */
+.tile[style*="height"] {
+  flex-shrink: 0;
+  flex-grow: 0;
+}
+
 /* Group color left border */
 .tile.has-group-border {
   border-left-width: 4px;

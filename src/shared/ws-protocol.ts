@@ -31,4 +31,4 @@ export const WS_CLOSE_CODES = {
   SERVER_SHUTDOWN: 4001,
 } as const;
 
-export const WS_PORT = 9800;
+export const WS_PORT = 9820;

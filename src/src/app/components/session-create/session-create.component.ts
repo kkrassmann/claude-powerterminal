@@ -6,6 +6,7 @@ import { SessionManagerService } from '../../services/session-manager.service';
 import { SessionStateService } from '../../services/session-state.service';
 import { TemplateService } from '../../services/template.service';
 import { WorktreeService } from '../../services/worktree.service';
+import { GroupService } from '../../services/group.service';
 import { SessionMetadata } from '../../models/session.model';
 import { SessionTemplate, TemplateCategory } from '../../../../shared/template-types';
 import { WorktreeInfo } from '../../../../shared/worktree-types';
@@ -182,7 +183,8 @@ export class SessionCreateComponent implements OnInit {
     private sessionManager: SessionManagerService,
     private sessionState: SessionStateService,
     private templateService: TemplateService,
-    private worktreeService: WorktreeService
+    private worktreeService: WorktreeService,
+    private groupService: GroupService
   ) {
     this.loadRecentDirectories();
   }
@@ -402,6 +404,12 @@ export class SessionCreateComponent implements OnInit {
 
       // Step 6: Add to active session state
       this.sessionState.addSession(metadata, pid);
+
+      // Auto-assign to active group if one is selected
+      const layout = this.groupService.activeLayout$.value;
+      if (layout.activeGroup) {
+        this.groupService.addToGroup(metadata.sessionId, layout.activeGroup);
+      }
 
       // Capture prompt before clearing form
       const initialPrompt = this.pendingInitialPrompt;

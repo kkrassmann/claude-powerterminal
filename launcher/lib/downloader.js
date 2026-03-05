@@ -3,6 +3,7 @@
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
 const { ensureCacheDir, getCachedBinaryPath } = require('./cache');
 
 const GITHUB_OWNER = 'kkrassmann';
@@ -112,9 +113,23 @@ async function downloadBinary(version, artifactName) {
 
   await downloadFile(url, destPath);
 
-  // Make executable on Linux
+  // Extract .zip archives (macOS .app bundles)
+  if (artifactName.endsWith('.zip')) {
+    const extractDir = path.dirname(destPath);
+    console.log('  Extracting...');
+    execSync(`unzip -o "${destPath}" -d "${extractDir}"`, { stdio: 'pipe' });
+    // Remove macOS quarantine attribute (prevents Gatekeeper issues)
+    try {
+      execSync(`xattr -cr "${extractDir}"`, { stdio: 'pipe' });
+    } catch { /* xattr not available on non-macOS — ignore */ }
+    fs.unlinkSync(destPath);
+  }
+
+  // Make executable on Linux/macOS
   if (process.platform !== 'win32') {
-    fs.chmodSync(destPath, 0o755);
+    if (fs.existsSync(destPath)) {
+      fs.chmodSync(destPath, 0o755);
+    }
   }
 
   return destPath;

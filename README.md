@@ -140,6 +140,7 @@ Download the latest binary from [Releases](https://github.com/kkrassmann/claude-
 
 - **Windows:** `claude-powerterminal-x.x.x-win-x64.exe` (portable, no install)
 - **Linux:** `claude-powerterminal-x.x.x-linux-x64.AppImage`
+- **macOS:** `claude-powerterminal-x.x.x-mac-arm64.dmg` (Apple Silicon) / `claude-powerterminal-x.x.x-mac-x64.dmg` (Intel)
 
 ### Option 3: Build from source
 
@@ -192,8 +193,9 @@ Dual-transport architecture: IPC for local Electron communication, HTTP/WebSocke
 |----------|------|--------|
 | Windows | x64 | Portable `.exe` |
 | Linux | x64 | `.AppImage` |
+| macOS | x64, arm64 | `.dmg` / `.zip` |
 
-macOS support is not available yet. Contributions welcome.
+> **macOS note:** The app is not code-signed. On first launch, right-click the app and select "Open" to bypass Gatekeeper, or run `xattr -cr "Claude PowerTerminal.app"` from Terminal.
 
 ## License
 

@@ -1,4 +1,4 @@
-import { Component, Input, Output, EventEmitter, OnInit, OnDestroy, NgZone, ElementRef } from '@angular/core';
+import { Component, Input, Output, EventEmitter, OnInit, OnDestroy, NgZone, ElementRef, ViewChildren, QueryList } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { CdkDragDrop, DragDropModule, moveItemInArray } from '@angular/cdk/drag-drop';
 import { Subscription, combineLatest } from 'rxjs';
@@ -64,6 +64,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
    * Bubbles the event up to AppComponent.
    */
   @Output() reviewChanges = new EventEmitter<{ sessionId: string; cwd: string }>();
+
+  @ViewChildren(TerminalComponent) terminalComponents!: QueryList<TerminalComponent>;
 
   /**
    * Active sessions (with live PTY processes and scrollback buffers).
@@ -203,8 +205,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
         this.restoreComplete = true;
       });
     }
-    // Fallback: enable cleanup after 15s even if no restore signal (e.g., 0 saved sessions)
-    setTimeout(() => { this.restoreComplete = true; }, 15000);
+    // Fallback: enable cleanup after 60s even if no restore signal (e.g., 0 saved sessions).
+    // Must be long enough for sequential session restoration (N sessions × 3s delay each).
+    setTimeout(() => { this.restoreComplete = true; }, 60000);
 
     // Fetch home directory for path shortening
     this.fetchHomeDir();
@@ -419,6 +422,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
       this.maximizedSessionId = null;
     }
 
+    // Clean up per-session tracking state
+    delete this.sessionStatuses[sessionId];
+    delete this.glowActive[sessionId];
+    delete this.hasAlertedOnce[sessionId];
+    delete this.sustainedWorkSinceAlert[sessionId];
+    delete this.workStartTimestamps[sessionId];
+    this.groupService.removeFromGroup(sessionId);
+
     // Emit to parent for state cleanup
     this.sessionExited.emit(sessionId);
   }
@@ -493,39 +504,30 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Restart a session by killing PTY and spawning new one.
-   *
-   * @param sessionId - ID of session to restart
+   * Restart a session by delegating to the TerminalComponent which handles
+   * PTY restart + WebSocket reconnect correctly.
    */
-  async restartSession(sessionId: string): Promise<void> {
-    const session = this.getSession(sessionId);
-    if (!session) {
-      console.error('[Dashboard] Cannot restart: session not found', sessionId);
-      return;
-    }
-
-    if (!window.electronAPI) return;
-
-    try {
-      // Use PTY_RESTART handler which handles kill + respawn
-      const result = await window.electronAPI.invoke(IPC_CHANNELS.PTY_RESTART, sessionId, 80, 24);
-      if (!result?.success) {
-        console.error('[Dashboard] Restart failed:', result?.error);
-      }
-    } catch (error) {
-      console.error('[Dashboard] Failed to restart session:', error);
+  restartSession(sessionId: string): void {
+    const terminal = this.terminalComponents?.find(t => t.sessionId === sessionId);
+    if (terminal) {
+      terminal.restartSession();
+    } else {
+      console.error('[Dashboard] Cannot restart: terminal component not found', sessionId);
     }
   }
 
   /**
    * Kill a session permanently.
-   *
-   * @param sessionId - ID of session to kill
+   * Directly triggers exit flow after successful kill instead of relying
+   * on the WebSocket exit round-trip (which can fail after restarts or on Windows).
    */
   async killSession(sessionId: string): Promise<void> {
     if (!window.electronAPI) return;
     try {
-      await window.electronAPI.invoke(IPC_CHANNELS.PTY_KILL, sessionId);
+      const result = await window.electronAPI.invoke(IPC_CHANNELS.PTY_KILL, sessionId);
+      if (result?.success) {
+        this.onSessionExited(sessionId);
+      }
     } catch (error) {
       console.error('[Dashboard] Failed to kill session:', error);
     }

@@ -18,6 +18,7 @@ import { deleteSessionFromDisk, getSessionFromDisk } from './session-handlers';
 import { StatusDetector } from '../status/status-detector';
 import { sanitizeEnvForClaude } from '../utils/env-sanitize';
 import { info, warn as logWarn, error as logError } from '../utils/log-service';
+import { appendSessionLog, loadSessionLog, deleteSessionLog } from '../utils/session-log';
 
 /**
  * Map of session IDs to active PTY processes.
@@ -105,16 +106,21 @@ export function registerPtyHandlers(): void {
         }
       }
 
-      // Check 2: External claude.exe processes (e.g. user's terminal CLI session)
+      // Check 2: External Claude CLI processes (e.g. user's terminal CLI session)
       try {
-        const out = execSync('wmic process where "name=\'claude.exe\'" get processid,commandline /format:csv', { encoding: 'utf-8', timeout: 3000 });
-        const externalCount = out.split('\n').filter(l => l.includes('claude.exe')).length;
-        // Subtract our own managed sessions
+        let externalCount = 0;
+        if (process.platform === 'win32') {
+          const out = execSync('wmic process where "name=\'claude.exe\'" get processid,commandline /format:csv', { encoding: 'utf-8', timeout: 3000 });
+          externalCount = out.split('\n').filter(l => l.includes('claude.exe')).length;
+        } else {
+          const out = execSync('ps -eo pid,command', { encoding: 'utf-8', timeout: 3000 });
+          externalCount = out.split('\n').filter(l => /\bclaude\b/.test(l) && !l.includes('grep') && !l.includes('ps -eo')).length;
+        }
         const ownCount = ptyProcesses.size;
         if (externalCount > ownCount) {
-          logWarn('PTY', `${externalCount - ownCount} external claude.exe process(es) detected — may cause config corruption`, sessionId);
+          logWarn('PTY', `${externalCount - ownCount} external Claude process(es) detected — may cause config corruption`, sessionId);
         }
-      } catch { /* wmic not available or timeout — skip check */ }
+      } catch { /* process listing not available or timeout — skip check */ }
 
       // Environment sanitization: remove Electron and Claude nesting vars
       const env = sanitizeEnvForClaude();
@@ -146,6 +152,15 @@ export function registerPtyHandlers(): void {
       // Create scrollback buffer for WebSocket replay
       getScrollbackBuffers().set(sessionId, new ScrollbackBuffer(10000));
 
+      // Load saved scrollback from disk when resuming
+      if (useResume) {
+        const savedData = loadSessionLog(sessionId);
+        if (savedData) {
+          getScrollbackBuffers().get(sessionId)!.append(savedData);
+          info('PTY', `Loaded ${savedData.length} chars of saved scrollback`, sessionId);
+        }
+      }
+
       // Create status detector
       const statusDetector = new StatusDetector(sessionId, (sid, status, prev) => {
         broadcastStatus(sid, status);
@@ -161,6 +176,7 @@ export function registerPtyHandlers(): void {
         if (buffer) {
           buffer.append(data);
         }
+        appendSessionLog(sessionId, data);
 
         // Feed output to status detector
         const detector = getStatusDetectors().get(sessionId);
@@ -195,6 +211,7 @@ export function registerPtyHandlers(): void {
         // Only remove from disk if CLI exited normally (not during app shutdown)
         if (!shuttingDown) {
           deleteSessionFromDisk(sessionId);
+          deleteSessionLog(sessionId);
         }
       });
 
@@ -249,6 +266,9 @@ export function registerPtyHandlers(): void {
 
     try {
       ptyProcess.write(data);
+      // Reset idle timer on user input
+      const detector = getStatusDetectors().get(sessionId);
+      if (detector) detector.notifyInput();
       return { success: true };
     } catch (error: any) {
       logError('PTY', `Failed to write`, sessionId, error);
@@ -289,9 +309,19 @@ export function registerPtyHandlers(): void {
       getStatusDetectors().delete(sessionId);
     }
 
-    // Kill entire process tree (taskkill /T /F on Windows)
+    // Graceful exit: send /exit to Claude CLI so it saves state properly
+    // (allows Claude to pick up changed skills/agents on resume)
     try {
-      await killPtyProcess(oldPty, 3000);
+      oldPty.write('/exit\n');
+      await new Promise<void>((resolve) => {
+        const timeout = setTimeout(() => resolve(), 5000);
+        oldPty.onExit(() => { clearTimeout(timeout); resolve(); });
+      });
+    } catch {}
+
+    // Force-kill if still alive
+    try {
+      await killPtyProcess(oldPty, 2000);
     } catch {}
     ptyProcesses.delete(sessionId);
 
@@ -312,6 +342,13 @@ export function registerPtyHandlers(): void {
     ptyProcesses.set(sessionId, newPty);
     getScrollbackBuffers().set(sessionId, new ScrollbackBuffer(10000));
 
+    // Load saved scrollback so terminal shows previous output after restart
+    const savedData = loadSessionLog(sessionId);
+    if (savedData) {
+      getScrollbackBuffers().get(sessionId)!.append(savedData);
+      info('PTY', `Loaded ${savedData.length} chars of saved scrollback after restart`, sessionId);
+    }
+
     // Create new status detector
     const newDetector = new StatusDetector(sessionId, (sid, status, prev) => {
       broadcastStatus(sid, status);
@@ -322,6 +359,7 @@ export function registerPtyHandlers(): void {
     newPty.onData((data) => {
       const buffer = getScrollbackBuffers().get(sessionId);
       if (buffer) buffer.append(data);
+      appendSessionLog(sessionId, data);
 
       // Feed to status detector
       const detector = getStatusDetectors().get(sessionId);
@@ -353,10 +391,12 @@ export function registerPtyHandlers(): void {
       getScrollbackBuffers().delete(sessionId);
       if (!shuttingDown) {
         deleteSessionFromDisk(sessionId);
+        deleteSessionLog(sessionId);
       }
     });
 
-    restartingSessions.delete(sessionId);
+    // Keep guard active for 5s to absorb any delayed old-PTY onExit events (Windows async cleanup)
+    setTimeout(() => restartingSessions.delete(sessionId), 5000);
     info('PTY', `Session restarted (PID ${newPty.pid})`, sessionId);
     return { success: true, pid: newPty.pid };
   });

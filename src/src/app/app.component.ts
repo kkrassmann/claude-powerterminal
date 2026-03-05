@@ -14,6 +14,7 @@ import { SessionMetadata } from './models/session.model';
 import { SpawnSessionRequest } from './models/spawn-session.model';
 import { IPC_CHANNELS } from '../../shared/ipc-channels';
 import { AudioAlertService } from './services/audio-alert.service';
+import { GroupService } from './services/group.service';
 
 @Component({
   selector: 'app-root',
@@ -42,7 +43,8 @@ export class AppComponent implements OnInit {
     private sessionManager: SessionManagerService,
     private ptyManager: PtyManagerService,
     private worktreeService: WorktreeService,
-    public audioAlertService: AudioAlertService
+    public audioAlertService: AudioAlertService,
+    private groupService: GroupService
   ) {}
 
   ngOnInit(): void {
@@ -224,6 +226,13 @@ export class AppComponent implements OnInit {
 
       await this.sessionManager.saveSession(metadata);
       this.sessionStateService.addSession(metadata, result.pid!);
+
+      // Auto-assign to active group if one is selected
+      const layout = this.groupService.activeLayout$.value;
+      if (layout.activeGroup) {
+        this.groupService.addToGroup(sessionId, layout.activeGroup);
+      }
+
       console.log(`[App] Spawned session ${sessionId} in ${effectiveCwd}`);
     } catch (error) {
       console.error('[App] Failed to spawn session:', error);

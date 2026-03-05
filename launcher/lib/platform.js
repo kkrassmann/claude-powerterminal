@@ -14,6 +14,16 @@ const PLATFORMS = {
     artifactName: (version) => `claude-powerterminal-${version}-linux-x64.AppImage`,
     executable: (version) => `claude-powerterminal-${version}-linux-x64.AppImage`,
   },
+  'darwin-x64': {
+    artifactName: (version) => `claude-powerterminal-${version}-mac-x64.zip`,
+    executable: () => `Claude PowerTerminal.app/Contents/MacOS/Claude PowerTerminal`,
+    extract: true,
+  },
+  'darwin-arm64': {
+    artifactName: (version) => `claude-powerterminal-${version}-mac-arm64.zip`,
+    executable: () => `Claude PowerTerminal.app/Contents/MacOS/Claude PowerTerminal`,
+    extract: true,
+  },
 };
 
 /**
@@ -29,12 +39,6 @@ function getPlatform() {
 
   if (!info) {
     const supported = Object.keys(PLATFORMS).map(k => k.replace('-', ' ')).join(', ');
-    if (platform === 'darwin') {
-      throw new Error(
-        `macOS is not supported yet.\n` +
-        `Download manually from: https://github.com/kkrassmann/claude-powerterminal/releases`
-      );
-    }
     throw new Error(
       `Unsupported platform: ${platform} ${arch}\n` +
       `Supported: ${supported}`

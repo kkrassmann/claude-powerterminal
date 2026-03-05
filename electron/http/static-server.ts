@@ -28,6 +28,7 @@ import { getTrends, HistoryEntry } from '../analysis/score-history';
 import { getAngularBuildDir } from '../utils/paths';
 import { exportAsJsonl } from '../utils/log-service';
 import { loadTemplatesFromDisk, saveTemplatesToDisk } from '../ipc/template-handlers';
+import { appendSessionLog, loadSessionLog, deleteSessionLog } from '../utils/session-log';
 import { SessionTemplate } from '../../src/shared/template-types';
 import { WorktreeInfo, WorktreeCreateOptions } from '../../src/shared/worktree-types';
 
@@ -186,6 +187,14 @@ export function startStaticServer(port: number): http.Server {
           // Create scrollback buffer for WebSocket replay
           getScrollbackBuffers().set(sessionId, new ScrollbackBuffer(10000));
 
+          // Load saved scrollback from disk when resuming
+          if (resume) {
+            const savedData = loadSessionLog(sessionId);
+            if (savedData) {
+              getScrollbackBuffers().get(sessionId)!.append(savedData);
+            }
+          }
+
           // Create status detector
           const statusDetector = new StatusDetector(sessionId, (sid, status) => {
             broadcastStatus(sid, status);
@@ -196,6 +205,7 @@ export function startStaticServer(port: number): http.Server {
           ptyProcess.onData((data) => {
             const buffer = getScrollbackBuffers().get(sessionId);
             if (buffer) buffer.append(data);
+            appendSessionLog(sessionId, data);
             const detector = getStatusDetectors().get(sessionId);
             if (detector) detector.processOutput(data);
           });
@@ -211,6 +221,7 @@ export function startStaticServer(port: number): http.Server {
             getPtyProcesses().delete(sessionId);
             getScrollbackBuffers().delete(sessionId);
             deleteSessionFromDisk(sessionId);
+            deleteSessionLog(sessionId);
 
             // Notify Electron renderer to remove the exited session
             const win = getMainWindow();
