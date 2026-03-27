@@ -12,7 +12,7 @@ import { PtyManagerService } from './services/pty-manager.service';
 import { WorktreeService } from './services/worktree.service';
 import { SessionMetadata } from './models/session.model';
 import { SpawnSessionRequest } from './models/spawn-session.model';
-import { getHttpBaseUrl } from '../../shared/ws-protocol';
+import { getHttpBaseUrl, setAuthToken, apiFetch } from '../../shared/ws-protocol';
 import { AudioAlertService } from './services/audio-alert.service';
 import { GroupService } from './services/group.service';
 

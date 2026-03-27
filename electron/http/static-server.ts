@@ -99,16 +99,17 @@ export function startStaticServer(port: number, authToken: string): http.Server 
       return;
     }
 
-    // Enforce Bearer token authentication on all /api/* routes
-    if (pathname.startsWith('/api/')) {
-      const authHeader = req.headers['authorization'] || '';
-      const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
-      if (token !== authToken) {
-        res.writeHead(401, corsHeaders);
-        res.end(JSON.stringify({ error: 'Unauthorized — provide Authorization: Bearer <token>' }));
-        return;
-      }
-    }
+    // TODO: Re-enable when token distribution to remote browsers is implemented
+    // // Enforce Bearer token authentication on all /api/* routes
+    // if (pathname.startsWith('/api/')) {
+    //   const authHeader = req.headers['authorization'] || '';
+    //   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+    //   if (token !== authToken) {
+    //     res.writeHead(401, corsHeaders);
+    //     res.end(JSON.stringify({ error: 'Unauthorized — provide Authorization: Bearer <token>' }));
+    //     return;
+    //   }
+    // }
 
     // POST /api/sessions - Create new session via HTTP API
     if (req.method === 'POST' && pathname === '/api/sessions') {

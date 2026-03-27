@@ -38,20 +38,55 @@ export const HTTP_PORT = 9821;
 /* eslint-disable no-restricted-globals */
 declare const window: any; // Safe for shared code compiled by both Electron (no DOM) and Angular
 
-/**
- * Get the base URL for HTTP API calls.
- * In remote browser mode, uses the same origin the page was loaded from.
- * This avoids hardcoded port numbers and works regardless of port config.
- */
-export function getHttpBaseUrl(): string {
-  if (typeof window !== 'undefined' && !(window.electronAPI)) {
-    return `http://${window.location.hostname}:${window.location.port || HTTP_PORT}`;
-  }
-  return `http://localhost:${HTTP_PORT}`;
-}
-
 // Dev mode port offset (must match main.ts)
 const DEV_PORT_OFFSET = 10;
+
+/**
+ * Get the base URL for HTTP API calls.
+ * - Electron: localhost + correct port (with dev offset if in dev mode)
+ * - Remote browser: same origin the page was loaded from
+ */
+export function getHttpBaseUrl(): string {
+  if (typeof window === 'undefined') return `http://localhost:${HTTP_PORT}`;
+
+  // Electron mode: apply dev offset if flagged by preload
+  if (window.electronAPI) {
+    const port = HTTP_PORT + (window.electronAPI.isDev ? DEV_PORT_OFFSET : 0);
+    return `http://localhost:${port}`;
+  }
+
+  // Remote browser: use same host+port the page was loaded from
+  return `http://${window.location.hostname}:${window.location.port || HTTP_PORT}`;
+}
+
+// Cached auth token for HTTP API calls
+let _authToken: string | null = null;
+
+/**
+ * Set the auth token for API calls. Called once at app startup.
+ */
+export function setAuthToken(token: string): void {
+  _authToken = token;
+}
+
+/**
+ * Get the current auth token (null if not yet set).
+ */
+export function getAuthToken(): string | null {
+  return _authToken;
+}
+
+/**
+ * Fetch wrapper that automatically adds Authorization header.
+ * Use this instead of raw fetch() for all /api/* calls.
+ */
+export function apiFetch(url: string, init?: RequestInit): Promise<Response> {
+  const headers = new Headers(init?.headers);
+  if (_authToken) {
+    headers.set('Authorization', `Bearer ${_authToken}`);
+  }
+  return fetch(url, { ...init, headers });
+}
 
 /**
  * Get the WebSocket port for terminal connections.
