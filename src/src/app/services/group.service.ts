@@ -9,6 +9,7 @@ import { Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import { SessionGroup, LayoutConfig, LayoutPreset, DEFAULT_GROUP_COLORS } from '../../../shared/group-types';
 import { IPC_CHANNELS } from '../../../shared/ipc-channels';
+import { getHttpBaseUrl } from '../../../shared/ws-protocol';
 
 @Injectable({
   providedIn: 'root'
@@ -22,6 +23,11 @@ export class GroupService {
 
   constructor() {
     this.loadGroups();
+
+    // Poll for group changes in remote browser mode (desktop changes via IPC)
+    if (typeof window !== 'undefined' && !(window as any).electronAPI) {
+      setInterval(() => this.loadGroups(), 5000);
+    }
   }
 
   /**
@@ -213,22 +219,21 @@ export class GroupService {
       return;
     }
 
-    // Remote browser: use localStorage as fallback
+    // Remote browser: load from HTTP API (same groups.json as desktop)
     try {
-      const stored = localStorage.getItem('cpt-groups');
-      if (stored) {
-        const groups = JSON.parse(stored);
-        if (groups?.length > 0) {
-          this.groups$.next(groups);
-        }
+      const resp = await fetch(`${getHttpBaseUrl()}/api/groups`);
+      const groups = await resp.json();
+      if (groups?.length > 0) {
+        this.groups$.next(groups);
+        console.log(`[GroupService] Loaded ${groups.length} groups via HTTP`);
       }
     } catch (error) {
-      console.error('[GroupService] Failed to load groups from localStorage:', error);
+      console.error('[GroupService] Failed to load groups via HTTP:', error);
     }
   }
 
   /**
-   * Persist groups to disk via IPC (or localStorage in remote mode).
+   * Persist groups to disk via IPC (or HTTP in remote mode).
    */
   private async persistGroups(groups: SessionGroup[]): Promise<void> {
     if (window.electronAPI) {
@@ -240,11 +245,15 @@ export class GroupService {
       return;
     }
 
-    // Remote browser: use localStorage as fallback
+    // Remote browser: save via HTTP API
     try {
-      localStorage.setItem('cpt-groups', JSON.stringify(groups));
+      await fetch(`${getHttpBaseUrl()}/api/groups`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(groups),
+      });
     } catch (error) {
-      console.error('[GroupService] Failed to save groups to localStorage:', error);
+      console.error('[GroupService] Failed to save groups via HTTP:', error);
     }
   }
 }

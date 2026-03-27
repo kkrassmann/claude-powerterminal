@@ -28,6 +28,7 @@ import { getTrends, HistoryEntry } from '../analysis/score-history';
 import { getAngularBuildDir } from '../utils/paths';
 import { exportAsJsonl } from '../utils/log-service';
 import { loadTemplatesFromDisk, saveTemplatesToDisk } from '../ipc/template-handlers';
+import { loadGroupsFromFile, saveGroupsToFile } from '../ipc/group-handlers';
 import { appendSessionLog, loadSessionLog, deleteSessionLog } from '../utils/session-log';
 import { SessionTemplate } from '../../src/shared/template-types';
 import { WorktreeInfo, WorktreeCreateOptions } from '../../src/shared/worktree-types';
@@ -596,6 +597,41 @@ export function startStaticServer(port: number): http.Server {
         'Content-Disposition': `attachment; filename="cpt-logs-${new Date().toISOString().replace(/[:.]/g, '-')}.jsonl"`,
       });
       res.end(jsonl);
+      return;
+    }
+
+    // GET /api/groups - Load session groups
+    if (req.method === 'GET' && pathname === '/api/groups') {
+      try {
+        const filePath = path.join(app.getPath('userData'), 'groups.json');
+        const groups = loadGroupsFromFile(filePath);
+        res.writeHead(200, corsHeaders);
+        res.end(JSON.stringify(groups));
+      } catch (error) {
+        console.error('[HTTP] GET /api/groups error:', error);
+        res.writeHead(500, corsHeaders);
+        res.end(JSON.stringify({ error: String(error) }));
+      }
+      return;
+    }
+
+    // POST /api/groups - Save session groups
+    if (req.method === 'POST' && pathname === '/api/groups') {
+      let body = '';
+      req.on('data', chunk => body += chunk);
+      req.on('end', () => {
+        try {
+          const groups = JSON.parse(body);
+          const filePath = path.join(app.getPath('userData'), 'groups.json');
+          saveGroupsToFile(filePath, groups);
+          res.writeHead(200, corsHeaders);
+          res.end(JSON.stringify({ success: true }));
+        } catch (error) {
+          console.error('[HTTP] POST /api/groups error:', error);
+          res.writeHead(500, corsHeaders);
+          res.end(JSON.stringify({ error: String(error) }));
+        }
+      });
       return;
     }
 
