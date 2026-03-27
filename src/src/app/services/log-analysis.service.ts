@@ -1,6 +1,7 @@
 import { Injectable, OnDestroy } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { IPC_CHANNELS } from '../../../shared/ipc-channels';
+import { getHttpBaseUrl } from '../../../shared/ws-protocol';
 import type { SessionAnalysis, SessionPracticeScore, SessionScoreDetail, ScoreTrends } from '../../../shared/analysis-types';
 
 /**
@@ -51,7 +52,7 @@ export class LogAnalysisService implements OnDestroy {
       if (window.electronAPI) {
         analysis = await window.electronAPI.invoke(IPC_CHANNELS.LOG_ANALYSIS);
       } else {
-        const resp = await fetch(`http://${window.location.hostname}:9801/api/analysis`);
+        const resp = await fetch(`${getHttpBaseUrl()}/api/analysis`);
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         analysis = await resp.json();
       }
@@ -84,7 +85,7 @@ export class LogAnalysisService implements OnDestroy {
         score = await window.electronAPI.invoke(IPC_CHANNELS.LOG_SESSION_SCORE, sessionId);
       } else {
         const resp = await fetch(
-          `http://${window.location.hostname}:9801/api/analysis/session?id=${encodeURIComponent(sessionId)}`
+          `${getHttpBaseUrl()}/api/analysis/session?id=${encodeURIComponent(sessionId)}`
         );
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         score = await resp.json();
@@ -110,7 +111,7 @@ export class LogAnalysisService implements OnDestroy {
         return await window.electronAPI.invoke(IPC_CHANNELS.LOG_SESSION_DETAIL, sessionId);
       } else {
         const res = await fetch(
-          `http://${window.location.hostname}:9801/api/analysis/session-detail?sessionId=${encodeURIComponent(sessionId)}`
+          `${getHttpBaseUrl()}/api/analysis/session-detail?sessionId=${encodeURIComponent(sessionId)}`
         );
         return await res.json();
       }
@@ -130,7 +131,7 @@ export class LogAnalysisService implements OnDestroy {
       if (window.electronAPI) {
         return await window.electronAPI.invoke(IPC_CHANNELS.LOG_SCORE_TRENDS);
       } else {
-        const res = await fetch(`http://${window.location.hostname}:9801/api/analysis/trends`);
+        const res = await fetch(`${getHttpBaseUrl()}/api/analysis/trends`);
         return await res.json();
       }
     } catch {

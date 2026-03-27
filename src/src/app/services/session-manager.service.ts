@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { SessionMetadata } from '../models/session.model';
 import { IPC_CHANNELS } from '../../../shared/ipc-channels';
+import { getHttpBaseUrl } from '../../../shared/ws-protocol';
 
 /**
  * Declares the window.electronAPI interface for TypeScript type checking.
@@ -40,7 +41,7 @@ export class SessionManagerService {
    * @throws Error if IPC communication fails or file write fails
    */
   async saveSession(session: SessionMetadata): Promise<void> {
-    if (!window.electronAPI) return;
+    if (!window.electronAPI) return; // HTTP POST /api/sessions already saves on server side
     try {
       await window.electronAPI.invoke(IPC_CHANNELS.SESSION_SAVE, session);
     } catch (error) {
@@ -57,12 +58,23 @@ export class SessionManagerService {
    * @throws Error if IPC communication fails
    */
   async deleteSession(sessionId: string): Promise<void> {
-    if (!window.electronAPI) return;
+    if (window.electronAPI) {
+      try {
+        await window.electronAPI.invoke(IPC_CHANNELS.SESSION_DELETE, sessionId);
+      } catch (error) {
+        console.error('Failed to delete session:', error);
+        throw new Error(`Failed to delete session ${sessionId}: ${error}`);
+      }
+      return;
+    }
+
+    // HTTP fallback for remote browser
     try {
-      await window.electronAPI.invoke(IPC_CHANNELS.SESSION_DELETE, sessionId);
+      await fetch(`${getHttpBaseUrl()}/api/sessions?id=${encodeURIComponent(sessionId)}`, {
+        method: 'DELETE',
+      });
     } catch (error) {
-      console.error('Failed to delete session:', error);
-      throw new Error(`Failed to delete session ${sessionId}: ${error}`);
+      console.error('Failed to delete session via HTTP:', error);
     }
   }
 
@@ -73,12 +85,28 @@ export class SessionManagerService {
    * @returns Empty array if no sessions exist or if file read fails
    */
   async loadSessions(): Promise<SessionMetadata[]> {
-    if (!window.electronAPI) return [];
+    if (window.electronAPI) {
+      try {
+        const result = await window.electronAPI.invoke(IPC_CHANNELS.SESSION_LOAD);
+        return result?.sessions || [];
+      } catch (error) {
+        console.error('Failed to load sessions:', error);
+        return [];
+      }
+    }
+
+    // HTTP fallback for remote browser
     try {
-      const result = await window.electronAPI.invoke(IPC_CHANNELS.SESSION_LOAD);
-      return result?.sessions || [];
+      const resp = await fetch(`${getHttpBaseUrl()}/api/sessions`);
+      const sessions: any[] = await resp.json();
+      return sessions.map(s => ({
+        sessionId: s.sessionId,
+        workingDirectory: s.workingDirectory || '',
+        cliFlags: s.cliFlags || [],
+        createdAt: s.createdAt || new Date().toISOString(),
+      }));
     } catch (error) {
-      console.error('Failed to load sessions:', error);
+      console.error('Failed to load sessions via HTTP:', error);
       return [];
     }
   }
@@ -90,13 +118,30 @@ export class SessionManagerService {
    * @returns Promise that resolves with the session or undefined if not found
    */
   async getSession(sessionId: string): Promise<SessionMetadata | undefined> {
-    if (!window.electronAPI) return undefined;
+    if (window.electronAPI) {
+      try {
+        const session = await window.electronAPI.invoke(IPC_CHANNELS.SESSION_GET, sessionId);
+        return session;
+      } catch (error) {
+        console.error('Failed to get session:', error);
+        return undefined;
+      }
+    }
+
+    // HTTP fallback — GET /api/sessions returns all, filter client-side
     try {
-      const session = await window.electronAPI.invoke(IPC_CHANNELS.SESSION_GET, sessionId);
-      return session;
+      const resp = await fetch(`${getHttpBaseUrl()}/api/sessions`);
+      const sessions: any[] = await resp.json();
+      const found = sessions.find(s => s.sessionId === sessionId);
+      return found ? {
+        sessionId: found.sessionId,
+        workingDirectory: found.workingDirectory || '',
+        cliFlags: found.cliFlags || [],
+        createdAt: found.createdAt || new Date().toISOString(),
+      } : undefined;
     } catch (error) {
-      console.error('Failed to get session:', error);
-      return undefined; // Graceful degradation
+      console.error('Failed to get session via HTTP:', error);
+      return undefined;
     }
   }
 

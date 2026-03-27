@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { IPC_CHANNELS } from '../../../shared/ipc-channels';
+import { getHttpBaseUrl } from '../../../shared/ws-protocol';
 import { WorktreeInfo, WorktreeCreateOptions } from '../../../shared/worktree-types';
 
 /**
@@ -31,7 +32,7 @@ export class WorktreeService {
 
     try {
       const resp = await fetch(
-        `http://${window.location.hostname}:9801/api/worktrees?repoPath=${encodeURIComponent(repoPath)}`
+        `${getHttpBaseUrl()}/api/worktrees?repoPath=${encodeURIComponent(repoPath)}`
       );
       if (!resp.ok) {
         const err = await resp.json();
@@ -61,7 +62,7 @@ export class WorktreeService {
     }
 
     try {
-      const resp = await fetch(`http://${window.location.hostname}:9801/api/worktrees`, {
+      const resp = await fetch(`${getHttpBaseUrl()}/api/worktrees`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(options),
@@ -97,7 +98,7 @@ export class WorktreeService {
 
     try {
       const resp = await fetch(
-        `http://${window.location.hostname}:9801/api/git/branches?path=${encodeURIComponent(repoPath)}`
+        `${getHttpBaseUrl()}/api/git/branches?path=${encodeURIComponent(repoPath)}`
       );
       if (!resp.ok) return empty;
       return await resp.json();
@@ -125,7 +126,7 @@ export class WorktreeService {
     }
 
     try {
-      let url = `http://${window.location.hostname}:9801/api/worktrees?path=${encodeURIComponent(worktreePath)}`;
+      let url = `${getHttpBaseUrl()}/api/worktrees?path=${encodeURIComponent(worktreePath)}`;
       if (repoPath) {
         url += `&repoPath=${encodeURIComponent(repoPath)}`;
       }

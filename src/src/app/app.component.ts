@@ -13,6 +13,7 @@ import { WorktreeService } from './services/worktree.service';
 import { SessionMetadata } from './models/session.model';
 import { SpawnSessionRequest } from './models/spawn-session.model';
 import { IPC_CHANNELS } from '../../shared/ipc-channels';
+import { getHttpBaseUrl } from '../../shared/ws-protocol';
 import { AudioAlertService } from './services/audio-alert.service';
 import { GroupService } from './services/group.service';
 
@@ -62,8 +63,9 @@ export class AppComponent implements OnInit {
       }).catch((err: any) => {
         console.error('[App] Failed to fetch git branch:', err);
       });
+
     } else {
-      fetch(`http://${window.location.hostname}:9801/api/app/git-branch`)
+      fetch(`${getHttpBaseUrl()}/api/app/git-branch`)
         .then(r => r.json())
         .then((result: { branch: string | null }) => { this.appBranch = result.branch; })
         .catch(() => {});
@@ -154,7 +156,7 @@ export class AppComponent implements OnInit {
       if (window.electronAPI) {
         jsonl = await window.electronAPI.invoke(IPC_CHANNELS.LOGS_EXPORT);
       } else {
-        const resp = await fetch(`http://${window.location.hostname}:9801/api/logs`);
+        const resp = await fetch(`${getHttpBaseUrl()}/api/logs`);
         jsonl = await resp.text();
       }
 
@@ -274,7 +276,7 @@ export class AppComponent implements OnInit {
 
   private async loadRemoteSessions(): Promise<number> {
     try {
-      const resp = await fetch(`http://${window.location.hostname}:9801/api/sessions`);
+      const resp = await fetch(`${getHttpBaseUrl()}/api/sessions`);
       const activePtys: { sessionId: string; pid: number; workingDirectory?: string }[] = await resp.json();
       let added = 0;
 

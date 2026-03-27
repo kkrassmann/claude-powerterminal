@@ -120,6 +120,55 @@ textarea.form-control {
   min-height: 60px;
 }
 
+.permission-mode-selector {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.permission-mode-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  padding: 8px 6px;
+  background: #313244;
+  border: 1px solid #45475a;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.permission-mode-option:hover {
+  border-color: #585b70;
+}
+
+.permission-mode-option:has(input:checked) {
+  border-color: #89b4fa;
+  background: #1e1e2e;
+}
+
+.permission-mode-option input[type="radio"] {
+  display: none;
+}
+
+.mode-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #cdd6f4;
+}
+
+.permission-mode-option:has(input:checked) .mode-label {
+  color: #89b4fa;
+}
+
+.mode-desc {
+  font-size: 10px;
+  color: #6c7086;
+  text-align: center;
+}
+
 .flags-checkboxes {
   display: flex;
   flex-direction: column;
@@ -339,6 +388,37 @@ textarea.form-control {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.template-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.template-flag-badge {
+  font-size: 10px;
+  font-family: "Cascadia Code", Consolas, monospace;
+  color: #bac2de;
+  background: #45475a;
+  padding: 1px 5px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.template-flag-badge.auto-badge {
+  color: #1e1e2e;
+  background: #a6e3a1;
+  font-weight: 600;
+  font-family: inherit;
+}
+
+.template-flag-badge.plan-badge {
+  color: #1e1e2e;
+  background: #f9e2af;
+  font-weight: 600;
+  font-family: inherit;
 }
 
 .template-meta {

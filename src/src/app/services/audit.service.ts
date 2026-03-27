@@ -10,6 +10,7 @@
 
 import { Injectable } from '@angular/core';
 import type { ProjectAuditResult, DeepAuditResult, DeepAuditProgress } from '../../../shared/audit-types';
+import { getHttpBaseUrl } from '../../../shared/ws-protocol';
 
 declare const window: any;
 
@@ -28,7 +29,7 @@ export class AuditService {
       return window.electronAPI.invoke('audit:projects');
     }
     const resp = await fetch(
-      `http://${window.location.hostname}:9801/api/audit/projects`
+      `${getHttpBaseUrl()}/api/audit/projects`
     );
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     return resp.json();
@@ -45,7 +46,7 @@ export class AuditService {
       return window.electronAPI.invoke('audit:run', projectPath);
     }
     const resp = await fetch(
-      `http://${window.location.hostname}:9801/api/audit/run?path=${encodeURIComponent(projectPath)}`
+      `${getHttpBaseUrl()}/api/audit/run?path=${encodeURIComponent(projectPath)}`
     );
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
     return resp.json();
@@ -83,7 +84,7 @@ export class AuditService {
 
     // HTTP fallback: SSE for progress
     return new Promise((resolve, reject) => {
-      const url = `http://${window.location.hostname}:9801/api/deep-audit/run?path=${encodeURIComponent(projectPath)}`;
+      const url = `${getHttpBaseUrl()}/api/deep-audit/run?path=${encodeURIComponent(projectPath)}`;
       const eventSource = new EventSource(url);
 
       eventSource.addEventListener('progress', (event: MessageEvent) => {
@@ -130,7 +131,7 @@ export class AuditService {
       return window.electronAPI.invoke('deep-audit:cancel');
     }
     const resp = await fetch(
-      `http://${window.location.hostname}:9801/api/deep-audit/cancel`,
+      `${getHttpBaseUrl()}/api/deep-audit/cancel`,
       { method: 'POST' },
     );
     if (!resp.ok) return false;

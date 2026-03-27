@@ -2,6 +2,7 @@ import { Injectable, OnDestroy } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { GitContext } from '../models/git-context.model';
 import { IPC_CHANNELS } from '../../../shared/ipc-channels';
+import { getHttpBaseUrl } from '../../../shared/ws-protocol';
 
 /**
  * Service for polling Git repository context for tracked terminal sessions.
@@ -172,7 +173,7 @@ export class GitContextService implements OnDestroy {
         context = await window.electronAPI.invoke(IPC_CHANNELS.GIT_CONTEXT, cwd);
       } else {
         // Remote browser: fetch git context via HTTP API
-        const resp = await fetch(`http://${window.location.hostname}:9801/api/git-context?cwd=${encodeURIComponent(cwd)}`);
+        const resp = await fetch(`${getHttpBaseUrl()}/api/git-context?cwd=${encodeURIComponent(cwd)}`);
         context = await resp.json();
       }
 

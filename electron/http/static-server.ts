@@ -972,6 +972,64 @@ export function startStaticServer(port: number): http.Server {
       return;
     }
 
+    // DELETE /api/sessions?id=<sessionId> - Kill/remove a session
+    if (req.method === 'DELETE' && pathname === '/api/sessions') {
+      const sessionId = url.searchParams.get('id') ?? '';
+      if (!sessionId) {
+        res.writeHead(400, corsHeaders);
+        res.end(JSON.stringify({ error: 'Missing session id' }));
+        return;
+      }
+
+      const ptyProcess = getPtyProcesses().get(sessionId);
+      if (!ptyProcess) {
+        res.writeHead(404, corsHeaders);
+        res.end(JSON.stringify({ error: 'Session not found' }));
+        return;
+      }
+
+      try {
+        ptyProcess.kill();
+        res.writeHead(200, corsHeaders);
+        res.end(JSON.stringify({ success: true }));
+      } catch (error: any) {
+        res.writeHead(500, corsHeaders);
+        res.end(JSON.stringify({ success: false, error: error.message }));
+      }
+      return;
+    }
+
+    // POST /api/pty/write - Write data to a PTY session
+    if (req.method === 'POST' && pathname === '/api/pty/write') {
+      let body = '';
+      req.on('data', chunk => body += chunk);
+      req.on('end', () => {
+        try {
+          const { sessionId, data } = JSON.parse(body);
+          if (!sessionId || data === undefined) {
+            res.writeHead(400, corsHeaders);
+            res.end(JSON.stringify({ error: 'Missing sessionId or data' }));
+            return;
+          }
+
+          const ptyProcess = getPtyProcesses().get(sessionId);
+          if (!ptyProcess) {
+            res.writeHead(404, corsHeaders);
+            res.end(JSON.stringify({ error: 'Session not found' }));
+            return;
+          }
+
+          ptyProcess.write(data);
+          res.writeHead(200, corsHeaders);
+          res.end(JSON.stringify({ success: true }));
+        } catch (error: any) {
+          res.writeHead(500, corsHeaders);
+          res.end(JSON.stringify({ error: error.message }));
+        }
+      });
+      return;
+    }
+
     // Default to index.html for root requests
     let filePath = req.url === '/' ? '/index.html' : req.url || '/index.html';
 

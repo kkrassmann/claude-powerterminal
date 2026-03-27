@@ -16,6 +16,7 @@ import { FileTreeComponent } from './file-tree.component';
 import { DiffViewerComponent } from './diff-viewer.component';
 import { CommentSidebarComponent } from './comment-sidebar.component';
 import { IPC_CHANNELS } from '../../../../shared/ipc-channels';
+import { getHttpBaseUrl } from '../../../../shared/ws-protocol';
 
 declare const window: Window & {
   electronAPI?: { invoke: (channel: string, ...args: unknown[]) => Promise<unknown> };
@@ -251,7 +252,7 @@ export class CodeReviewPanelComponent implements OnInit {
         await window.electronAPI.invoke(IPC_CHANNELS.PTY_WRITE, this.sessionId, prompt);
       } else {
         // Remote browser: use HTTP API to write to PTY
-        await fetch(`http://${window.location.hostname}:9801/api/pty/write`, {
+        await fetch(`${getHttpBaseUrl()}/api/pty/write`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ sessionId: this.sessionId, data: prompt }),

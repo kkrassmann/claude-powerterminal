@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { IPC_CHANNELS } from '../../../shared/ipc-channels';
+import { getHttpBaseUrl } from '../../../shared/ws-protocol';
 import { PTYSpawnOptions } from '../models/pty-config.model';
 
 /**
@@ -65,7 +66,7 @@ export class PtyManagerService {
 
     // Remote browser mode: use HTTP API
     try {
-      const response = await fetch(`http://${window.location.hostname}:9801/api/sessions`, {
+      const response = await fetch(`${getHttpBaseUrl()}/api/sessions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -106,14 +107,24 @@ export class PtyManagerService {
    * }
    */
   async killSession(sessionId: string): Promise<{ success: boolean; error?: string }> {
-    if (!window.electronAPI) {
-      return { success: false, error: 'Not available in remote browser' };
+    if (window.electronAPI) {
+      try {
+        const result = await window.electronAPI.invoke(IPC_CHANNELS.PTY_KILL, sessionId);
+        return result;
+      } catch (error) {
+        console.error('Failed to kill PTY session:', error);
+        return { success: false, error: String(error) };
+      }
     }
+
+    // HTTP fallback for remote browser
     try {
-      const result = await window.electronAPI.invoke(IPC_CHANNELS.PTY_KILL, sessionId);
-      return result;
+      const resp = await fetch(`${getHttpBaseUrl()}/api/sessions?id=${encodeURIComponent(sessionId)}`, {
+        method: 'DELETE',
+      });
+      return await resp.json();
     } catch (error) {
-      console.error('Failed to kill PTY session:', error);
+      console.error('Failed to kill session via HTTP:', error);
       return { success: false, error: String(error) };
     }
   }
@@ -133,14 +144,26 @@ export class PtyManagerService {
    * );
    */
   async writeToSession(sessionId: string, data: string): Promise<{ success: boolean; error?: string }> {
-    if (!window.electronAPI) {
-      return { success: false, error: 'Not available in remote browser' };
+    if (window.electronAPI) {
+      try {
+        const result = await window.electronAPI.invoke(IPC_CHANNELS.PTY_WRITE, { sessionId, data });
+        return result;
+      } catch (error) {
+        console.error('Failed to write to PTY session:', error);
+        return { success: false, error: String(error) };
+      }
     }
+
+    // HTTP fallback for remote browser
     try {
-      const result = await window.electronAPI.invoke(IPC_CHANNELS.PTY_WRITE, { sessionId, data });
-      return result;
+      const resp = await fetch(`${getHttpBaseUrl()}/api/pty/write`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId, data }),
+      });
+      return await resp.json();
     } catch (error) {
-      console.error('Failed to write to PTY session:', error);
+      console.error('Failed to write to session via HTTP:', error);
       return { success: false, error: String(error) };
     }
   }

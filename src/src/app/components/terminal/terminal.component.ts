@@ -4,7 +4,7 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { WebLinksAddon } from '@xterm/addon-web-links';
-import { ServerMessage, ClientMessage, WS_PORT, TerminalStatus } from '../../../../shared/ws-protocol';
+import { ServerMessage, ClientMessage, getWsPort, WS_CLOSE_CODES, TerminalStatus } from '../../../../shared/ws-protocol';
 import { IPC_CHANNELS } from '../../../../shared/ipc-channels';
 
 /**
@@ -234,7 +234,8 @@ export class TerminalComponent implements OnInit, OnDestroy {
    */
   private connectWebSocket(): void {
     const wsHost = window.location.hostname || 'localhost';
-    this.socket = new WebSocket(`ws://${wsHost}:${WS_PORT}/terminal/${this.sessionId}`);
+    const port = getWsPort();
+    this.socket = new WebSocket(`ws://${wsHost}:${port}/terminal/${this.sessionId}`);
 
     this.socket.onopen = () => {
       this.reconnectAttempts = 0;
@@ -320,6 +321,13 @@ export class TerminalComponent implements OnInit, OnDestroy {
 
     this.socket.onclose = (event: CloseEvent) => {
       console.log(`[Terminal] WebSocket closed for session ${this.sessionId}`, event.code);
+
+      // Session not found — PTY process no longer exists, emit exit instead of reconnecting
+      if (event.code === WS_CLOSE_CODES.SESSION_NOT_FOUND) {
+        console.log(`[Terminal] Session ${this.sessionId} no longer exists on server`);
+        this.sessionExited.emit(this.sessionId);
+        return;
+      }
 
       // Only reconnect if not destroyed and not after an exit message
       if (!this.destroyed && event.code !== 1000) {

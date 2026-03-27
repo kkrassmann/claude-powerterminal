@@ -200,27 +200,51 @@ export class GroupService {
    * Load groups from persistent storage via IPC.
    */
   private async loadGroups(): Promise<void> {
-    if (!window.electronAPI) return;
+    if (window.electronAPI) {
+      try {
+        const result = await window.electronAPI.invoke(IPC_CHANNELS.GROUPS_LOAD);
+        if (result?.groups?.length > 0) {
+          this.groups$.next(result.groups);
+          console.log(`[GroupService] Loaded ${result.groups.length} groups`);
+        }
+      } catch (error) {
+        console.error('[GroupService] Failed to load groups:', error);
+      }
+      return;
+    }
+
+    // Remote browser: use localStorage as fallback
     try {
-      const result = await window.electronAPI.invoke(IPC_CHANNELS.GROUPS_LOAD);
-      if (result?.groups?.length > 0) {
-        this.groups$.next(result.groups);
-        console.log(`[GroupService] Loaded ${result.groups.length} groups`);
+      const stored = localStorage.getItem('cpt-groups');
+      if (stored) {
+        const groups = JSON.parse(stored);
+        if (groups?.length > 0) {
+          this.groups$.next(groups);
+        }
       }
     } catch (error) {
-      console.error('[GroupService] Failed to load groups:', error);
+      console.error('[GroupService] Failed to load groups from localStorage:', error);
     }
   }
 
   /**
-   * Persist groups to disk via IPC.
+   * Persist groups to disk via IPC (or localStorage in remote mode).
    */
   private async persistGroups(groups: SessionGroup[]): Promise<void> {
-    if (!window.electronAPI) return;
+    if (window.electronAPI) {
+      try {
+        await window.electronAPI.invoke(IPC_CHANNELS.GROUPS_SAVE, groups);
+      } catch (error) {
+        console.error('[GroupService] Failed to save groups:', error);
+      }
+      return;
+    }
+
+    // Remote browser: use localStorage as fallback
     try {
-      await window.electronAPI.invoke(IPC_CHANNELS.GROUPS_SAVE, groups);
+      localStorage.setItem('cpt-groups', JSON.stringify(groups));
     } catch (error) {
-      console.error('[GroupService] Failed to save groups:', error);
+      console.error('[GroupService] Failed to save groups to localStorage:', error);
     }
   }
 }

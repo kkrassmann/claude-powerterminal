@@ -74,10 +74,10 @@ export function broadcastStatus(sessionId: string, status: TerminalStatus): void
  *
  * @returns WebSocketServer instance
  */
-export function startWebSocketServer(): WebSocketServer {
-  wss = new WebSocketServer({ host: '0.0.0.0', port: WS_PORT });
+export function startWebSocketServer(port: number = WS_PORT): WebSocketServer {
+  wss = new WebSocketServer({ host: '0.0.0.0', port });
 
-  console.log(`[WebSocket] Server listening on 0.0.0.0:${WS_PORT}`);
+  console.log(`[WebSocket] Server listening on 0.0.0.0:${port}`);
 
   // Heartbeat: Detect dead connections every 30 seconds
   heartbeatInterval = setInterval(() => {

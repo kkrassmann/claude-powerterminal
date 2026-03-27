@@ -31,4 +31,46 @@ export const WS_CLOSE_CODES = {
   SERVER_SHUTDOWN: 4001,
 } as const;
 
+// Production ports; dev mode adds +10 offset to avoid conflicts with running release
 export const WS_PORT = 9820;
+export const HTTP_PORT = 9821;
+
+/* eslint-disable no-restricted-globals */
+declare const window: any; // Safe for shared code compiled by both Electron (no DOM) and Angular
+
+/**
+ * Get the base URL for HTTP API calls.
+ * In remote browser mode, uses the same origin the page was loaded from.
+ * This avoids hardcoded port numbers and works regardless of port config.
+ */
+export function getHttpBaseUrl(): string {
+  if (typeof window !== 'undefined' && !(window.electronAPI)) {
+    return `http://${window.location.hostname}:${window.location.port || HTTP_PORT}`;
+  }
+  return `http://localhost:${HTTP_PORT}`;
+}
+
+// Dev mode port offset (must match main.ts)
+const DEV_PORT_OFFSET = 10;
+
+/**
+ * Get the WebSocket port for terminal connections.
+ * - Electron: base port + dev offset if in dev mode
+ * - Remote browser: derives from the HTTP port (WS = HTTP - 1)
+ * - Fallback: default WS_PORT constant
+ */
+export function getWsPort(): number {
+  if (typeof window === 'undefined') return WS_PORT;
+
+  // Electron mode: apply dev offset if flagged by preload
+  if (window.electronAPI) {
+    return WS_PORT + (window.electronAPI.isDev ? DEV_PORT_OFFSET : 0);
+  }
+
+  // Remote browser: WS port = HTTP port - 1
+  if (window.location.port) {
+    return parseInt(window.location.port, 10) - 1;
+  }
+
+  return WS_PORT;
+}

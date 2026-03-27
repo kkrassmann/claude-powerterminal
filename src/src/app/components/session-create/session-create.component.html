@@ -43,6 +43,13 @@
             >{{ tpl.category }}</span>
           </div>
           <div class="template-description" *ngIf="tpl.description">{{ tpl.description }}</div>
+          <div class="template-flags" *ngIf="tpl.cliFlags && tpl.cliFlags.length > 0">
+            <span class="template-flag-badge auto-badge" *ngIf="tpl.cliFlags.includes('auto')">Auto</span>
+            <span class="template-flag-badge plan-badge" *ngIf="tpl.cliFlags.includes('plan') && !tpl.cliFlags.includes('auto')">Plan</span>
+            <ng-container *ngFor="let flag of tpl.cliFlags">
+              <span class="template-flag-badge" *ngIf="flag.startsWith('--') && flag !== '--permission-mode'">{{ flag }}</span>
+            </ng-container>
+          </div>
           <div class="template-meta">
             <span class="template-use-count">{{ tpl.useCount }}x used</span>
             <button class="template-delete-btn" (click)="deleteTemplate($event, tpl.id)" title="Delete template">&times;</button>
@@ -164,6 +171,27 @@
       </div>
 
       <div class="form-section">
+        <label>Permission Mode</label>
+        <div class="permission-mode-selector">
+          <label class="permission-mode-option">
+            <input type="radio" name="permissionMode" value="default" [(ngModel)]="permissionMode" />
+            <span class="mode-label">Default</span>
+            <span class="mode-desc">Interactive approval</span>
+          </label>
+          <label class="permission-mode-option">
+            <input type="radio" name="permissionMode" value="auto" [(ngModel)]="permissionMode" />
+            <span class="mode-label">Auto</span>
+            <span class="mode-desc">AI auto-approves safe operations</span>
+          </label>
+          <label class="permission-mode-option">
+            <input type="radio" name="permissionMode" value="plan" [(ngModel)]="permissionMode" />
+            <span class="mode-label">Plan</span>
+            <span class="mode-desc">Read-only, no writes</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="form-section">
         <label>CLI Flags</label>
         <div class="flags-checkboxes">
           <div class="flag-checkbox" *ngFor="let flag of objectKeys(selectedFlags)">
@@ -188,7 +216,7 @@
         <button
           type="button"
           class="save-template-btn"
-          (click)="showSaveTemplateForm = !showSaveTemplateForm"
+          (click)="showSaveTemplateForm = !showSaveTemplateForm; templateName = templateName || workingDirectory"
         >{{ showSaveTemplateForm ? 'Cancel Template' : 'Save as Template' }}</button>
         <div class="dialog-actions-right">
           <button type="button" class="cancel-btn" (click)="isDialogOpen = false">Cancel</button>

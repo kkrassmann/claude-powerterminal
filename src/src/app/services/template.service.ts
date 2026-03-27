@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { IPC_CHANNELS } from '../../../shared/ipc-channels';
+import { getHttpBaseUrl } from '../../../shared/ws-protocol';
 import { SessionTemplate } from '../../../shared/template-types';
 
 /**
@@ -36,7 +37,7 @@ export class TemplateService {
 
     // Remote browser mode: use HTTP API
     try {
-      const response = await fetch(`http://${window.location.hostname}:9801/api/templates`);
+      const response = await fetch(`${getHttpBaseUrl()}/api/templates`);
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
       }
@@ -66,7 +67,7 @@ export class TemplateService {
 
     // Remote browser mode: use HTTP API
     try {
-      const response = await fetch(`http://${window.location.hostname}:9801/api/templates`, {
+      const response = await fetch(`${getHttpBaseUrl()}/api/templates`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(template)
@@ -99,7 +100,7 @@ export class TemplateService {
 
     // Remote browser mode: use HTTP API
     try {
-      const response = await fetch(`http://${window.location.hostname}:9801/api/templates?id=${encodeURIComponent(id)}`, {
+      const response = await fetch(`${getHttpBaseUrl()}/api/templates?id=${encodeURIComponent(id)}`, {
         method: 'DELETE'
       });
       if (!response.ok) {

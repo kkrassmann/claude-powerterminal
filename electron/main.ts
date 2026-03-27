@@ -43,6 +43,7 @@ import { IPC_CHANNELS } from '../src/shared/ipc-channels';
 import { killPtyProcess } from './utils/process-cleanup';
 import { StatusDetector } from './status/status-detector';
 import { startStaticServer } from './http/static-server';
+import { WS_PORT, HTTP_PORT } from '../src/shared/ws-protocol';
 import { killAllDeepAuditProcesses } from './analysis/deep-audit-engine';
 import { getLocalNetworkAddress } from './utils/network-info';
 import { sanitizeEnvForClaude } from './utils/env-sanitize';
@@ -79,6 +80,7 @@ function createWindow(): void {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false, // Required for node-pty integration
+      additionalArguments: app.isPackaged ? [] : ['--cpt-dev-mode'],
     },
   });
 
@@ -389,23 +391,29 @@ app.whenReady().then(async () => {
   registerWorktreeHandlers();
   registerReviewHandlers();
 
+  // Dev mode uses +10 port offset to avoid conflicts with running release
+  const portOffset = app.isPackaged ? 0 : 10;
+  const wsPort = WS_PORT + portOffset;
+  const httpPort = HTTP_PORT + portOffset;
+
   // Start WebSocket server before creating window
-  startWebSocketServer();
+  startWebSocketServer(wsPort);
 
   // Start HTTP static server for LAN access
-  startStaticServer(9821);
+  startStaticServer(httpPort);
 
   // Discover LAN IP and log access URL
   const lanIp = getLocalNetworkAddress();
   if (lanIp) {
-    lanUrl = `http://${lanIp}:9821`;
+    lanUrl = `http://${lanIp}:${httpPort}`;
     info('App', `LAN access: ${lanUrl}`);
   } else {
     info('App', 'LAN access: not available');
   }
 
-  // Register IPC handler for LAN URL
+  // Register IPC handler for LAN URL and WS port
   ipcMain.handle(IPC_CHANNELS.APP_LAN_URL, () => lanUrl);
+  ipcMain.handle(IPC_CHANNELS.APP_WS_PORT, () => wsPort);
 
   // Init scrollback persistence directory before restoring sessions
   initSessionLogDir(path.join(app.getPath('userData'), 'scrollback'));

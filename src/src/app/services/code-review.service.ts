@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { IPC_CHANNELS } from '../../../shared/ipc-channels';
+import { getHttpBaseUrl } from '../../../shared/ws-protocol';
 import { ReviewComment, ReviewFileState, ReviewHunkState, ReviewFileStatus } from '../models/code-review.model';
 
 declare const window: Window & {
@@ -49,7 +50,7 @@ export class CodeReviewService {
         return (await window.electronAPI.invoke(IPC_CHANNELS.REVIEW_DIFF, cwd)) as string;
       } else {
         const resp = await fetch(
-          `http://${window.location.hostname}:9801/api/review/diff?cwd=${encodeURIComponent(cwd)}`
+          `${getHttpBaseUrl()}/api/review/diff?cwd=${encodeURIComponent(cwd)}`
         );
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
         const json = await resp.json() as { diff: string };
@@ -78,7 +79,7 @@ export class CodeReviewService {
         )) as { success: boolean; error?: string };
       } else {
         const resp = await fetch(
-          `http://${window.location.hostname}:9801/api/review/reject-hunk`,
+          `${getHttpBaseUrl()}/api/review/reject-hunk`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -111,7 +112,7 @@ export class CodeReviewService {
         )) as { success: boolean; error?: string };
       } else {
         const resp = await fetch(
-          `http://${window.location.hostname}:9801/api/review/reject-file`,
+          `${getHttpBaseUrl()}/api/review/reject-file`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -145,7 +146,7 @@ export class CodeReviewService {
         )) as { success: boolean; error?: string };
       } else {
         const resp = await fetch(
-          `http://${window.location.hostname}:9801/api/review/apply-patch`,
+          `${getHttpBaseUrl()}/api/review/apply-patch`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

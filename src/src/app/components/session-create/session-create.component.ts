@@ -11,6 +11,7 @@ import { SessionMetadata } from '../../models/session.model';
 import { SessionTemplate, TemplateCategory } from '../../../../shared/template-types';
 import { WorktreeInfo } from '../../../../shared/worktree-types';
 import { IPC_CHANNELS } from '../../../../shared/ipc-channels';
+import { getHttpBaseUrl } from '../../../../shared/ws-protocol';
 import { generateRandomBranchName } from '../../utils/random-branch-name';
 
 /**
@@ -64,6 +65,14 @@ export class SessionCreateComponent implements OnInit {
     '--verbose': false,
     '--dangerously-skip-permissions': false,
   };
+
+  /**
+   * Permission mode for the session.
+   * 'default' = normal interactive permissions
+   * 'auto' = AI-powered auto-approval (safe ops allowed, dangerous ops blocked)
+   * 'plan' = plan-only mode (no writes)
+   */
+  permissionMode: 'default' | 'auto' | 'plan' = 'default';
 
   /**
    * Optional session ID. If empty, a UUID is auto-generated.
@@ -257,7 +266,7 @@ export class SessionCreateComponent implements OnInit {
       if (window.electronAPI) {
         gitContext = await window.electronAPI.invoke(IPC_CHANNELS.GIT_CONTEXT, dir);
       } else {
-        const resp = await fetch(`http://${window.location.hostname}:9801/api/git-context?cwd=${encodeURIComponent(dir)}`);
+        const resp = await fetch(`${getHttpBaseUrl()}/api/git-context?cwd=${encodeURIComponent(dir)}`);
         gitContext = await resp.json();
       }
 
@@ -471,14 +480,29 @@ export class SessionCreateComponent implements OnInit {
     this.pendingInitialPrompt = template.initialPrompt || '';
 
     // Restore CLI flags from template
+    this.permissionMode = 'default';
     if (template.cliFlags?.length) {
+      // Extract permission mode if present
+      const pmIdx = template.cliFlags.indexOf('--permission-mode');
+      if (pmIdx !== -1 && pmIdx + 1 < template.cliFlags.length) {
+        const mode = template.cliFlags[pmIdx + 1];
+        if (mode === 'auto' || mode === 'plan') {
+          this.permissionMode = mode;
+        }
+      }
+
       // Reset checkboxes
       for (const key of Object.keys(this.selectedFlags)) {
         this.selectedFlags[key] = template.cliFlags.includes(key);
       }
-      // Put non-checkbox flags into customFlags
+      // Put non-checkbox flags into customFlags (excluding permission mode)
       const knownFlags = new Set(Object.keys(this.selectedFlags));
-      this.customFlags = template.cliFlags.filter(f => !knownFlags.has(f)).join(' ');
+      const filteredFlags = template.cliFlags.filter((f, i) => {
+        if (f === '--permission-mode') return false;
+        if (i > 0 && template.cliFlags![i - 1] === '--permission-mode') return false;
+        return !knownFlags.has(f);
+      });
+      this.customFlags = filteredFlags.join(' ');
     }
 
     await this.templateService.useTemplate(template);
@@ -548,6 +572,11 @@ export class SessionCreateComponent implements OnInit {
   private combineFlags(): string[] {
     const flags: string[] = [];
 
+    // Add permission mode flag
+    if (this.permissionMode !== 'default') {
+      flags.push('--permission-mode', this.permissionMode);
+    }
+
     // Add checked flags
     Object.entries(this.selectedFlags).forEach(([flag, enabled]) => {
       if (enabled) {
@@ -574,6 +603,7 @@ export class SessionCreateComponent implements OnInit {
   private clearForm(): void {
     this.workingDirectory = '';
     this.sessionId = '';
+    this.permissionMode = 'default';
     this.selectedFlags = {
       '--verbose': false,
       '--dangerously-skip-permissions': false,

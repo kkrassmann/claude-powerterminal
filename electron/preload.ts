@@ -15,8 +15,12 @@ export interface ElectronAPI {
   removeListener: (channel: string, callback: (...args: any[]) => void) => void;
 }
 
+// Detect dev mode via additionalArguments from main process
+const isDev = process.argv.includes('--cpt-dev-mode');
+
 // Expose protected methods via contextBridge
 contextBridge.exposeInMainWorld('electronAPI', {
+  isDev,
   /**
    * Invoke an IPC handler in the main process and wait for a response.
    * @param channel - IPC channel name (use IPC_CHANNELS constants)

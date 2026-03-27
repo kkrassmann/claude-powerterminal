@@ -32,6 +32,7 @@ export const IPC_CHANNELS = {
   APP_HOME_DIR: 'app:home-dir',
   APP_LAN_URL: 'app:lan-url',
   APP_GIT_BRANCH: 'app:git-branch',
+  APP_WS_PORT: 'app:ws-port',
 
   // Log analysis channels
   LOG_ANALYSIS: 'analysis:logs',
