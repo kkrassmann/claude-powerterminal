@@ -50,7 +50,14 @@ export class AppComponent implements OnInit, OnDestroy {
   ) {}
 
   ngOnInit(): void {
-    // Fetch app git branch via HTTP
+    // Fetch app info (git branch + LAN URL) via HTTP
+    fetch(`${getHttpBaseUrl()}/api/app/info`)
+      .then(r => r.json())
+      .then((result: { homeDir?: string; lanUrl?: string }) => {
+        if (result.lanUrl) this.lanUrl = result.lanUrl;
+      })
+      .catch(() => {});
+
     fetch(`${getHttpBaseUrl()}/api/app/git-branch`)
       .then(r => r.json())
       .then((result: { branch: string | null }) => { this.appBranch = result.branch; })

@@ -56,6 +56,7 @@ const MIME_TYPES: Record<string, string> = {
 
 /** Module-level auth token, set by startStaticServer */
 let apiAuthToken: string | null = null;
+let apiLanUrl: string | null = null;
 
 /** Get the current HTTP API auth token (for display in UI) */
 export function getHttpApiToken(): string | null {
@@ -73,8 +74,9 @@ export function getHttpApiToken(): string | null {
  * @param authToken - Bearer token required for all /api/* routes
  * @returns http.Server instance
  */
-export function startStaticServer(port: number, authToken: string): http.Server {
+export function startStaticServer(port: number, authToken: string, lanUrl?: string): http.Server {
   apiAuthToken = authToken;
+  apiLanUrl = lanUrl || null;
   const buildDir = getAngularBuildDir();
 
   // CORS headers for API endpoints
@@ -237,7 +239,15 @@ export function startStaticServer(port: number, authToken: string): http.Server 
       return;
     }
 
-    // GET /api/app/home-dir - Get user's home directory
+    // GET /api/app/info - Get app info (home dir, LAN URL, auth token)
+    if (req.method === 'GET' && pathname === '/api/app/info') {
+      const homeDir = process.env.HOME || process.env.USERPROFILE || '';
+      res.writeHead(200, corsHeaders);
+      res.end(JSON.stringify({ homeDir, lanUrl: apiLanUrl, token: apiAuthToken }));
+      return;
+    }
+
+    // GET /api/app/home-dir - Get user's home directory (legacy)
     if (req.method === 'GET' && pathname === '/api/app/home-dir') {
       const homeDir = process.env.HOME || process.env.USERPROFILE || '';
       res.writeHead(200, corsHeaders);

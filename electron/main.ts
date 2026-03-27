@@ -329,18 +329,17 @@ app.whenReady().then(async () => {
   // Start WebSocket server before creating window
   startWebSocketServer(wsPort);
 
-  // Start HTTP static server for LAN access (with auth token)
-  httpServer = startStaticServer(httpPort, httpApiToken);
-
-  // Discover LAN IP and log access URL
+  // Discover LAN IP for remote access URL
   const lanIp = getLocalNetworkAddress();
   if (lanIp) {
     lanUrl = `http://${lanIp}:${httpPort}`;
     info('App', `LAN access: ${lanUrl}`);
-    info('App', `HTTP API token: ${httpApiToken}`);
   } else {
     info('App', 'LAN access: not available');
   }
+
+  // Start HTTP static server for LAN access (with auth token + LAN URL)
+  httpServer = startStaticServer(httpPort, httpApiToken, lanUrl || undefined);
 
   // Register IPC handler for LAN URL, WS port, and HTTP API token
   ipcMain.handle(IPC_CHANNELS.APP_LAN_URL, () => lanUrl);
