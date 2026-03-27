@@ -27,6 +27,7 @@ export const IPC_CHANNELS = {
   // Group persistence channels
   GROUPS_LOAD: 'groups:load',
   GROUPS_SAVE: 'groups:save',
+  GROUPS_CHANGED: 'groups:changed',
 
   // App info channels
   APP_HOME_DIR: 'app:home-dir',

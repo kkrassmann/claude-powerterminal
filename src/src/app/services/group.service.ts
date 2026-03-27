@@ -24,9 +24,16 @@ export class GroupService {
   constructor() {
     this.loadGroups();
 
-    // Poll for group changes in remote browser mode (desktop changes via IPC)
-    if (typeof window !== 'undefined' && !(window as any).electronAPI) {
-      setInterval(() => this.loadGroups(), 5000);
+    if (typeof window !== 'undefined') {
+      if (window.electronAPI) {
+        // Desktop: listen for remote group changes pushed via HTTP → IPC
+        window.electronAPI.on(IPC_CHANNELS.GROUPS_CHANGED, (groups: SessionGroup[]) => {
+          this.groups$.next(groups);
+        });
+      } else {
+        // Remote browser: poll for group changes from desktop
+        setInterval(() => this.loadGroups(), 5000);
+      }
     }
   }
 

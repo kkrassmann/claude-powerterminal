@@ -624,6 +624,13 @@ export function startStaticServer(port: number): http.Server {
           const groups = JSON.parse(body);
           const filePath = path.join(app.getPath('userData'), 'groups.json');
           saveGroupsToFile(filePath, groups);
+
+          // Notify Electron renderer so desktop picks up remote changes
+          const win = getMainWindow();
+          if (win) {
+            win.webContents.send(IPC_CHANNELS.GROUPS_CHANGED, groups);
+          }
+
           res.writeHead(200, corsHeaders);
           res.end(JSON.stringify({ success: true }));
         } catch (error) {
