@@ -4,8 +4,7 @@ import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { WebglAddon } from '@xterm/addon-webgl';
 import { WebLinksAddon } from '@xterm/addon-web-links';
-import { ServerMessage, ClientMessage, getWsPort, WS_CLOSE_CODES, TerminalStatus } from '../../../../shared/ws-protocol';
-import { IPC_CHANNELS } from '../../../../shared/ipc-channels';
+import { ServerMessage, ClientMessage, getWsPort, getHttpBaseUrl, WS_CLOSE_CODES, TerminalStatus } from '../../../../shared/ws-protocol';
 
 /**
  * xterm.js terminal component with WebSocket bridge to PTY process.
@@ -88,27 +87,37 @@ export class TerminalComponent implements OnInit, OnDestroy {
     // Close current WebSocket — the old PTY will be killed server-side
     this.socket?.close();
 
-    if (!window.electronAPI) {
-      this.isRestarting = false;
-      this.term.write('\r\n[Restart not available in remote browser]\r\n');
-      return;
-    }
+    try {
+      const resp = await fetch(`${getHttpBaseUrl()}/api/pty/restart`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: this.sessionId, cols: this.term.cols, rows: this.term.rows }),
+      });
+      const result = await resp.json();
 
-    const result = await window.electronAPI.invoke(IPC_CHANNELS.PTY_RESTART, this.sessionId, this.term.cols, this.term.rows);
-    if (result?.success) {
-      // Reset terminal before reconnecting so old content is gone
-      this.term.reset();
-      this.ngZone.runOutsideAngular(() => this.connectWebSocket());
-    } else {
+      if (result?.success) {
+        // Reset terminal before reconnecting so old content is gone
+        this.term.reset();
+        this.ngZone.runOutsideAngular(() => this.connectWebSocket());
+      } else {
+        this.isRestarting = false;
+        this.term.write(`\r\n[Restart failed: ${result?.error}]\r\n`);
+      }
+    } catch (err: any) {
       this.isRestarting = false;
-      this.term.write(`\r\n[Restart failed: ${result?.error}]\r\n`);
+      this.term.write(`\r\n[Restart failed: ${err.message}]\r\n`);
     }
   }
 
-  killSession(): void {
+  async killSession(): Promise<void> {
     this.contextMenuVisible = false;
-    if (!window.electronAPI) return;
-    window.electronAPI.invoke(IPC_CHANNELS.PTY_KILL, this.sessionId);
+    try {
+      await fetch(`${getHttpBaseUrl()}/api/sessions?id=${encodeURIComponent(this.sessionId)}`, {
+        method: 'DELETE',
+      });
+    } catch (err: any) {
+      console.error('[Terminal] Failed to kill session:', err.message);
+    }
   }
 
   scrollToBottom(): void {

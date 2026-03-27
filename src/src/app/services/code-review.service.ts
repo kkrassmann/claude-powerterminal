@@ -1,20 +1,11 @@
 import { Injectable } from '@angular/core';
-import { IPC_CHANNELS } from '../../../shared/ipc-channels';
 import { getHttpBaseUrl } from '../../../shared/ws-protocol';
 import { ReviewComment, ReviewFileState, ReviewHunkState, ReviewFileStatus } from '../models/code-review.model';
-
-declare const window: Window & {
-  electronAPI?: { invoke: (channel: string, ...args: unknown[]) => Promise<unknown> };
-};
 
 /**
  * Angular service for the local code review panel.
  *
- * Dual-transport:
- * - Electron (IPC): Uses window.electronAPI.invoke for direct main-process calls
- * - Remote browser (HTTP): Falls back to fetch() against the HTTP static server
- *
- * Manages:
+ * All git operations use the HTTP API. Manages:
  * - Git diff fetching and hunk/file reject operations
  * - In-memory inline comment state (per session)
  * - In-memory per-file review state (hunk decisions, reviewed flag)
@@ -46,16 +37,12 @@ export class CodeReviewService {
    */
   async fetchDiff(cwd: string): Promise<string> {
     try {
-      if (window.electronAPI) {
-        return (await window.electronAPI.invoke(IPC_CHANNELS.REVIEW_DIFF, cwd)) as string;
-      } else {
-        const resp = await fetch(
-          `${getHttpBaseUrl()}/api/review/diff?cwd=${encodeURIComponent(cwd)}`
-        );
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        const json = await resp.json() as { diff: string };
-        return json.diff ?? '';
-      }
+      const resp = await fetch(
+        `${getHttpBaseUrl()}/api/review/diff?cwd=${encodeURIComponent(cwd)}`
+      );
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const json = await resp.json() as { diff: string };
+      return json.diff ?? '';
     } catch (error: any) {
       console.warn('[CodeReviewService] fetchDiff failed:', error.message);
       return '';
@@ -71,24 +58,16 @@ export class CodeReviewService {
    */
   async rejectHunk(cwd: string, patchContent: string): Promise<{ success: boolean; error?: string }> {
     try {
-      if (window.electronAPI) {
-        return (await window.electronAPI.invoke(
-          IPC_CHANNELS.REVIEW_REJECT_HUNK,
-          cwd,
-          patchContent
-        )) as { success: boolean; error?: string };
-      } else {
-        const resp = await fetch(
-          `${getHttpBaseUrl()}/api/review/reject-hunk`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ cwd, patchContent }),
-          }
-        );
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        return await resp.json() as { success: boolean; error?: string };
-      }
+      const resp = await fetch(
+        `${getHttpBaseUrl()}/api/review/reject-hunk`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cwd, patchContent }),
+        }
+      );
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      return await resp.json() as { success: boolean; error?: string };
     } catch (error: any) {
       console.warn('[CodeReviewService] rejectHunk failed:', error.message);
       return { success: false, error: error.message };
@@ -104,24 +83,16 @@ export class CodeReviewService {
    */
   async rejectFile(cwd: string, filePath: string): Promise<{ success: boolean; error?: string }> {
     try {
-      if (window.electronAPI) {
-        return (await window.electronAPI.invoke(
-          IPC_CHANNELS.REVIEW_REJECT_FILE,
-          cwd,
-          filePath
-        )) as { success: boolean; error?: string };
-      } else {
-        const resp = await fetch(
-          `${getHttpBaseUrl()}/api/review/reject-file`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ cwd, filePath }),
-          }
-        );
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        return await resp.json() as { success: boolean; error?: string };
-      }
+      const resp = await fetch(
+        `${getHttpBaseUrl()}/api/review/reject-file`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cwd, filePath }),
+        }
+      );
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      return await resp.json() as { success: boolean; error?: string };
     } catch (error: any) {
       console.warn('[CodeReviewService] rejectFile failed:', error.message);
       return { success: false, error: error.message };
@@ -138,24 +109,16 @@ export class CodeReviewService {
    */
   async applyPatch(cwd: string, patchContent: string): Promise<{ success: boolean; error?: string }> {
     try {
-      if (window.electronAPI) {
-        return (await window.electronAPI.invoke(
-          IPC_CHANNELS.REVIEW_APPLY_PATCH,
-          cwd,
-          patchContent
-        )) as { success: boolean; error?: string };
-      } else {
-        const resp = await fetch(
-          `${getHttpBaseUrl()}/api/review/apply-patch`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ cwd, patchContent }),
-          }
-        );
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        return await resp.json() as { success: boolean; error?: string };
-      }
+      const resp = await fetch(
+        `${getHttpBaseUrl()}/api/review/apply-patch`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ cwd, patchContent }),
+        }
+      );
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      return await resp.json() as { success: boolean; error?: string };
     } catch (error: any) {
       console.warn('[CodeReviewService] applyPatch failed:', error.message);
       return { success: false, error: error.message };

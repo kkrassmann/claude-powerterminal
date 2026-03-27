@@ -1,7 +1,6 @@
 import { Injectable, OnDestroy } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { GitContext } from '../models/git-context.model';
-import { IPC_CHANNELS } from '../../../shared/ipc-channels';
 import { getHttpBaseUrl } from '../../../shared/ws-protocol';
 
 /**
@@ -168,14 +167,8 @@ export class GitContextService implements OnDestroy {
     try {
       if (!cwd) return;
 
-      let context: GitContext;
-      if (window.electronAPI) {
-        context = await window.electronAPI.invoke(IPC_CHANNELS.GIT_CONTEXT, cwd);
-      } else {
-        // Remote browser: fetch git context via HTTP API
-        const resp = await fetch(`${getHttpBaseUrl()}/api/git-context?cwd=${encodeURIComponent(cwd)}`);
-        context = await resp.json();
-      }
+      const resp = await fetch(`${getHttpBaseUrl()}/api/git-context?cwd=${encodeURIComponent(cwd)}`);
+      const context: GitContext = await resp.json();
 
       // Update contexts map
       const currentContexts = this.contexts.value;

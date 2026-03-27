@@ -12,7 +12,6 @@ import { PtyManagerService } from './services/pty-manager.service';
 import { WorktreeService } from './services/worktree.service';
 import { SessionMetadata } from './models/session.model';
 import { SpawnSessionRequest } from './models/spawn-session.model';
-import { IPC_CHANNELS } from '../../shared/ipc-channels';
 import { getHttpBaseUrl } from '../../shared/ws-protocol';
 import { AudioAlertService } from './services/audio-alert.service';
 import { GroupService } from './services/group.service';
@@ -49,27 +48,11 @@ export class AppComponent implements OnInit {
   ) {}
 
   ngOnInit(): void {
-    // Fetch LAN URL and app git branch
-    if (window.electronAPI) {
-      window.electronAPI.invoke(IPC_CHANNELS.APP_LAN_URL).then((url: string | null) => {
-        this.lanUrl = url;
-      }).catch((err: any) => {
-        console.error('[App] Failed to fetch LAN URL:', err);
-      });
-
-      window.electronAPI.invoke(IPC_CHANNELS.APP_GIT_BRANCH).then((result: { branch: string | null }) => {
-        this.appBranch = result.branch;
-        console.log('[App] Git branch:', result.branch);
-      }).catch((err: any) => {
-        console.error('[App] Failed to fetch git branch:', err);
-      });
-
-    } else {
-      fetch(`${getHttpBaseUrl()}/api/app/git-branch`)
-        .then(r => r.json())
-        .then((result: { branch: string | null }) => { this.appBranch = result.branch; })
-        .catch(() => {});
-    }
+    // Fetch app git branch via HTTP
+    fetch(`${getHttpBaseUrl()}/api/app/git-branch`)
+      .then(r => r.json())
+      .then((result: { branch: string | null }) => { this.appBranch = result.branch; })
+      .catch(() => {});
 
     // Step 1: Show pending placeholders FIRST, then start resolving
     this.sessionManager.loadSessions().then(saved => {
@@ -78,17 +61,8 @@ export class AppComponent implements OnInit {
         console.log(`[App] Showing ${saved.length} session(s) as resuming`);
       }
       // Step 2: Only after placeholders are rendered, start checking for active PTYs
-      // Small delay so Angular can render the placeholders before they get replaced
       setTimeout(() => this.loadRestoredSessions(), 100);
     });
-
-    // Load restored sessions when main process signals restore is complete (guard electronAPI)
-    if (window.electronAPI) {
-      window.electronAPI.on(IPC_CHANNELS.SESSION_RESTORE_COMPLETE, () => {
-        console.log('[App] Received restore-complete signal');
-        this.loadRestoredSessions();
-      });
-    }
 
     // Retry loading at intervals to handle timing issues with auto-restore
     const retryInterval = setInterval(() => {
@@ -98,12 +72,10 @@ export class AppComponent implements OnInit {
     }, 3000);
     setTimeout(() => clearInterval(retryInterval), 30000);
 
-    // Poll for session updates when in remote browser mode
-    if (!window.electronAPI) {
-      setInterval(() => {
-        this.loadRemoteSessions();
-      }, 5000); // 5-second polling
-    }
+    // Poll for session updates (keeps UI in sync with server state)
+    setInterval(() => {
+      this.loadRemoteSessions();
+    }, 5000);
   }
 
   onSessionExited(sessionId: string): void {
@@ -152,13 +124,8 @@ export class AppComponent implements OnInit {
 
   async exportLogs(): Promise<void> {
     try {
-      let jsonl: string;
-      if (window.electronAPI) {
-        jsonl = await window.electronAPI.invoke(IPC_CHANNELS.LOGS_EXPORT);
-      } else {
-        const resp = await fetch(`${getHttpBaseUrl()}/api/logs`);
-        jsonl = await resp.text();
-      }
+      const resp = await fetch(`${getHttpBaseUrl()}/api/logs`);
+      const jsonl = await resp.text();
 
       // Trigger browser download
       const blob = new Blob([jsonl], { type: 'application/x-ndjson' });
@@ -242,36 +209,7 @@ export class AppComponent implements OnInit {
   }
 
   private async loadRestoredSessions(): Promise<number> {
-    try {
-      // Remote browser: load sessions via HTTP API
-      if (!window.electronAPI) {
-        return this.loadRemoteSessions();
-      }
-
-      const [savedSessions, activePtys] = await Promise.all([
-        this.sessionManager.loadSessions(),
-        window.electronAPI.invoke(IPC_CHANNELS.PTY_LIST) as Promise<{ sessionId: string; pid: number }[]>
-      ]);
-
-      const activePtyMap = new Map(activePtys.map((p: { sessionId: string; pid: number }) => [p.sessionId, p.pid]));
-      let added = 0;
-
-      for (const metadata of savedSessions) {
-        const pid = activePtyMap.get(metadata.sessionId);
-        if (pid !== undefined && !this.sessionStateService.hasSession(metadata.sessionId)) {
-          this.sessionStateService.addSession(metadata, pid);
-          added++;
-        }
-      }
-
-      if (added > 0) {
-        console.log(`[App] Restored ${added} session(s)`);
-      }
-      return added;
-    } catch (error) {
-      console.error('[App] Failed to load restored sessions:', error);
-      return 0;
-    }
+    return this.loadRemoteSessions();
   }
 
   private async loadRemoteSessions(): Promise<number> {

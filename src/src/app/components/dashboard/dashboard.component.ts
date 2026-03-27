@@ -11,7 +11,7 @@ import { SessionMetadata } from '../../models/session.model';
 import { TerminalComponent } from '../terminal/terminal.component';
 import { TileHeaderComponent } from '../tile-header/tile-header.component';
 import { GroupTabsComponent } from '../group-tabs/group-tabs.component';
-import { IPC_CHANNELS } from '../../../../shared/ipc-channels';
+import { getHttpBaseUrl } from '../../../../shared/ws-protocol';
 import { TerminalStatus } from '../../models/terminal-status.model';
 import { AudioAlertService } from '../../services/audio-alert.service';
 import type { SessionPracticeScore } from '../../../../shared/analysis-types';
@@ -199,14 +199,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
       }
     });
 
-    // Listen for session restore completion to enable group cleanup
-    if (window.electronAPI) {
-      window.electronAPI.on(IPC_CHANNELS.SESSION_RESTORE_COMPLETE, () => {
-        this.restoreComplete = true;
-      });
-    }
-    // Fallback: enable cleanup after 60s even if no restore signal (e.g., 0 saved sessions).
-    // Must be long enough for sequential session restoration (N sessions × 3s delay each).
+    // Enable group cleanup after 60s (enough time for sequential session restoration).
     setTimeout(() => { this.restoreComplete = true; }, 60000);
 
     // Fetch home directory for path shortening
@@ -267,15 +260,17 @@ export class DashboardComponent implements OnInit, OnDestroy {
   }
 
   /**
-   * Fetch user's home directory from main process.
+   * Fetch user's home directory from HTTP API.
    */
   private async fetchHomeDir(): Promise<void> {
     try {
-      if (!window.electronAPI) {
+      const resp = await fetch(`${getHttpBaseUrl()}/api/app/home-dir`);
+      if (!resp.ok) {
         this.homeDir = '';
         return;
       }
-      this.homeDir = await window.electronAPI.invoke(IPC_CHANNELS.APP_HOME_DIR);
+      const result = await resp.json();
+      this.homeDir = result.homeDir || '';
     } catch (error) {
       console.error('[Dashboard] Failed to fetch home directory:', error);
       this.homeDir = '';
@@ -522,9 +517,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
    * on the WebSocket exit round-trip (which can fail after restarts or on Windows).
    */
   async killSession(sessionId: string): Promise<void> {
-    if (!window.electronAPI) return;
     try {
-      const result = await window.electronAPI.invoke(IPC_CHANNELS.PTY_KILL, sessionId);
+      const resp = await fetch(`${getHttpBaseUrl()}/api/sessions?id=${encodeURIComponent(sessionId)}`, {
+        method: 'DELETE',
+      });
+      const result = await resp.json();
       if (result?.success) {
         this.onSessionExited(sessionId);
       }

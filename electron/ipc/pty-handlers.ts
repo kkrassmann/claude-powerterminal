@@ -49,6 +49,14 @@ export function isSessionRestarting(sessionId: string): boolean {
   return restartingSessions.has(sessionId);
 }
 
+export function markSessionRestarting(sessionId: string): void {
+  restartingSessions.add(sessionId);
+}
+
+export function clearSessionRestarting(sessionId: string): void {
+  restartingSessions.delete(sessionId);
+}
+
 /**
  * Options for spawning a new PTY process.
  */

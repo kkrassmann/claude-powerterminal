@@ -15,12 +15,7 @@ import { detectProjectType, sortFilesByLayer } from '../../models/code-review.mo
 import { FileTreeComponent } from './file-tree.component';
 import { DiffViewerComponent } from './diff-viewer.component';
 import { CommentSidebarComponent } from './comment-sidebar.component';
-import { IPC_CHANNELS } from '../../../../shared/ipc-channels';
 import { getHttpBaseUrl } from '../../../../shared/ws-protocol';
-
-declare const window: Window & {
-  electronAPI?: { invoke: (channel: string, ...args: unknown[]) => Promise<unknown> };
-};
 
 /**
  * Fullscreen overlay for the local code review panel.
@@ -243,21 +238,15 @@ export class CodeReviewPanelComponent implements OnInit {
   }
 
   /**
-   * Write a prompt string to the terminal PTY.
-   * Uses IPC in Electron mode, or HTTP WebSocket write in remote browser mode.
+   * Write a prompt string to the terminal PTY via HTTP API.
    */
   private async writeToTerminal(prompt: string): Promise<void> {
     try {
-      if (window.electronAPI) {
-        await window.electronAPI.invoke(IPC_CHANNELS.PTY_WRITE, this.sessionId, prompt);
-      } else {
-        // Remote browser: use HTTP API to write to PTY
-        await fetch(`${getHttpBaseUrl()}/api/pty/write`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sessionId: this.sessionId, data: prompt }),
-        });
-      }
+      await fetch(`${getHttpBaseUrl()}/api/pty/write`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: this.sessionId, data: prompt }),
+      });
     } catch (err: any) {
       console.error('[CodeReviewPanel] writeToTerminal failed:', err.message);
     }

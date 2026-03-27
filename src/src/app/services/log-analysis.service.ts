@@ -1,15 +1,10 @@
 import { Injectable, OnDestroy } from '@angular/core';
 import { BehaviorSubject, Observable } from 'rxjs';
-import { IPC_CHANNELS } from '../../../shared/ipc-channels';
 import { getHttpBaseUrl } from '../../../shared/ws-protocol';
 import type { SessionAnalysis, SessionPracticeScore, SessionScoreDetail, ScoreTrends } from '../../../shared/analysis-types';
 
 /**
- * Service for fetching Claude CLI session log analysis data.
- *
- * Dual-mode operation:
- * - Electron (IPC): Uses window.electronAPI.invoke for local analysis
- * - Remote browser (HTTP): Falls back to HTTP API endpoints on the static server
+ * Service for fetching Claude CLI session log analysis data via HTTP API.
  *
  * Provides:
  * - Full session analysis (tool usage, token stats, recommendations, practice score)
@@ -47,20 +42,12 @@ export class LogAnalysisService implements OnDestroy {
     this.loading = true;
 
     try {
-      let analysis: SessionAnalysis;
-
-      if (window.electronAPI) {
-        analysis = await window.electronAPI.invoke(IPC_CHANNELS.LOG_ANALYSIS);
-      } else {
-        const resp = await fetch(`${getHttpBaseUrl()}/api/analysis`);
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        analysis = await resp.json();
-      }
-
+      const resp = await fetch(`${getHttpBaseUrl()}/api/analysis`);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const analysis: SessionAnalysis = await resp.json();
       this.analysisSubject.next(analysis);
     } catch (error: any) {
       console.warn('[LogAnalysisService] Failed to load analysis:', error.message);
-      // Keep previous value (silent failure)
     } finally {
       this.loading = false;
     }
@@ -79,19 +66,11 @@ export class LogAnalysisService implements OnDestroy {
         return { sessionId: '', score: 0, badges: [], highlights: [] };
       }
 
-      let score: SessionPracticeScore;
-
-      if (window.electronAPI) {
-        score = await window.electronAPI.invoke(IPC_CHANNELS.LOG_SESSION_SCORE, sessionId);
-      } else {
-        const resp = await fetch(
-          `${getHttpBaseUrl()}/api/analysis/session?id=${encodeURIComponent(sessionId)}`
-        );
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
-        score = await resp.json();
-      }
-
-      return score;
+      const resp = await fetch(
+        `${getHttpBaseUrl()}/api/analysis/session?id=${encodeURIComponent(sessionId)}`
+      );
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      return await resp.json();
     } catch (error: any) {
       console.warn(`[LogAnalysisService] Failed to load score for ${sessionId}:`, error.message);
       return { sessionId, score: 0, badges: [], highlights: [] };
@@ -107,14 +86,10 @@ export class LogAnalysisService implements OnDestroy {
    */
   async loadSessionDetail(sessionId: string): Promise<SessionScoreDetail | null> {
     try {
-      if (window.electronAPI) {
-        return await window.electronAPI.invoke(IPC_CHANNELS.LOG_SESSION_DETAIL, sessionId);
-      } else {
-        const res = await fetch(
-          `${getHttpBaseUrl()}/api/analysis/session-detail?sessionId=${encodeURIComponent(sessionId)}`
-        );
-        return await res.json();
-      }
+      const res = await fetch(
+        `${getHttpBaseUrl()}/api/analysis/session-detail?sessionId=${encodeURIComponent(sessionId)}`
+      );
+      return await res.json();
     } catch {
       return null;
     }
@@ -128,12 +103,8 @@ export class LogAnalysisService implements OnDestroy {
    */
   async loadTrends(): Promise<ScoreTrends | null> {
     try {
-      if (window.electronAPI) {
-        return await window.electronAPI.invoke(IPC_CHANNELS.LOG_SCORE_TRENDS);
-      } else {
-        const res = await fetch(`${getHttpBaseUrl()}/api/analysis/trends`);
-        return await res.json();
-      }
+      const res = await fetch(`${getHttpBaseUrl()}/api/analysis/trends`);
+      return await res.json();
     } catch {
       return null;
     }

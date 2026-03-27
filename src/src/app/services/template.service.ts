@@ -1,14 +1,9 @@
 import { Injectable } from '@angular/core';
-import { IPC_CHANNELS } from '../../../shared/ipc-channels';
 import { getHttpBaseUrl } from '../../../shared/ws-protocol';
 import { SessionTemplate } from '../../../shared/template-types';
 
 /**
- * Service for managing session templates.
- *
- * Supports dual-mode operation:
- * - Electron mode: uses IPC to communicate with main process
- * - Remote browser mode: uses HTTP API via fetch
+ * Service for managing session templates via HTTP API.
  *
  * Templates are persisted in templates.json in the app's userData directory.
  */
@@ -24,18 +19,6 @@ export class TemplateService {
    * @returns Promise resolving to array of all templates
    */
   async listTemplates(): Promise<SessionTemplate[]> {
-    // Electron mode: use IPC
-    if (window.electronAPI) {
-      try {
-        const templates = await window.electronAPI.invoke(IPC_CHANNELS.TEMPLATE_LIST);
-        return templates || [];
-      } catch (error) {
-        console.error('Failed to list templates:', error);
-        return [];
-      }
-    }
-
-    // Remote browser mode: use HTTP API
     try {
       const response = await fetch(`${getHttpBaseUrl()}/api/templates`);
       if (!response.ok) {
@@ -43,7 +26,7 @@ export class TemplateService {
       }
       return await response.json();
     } catch (error) {
-      console.error('Failed to list templates via HTTP:', error);
+      console.error('[TemplateService] Failed to list templates:', error);
       return [];
     }
   }
@@ -54,18 +37,6 @@ export class TemplateService {
    * @param template - The template to save
    */
   async saveTemplate(template: SessionTemplate): Promise<void> {
-    // Electron mode: use IPC
-    if (window.electronAPI) {
-      try {
-        await window.electronAPI.invoke(IPC_CHANNELS.TEMPLATE_SAVE, template);
-      } catch (error) {
-        console.error('Failed to save template:', error);
-        throw new Error(`Failed to save template: ${error}`);
-      }
-      return;
-    }
-
-    // Remote browser mode: use HTTP API
     try {
       const response = await fetch(`${getHttpBaseUrl()}/api/templates`, {
         method: 'POST',
@@ -76,7 +47,7 @@ export class TemplateService {
         throw new Error(`HTTP ${response.status}`);
       }
     } catch (error) {
-      console.error('Failed to save template via HTTP:', error);
+      console.error('[TemplateService] Failed to save template:', error);
       throw new Error(`Failed to save template: ${error}`);
     }
   }
@@ -87,18 +58,6 @@ export class TemplateService {
    * @param id - Template ID to delete
    */
   async deleteTemplate(id: string): Promise<void> {
-    // Electron mode: use IPC
-    if (window.electronAPI) {
-      try {
-        await window.electronAPI.invoke(IPC_CHANNELS.TEMPLATE_DELETE, id);
-      } catch (error) {
-        console.error('Failed to delete template:', error);
-        throw new Error(`Failed to delete template: ${error}`);
-      }
-      return;
-    }
-
-    // Remote browser mode: use HTTP API
     try {
       const response = await fetch(`${getHttpBaseUrl()}/api/templates?id=${encodeURIComponent(id)}`, {
         method: 'DELETE'
@@ -107,7 +66,7 @@ export class TemplateService {
         throw new Error(`HTTP ${response.status}`);
       }
     } catch (error) {
-      console.error('Failed to delete template via HTTP:', error);
+      console.error('[TemplateService] Failed to delete template:', error);
       throw new Error(`Failed to delete template: ${error}`);
     }
   }

@@ -8,7 +8,6 @@
 import { Injectable } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import { SessionGroup, LayoutConfig, LayoutPreset, DEFAULT_GROUP_COLORS } from '../../../shared/group-types';
-import { IPC_CHANNELS } from '../../../shared/ipc-channels';
 import { getHttpBaseUrl } from '../../../shared/ws-protocol';
 
 @Injectable({
@@ -24,17 +23,9 @@ export class GroupService {
   constructor() {
     this.loadGroups();
 
+    // Poll for group changes — keeps all clients (desktop + remote) in sync
     if (typeof window !== 'undefined') {
-      if (window.electronAPI) {
-        // Desktop: listen for remote group changes pushed via HTTP → IPC
-        window.electronAPI.on(IPC_CHANNELS.GROUPS_CHANGED, (groups: SessionGroup[]) => {
-          console.log(`[GroupService] Received GROUPS_CHANGED via IPC: ${groups?.length} groups`);
-          this.groups$.next(groups);
-        });
-      } else {
-        // Remote browser: poll for group changes from desktop
-        setInterval(() => this.loadGroups(), 5000);
-      }
+      setInterval(() => this.loadGroups(), 5000);
     }
   }
 
@@ -211,60 +202,32 @@ export class GroupService {
   }
 
   /**
-   * Load groups from persistent storage via IPC.
+   * Load groups from persistent storage via HTTP API.
    */
   private async loadGroups(): Promise<void> {
-    if (window.electronAPI) {
-      try {
-        const result = await window.electronAPI.invoke(IPC_CHANNELS.GROUPS_LOAD);
-        if (result?.groups?.length > 0) {
-          this.groups$.next(result.groups);
-          console.log(`[GroupService] Loaded ${result.groups.length} groups`);
-        }
-      } catch (error) {
-        console.error('[GroupService] Failed to load groups:', error);
-      }
-      return;
-    }
-
-    // Remote browser: load from HTTP API (same groups.json as desktop)
     try {
       const resp = await fetch(`${getHttpBaseUrl()}/api/groups`);
       const groups = await resp.json();
       if (groups?.length > 0) {
         this.groups$.next(groups);
-        console.log(`[GroupService] Loaded ${groups.length} groups via HTTP`);
       }
     } catch (error) {
-      console.error('[GroupService] Failed to load groups via HTTP:', error);
+      console.error('[GroupService] Failed to load groups:', error);
     }
   }
 
   /**
-   * Persist groups to disk via IPC (or HTTP in remote mode).
+   * Persist groups to disk via HTTP API.
    */
   private async persistGroups(groups: SessionGroup[]): Promise<void> {
-    if (window.electronAPI) {
-      try {
-        await window.electronAPI.invoke(IPC_CHANNELS.GROUPS_SAVE, groups);
-      } catch (error) {
-        console.error('[GroupService] Failed to save groups:', error);
-      }
-      return;
-    }
-
-    // Remote browser: save via HTTP API
     try {
-      const url = `${getHttpBaseUrl()}/api/groups`;
-      console.log(`[GroupService] POST ${url} with ${groups.length} groups`);
-      const resp = await fetch(url, {
+      await fetch(`${getHttpBaseUrl()}/api/groups`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(groups),
       });
-      console.log(`[GroupService] POST response: ${resp.status}`);
     } catch (error) {
-      console.error('[GroupService] Failed to save groups via HTTP:', error);
+      console.error('[GroupService] Failed to save groups:', error);
     }
   }
 }

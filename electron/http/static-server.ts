@@ -11,13 +11,14 @@ import * as path from 'path';
 import * as pty from 'node-pty';
 import { execFile, spawn } from 'child_process';
 import { promisify } from 'util';
-import { getPtyProcesses } from '../ipc/pty-handlers';
+import { getPtyProcesses, markSessionRestarting, clearSessionRestarting } from '../ipc/pty-handlers';
 import { app } from 'electron';
 import { getScrollbackBuffers, getStatusDetectors, broadcastStatus } from '../websocket/ws-server';
 import { ScrollbackBuffer } from '../../src/shared/scrollback-buffer';
 import { StatusDetector } from '../status/status-detector';
-import { deleteSessionFromDisk } from '../ipc/session-handlers';
+import { deleteSessionFromDisk, getSessionFromDisk } from '../ipc/session-handlers';
 import { sanitizeEnvForClaude } from '../utils/env-sanitize';
+import { killPtyProcess } from '../utils/process-cleanup';
 import { getMainWindow } from '../utils/window-ref';
 import { parseGitStatus } from '../utils/git-status-parser';
 import { IPC_CHANNELS } from '../../src/shared/ipc-channels';
@@ -292,6 +293,14 @@ export function startStaticServer(port: number): http.Server {
         res.writeHead(200, corsHeaders);
         res.end(JSON.stringify({ branch: null, cwd }));
       }
+      return;
+    }
+
+    // GET /api/app/home-dir - Get user's home directory
+    if (req.method === 'GET' && pathname === '/api/app/home-dir') {
+      const homeDir = process.env.HOME || process.env.USERPROFILE || '';
+      res.writeHead(200, corsHeaders);
+      res.end(JSON.stringify({ homeDir }));
       return;
     }
 
@@ -1043,6 +1052,123 @@ export function startStaticServer(port: number): http.Server {
         res.writeHead(500, corsHeaders);
         res.end(JSON.stringify({ success: false, error: error.message }));
       }
+      return;
+    }
+
+    // POST /api/pty/restart - Kill and re-spawn a PTY with --resume
+    if (req.method === 'POST' && pathname === '/api/pty/restart') {
+      let body = '';
+      req.on('data', chunk => body += chunk);
+      req.on('end', async () => {
+        try {
+          const { sessionId, cols, rows } = JSON.parse(body);
+          if (!sessionId) {
+            res.writeHead(400, corsHeaders);
+            res.end(JSON.stringify({ error: 'Missing sessionId' }));
+            return;
+          }
+
+          const oldPty = getPtyProcesses().get(sessionId);
+          if (!oldPty) {
+            res.writeHead(404, corsHeaders);
+            res.end(JSON.stringify({ success: false, error: 'Session not found' }));
+            return;
+          }
+
+          const metadata = getSessionFromDisk(sessionId);
+          if (!metadata) {
+            res.writeHead(404, corsHeaders);
+            res.end(JSON.stringify({ success: false, error: 'Session metadata not found' }));
+            return;
+          }
+
+          // Mark as restarting so onExit skips cleanup
+          markSessionRestarting(sessionId);
+
+          // Destroy old status detector
+          const oldDetector = getStatusDetectors().get(sessionId);
+          if (oldDetector) {
+            oldDetector.destroy();
+            getStatusDetectors().delete(sessionId);
+          }
+
+          // Graceful exit: send /exit to Claude CLI so it saves state properly
+          try {
+            oldPty.write('/exit\n');
+            await new Promise<void>((resolve) => {
+              const timeout = setTimeout(() => resolve(), 5000);
+              oldPty.onExit(() => { clearTimeout(timeout); resolve(); });
+            });
+          } catch {}
+
+          // Force-kill if still alive
+          try {
+            await killPtyProcess(oldPty, 2000);
+          } catch {}
+          getPtyProcesses().delete(sessionId);
+
+          // Spawn new PTY with --resume
+          const env = sanitizeEnvForClaude();
+          const claudeExe = process.platform === 'win32' ? 'claude.exe' : 'claude';
+          const newPty = pty.spawn(claudeExe, ['--resume', sessionId, ...metadata.cliFlags], {
+            name: 'xterm-256color',
+            cols: cols || 80,
+            rows: rows || 30,
+            cwd: metadata.workingDirectory,
+            env,
+            useConpty: true,
+          });
+
+          // Replace in map and reset scrollback
+          getPtyProcesses().set(sessionId, newPty);
+          getScrollbackBuffers().set(sessionId, new ScrollbackBuffer(10000));
+
+          // Load saved scrollback so terminal shows previous output after restart
+          const savedData = loadSessionLog(sessionId);
+          if (savedData) {
+            getScrollbackBuffers().get(sessionId)!.append(savedData);
+          }
+
+          // Create new status detector
+          const newDetector = new StatusDetector(sessionId, (sid, status) => {
+            broadcastStatus(sid, status);
+          });
+          getStatusDetectors().set(sessionId, newDetector);
+
+          // Wire up PTY event handlers (WebSocket handles data forwarding)
+          newPty.onData((data) => {
+            const buffer = getScrollbackBuffers().get(sessionId);
+            if (buffer) buffer.append(data);
+            appendSessionLog(sessionId, data);
+            const detector = getStatusDetectors().get(sessionId);
+            if (detector) detector.processOutput(data);
+          });
+
+          newPty.onExit(({ exitCode }) => {
+            console.log(`[HTTP] Session ${sessionId} exited after restart (code ${exitCode})`);
+            const detector = getStatusDetectors().get(sessionId);
+            if (detector) {
+              detector.processExit();
+              detector.destroy();
+              getStatusDetectors().delete(sessionId);
+            }
+            getPtyProcesses().delete(sessionId);
+            getScrollbackBuffers().delete(sessionId);
+            deleteSessionFromDisk(sessionId);
+            deleteSessionLog(sessionId);
+          });
+
+          // Keep guard active for 5s to absorb delayed old-PTY onExit events
+          setTimeout(() => clearSessionRestarting(sessionId), 5000);
+
+          console.log(`[HTTP] Session ${sessionId} restarted (PID ${newPty.pid})`);
+          res.writeHead(200, corsHeaders);
+          res.end(JSON.stringify({ success: true, pid: newPty.pid }));
+        } catch (error: any) {
+          res.writeHead(500, corsHeaders);
+          res.end(JSON.stringify({ success: false, error: error.message }));
+        }
+      });
       return;
     }
 

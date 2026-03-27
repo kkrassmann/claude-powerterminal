@@ -10,7 +10,6 @@ import { GroupService } from '../../services/group.service';
 import { SessionMetadata } from '../../models/session.model';
 import { SessionTemplate, TemplateCategory } from '../../../../shared/template-types';
 import { WorktreeInfo } from '../../../../shared/worktree-types';
-import { IPC_CHANNELS } from '../../../../shared/ipc-channels';
 import { getHttpBaseUrl } from '../../../../shared/ws-protocol';
 import { generateRandomBranchName } from '../../utils/random-branch-name';
 
@@ -263,12 +262,8 @@ export class SessionCreateComponent implements OnInit {
     try {
       // Check git context
       let gitContext: { isGitRepo: boolean; branch: string | null };
-      if (window.electronAPI) {
-        gitContext = await window.electronAPI.invoke(IPC_CHANNELS.GIT_CONTEXT, dir);
-      } else {
-        const resp = await fetch(`${getHttpBaseUrl()}/api/git-context?cwd=${encodeURIComponent(dir)}`);
-        gitContext = await resp.json();
-      }
+      const resp = await fetch(`${getHttpBaseUrl()}/api/git-context?cwd=${encodeURIComponent(dir)}`);
+      gitContext = await resp.json();
 
       if (!gitContext.isGitRepo) {
         this.resetGitState();

@@ -1,33 +1,22 @@
 /**
  * Angular service for the project configuration audit feature.
  *
- * Dual-transport operation:
- * - Electron (IPC): Uses window.electronAPI.invoke for audit API calls
- * - Remote browser (HTTP): Falls back to HTTP API endpoints on the static server
- *
- * Modeled on log-analysis.service.ts for consistency.
+ * All operations use the HTTP API on the Electron static server.
+ * Deep audit uses Server-Sent Events (SSE) for progress updates.
  */
 
 import { Injectable } from '@angular/core';
 import type { ProjectAuditResult, DeepAuditResult, DeepAuditProgress } from '../../../shared/audit-types';
 import { getHttpBaseUrl } from '../../../shared/ws-protocol';
 
-declare const window: any;
-
 @Injectable({ providedIn: 'root' })
 export class AuditService {
-
-  /** Callback for deep audit progress updates (set by component) */
-  private deepAuditProgressCallback: ((progress: DeepAuditProgress) => void) | null = null;
 
   /**
    * Load the list of Claude project paths from ~/.claude/projects/.
    * Returns decoded filesystem paths for each discovered project.
    */
   async loadProjects(): Promise<string[]> {
-    if (window.electronAPI) {
-      return window.electronAPI.invoke('audit:projects');
-    }
     const resp = await fetch(
       `${getHttpBaseUrl()}/api/audit/projects`
     );
@@ -42,9 +31,6 @@ export class AuditService {
    * @param projectPath - Absolute filesystem path to the project root
    */
   async runAudit(projectPath: string): Promise<ProjectAuditResult> {
-    if (window.electronAPI) {
-      return window.electronAPI.invoke('audit:run', projectPath);
-    }
     const resp = await fetch(
       `${getHttpBaseUrl()}/api/audit/run?path=${encodeURIComponent(projectPath)}`
     );
@@ -54,7 +40,7 @@ export class AuditService {
 
   /**
    * Run a deep audit (LLM-based content analysis) for the given project path.
-   * Supports progress updates via callback.
+   * Uses Server-Sent Events (SSE) for progress updates.
    *
    * @param projectPath - Absolute filesystem path to the project root
    * @param onProgress - Optional callback for progress updates
@@ -64,25 +50,6 @@ export class AuditService {
     projectPath: string,
     onProgress?: (progress: DeepAuditProgress) => void,
   ): Promise<DeepAuditResult> {
-    if (window.electronAPI) {
-      // Register progress listener
-      if (onProgress) {
-        this.deepAuditProgressCallback = onProgress;
-        window.electronAPI.on('deep-audit:progress', this.deepAuditProgressCallback);
-      }
-      try {
-        const result = await window.electronAPI.invoke('deep-audit:run', projectPath);
-        return result;
-      } finally {
-        // Clean up progress listener
-        if (this.deepAuditProgressCallback) {
-          window.electronAPI.removeListener('deep-audit:progress', this.deepAuditProgressCallback);
-          this.deepAuditProgressCallback = null;
-        }
-      }
-    }
-
-    // HTTP fallback: SSE for progress
     return new Promise((resolve, reject) => {
       const url = `${getHttpBaseUrl()}/api/deep-audit/run?path=${encodeURIComponent(projectPath)}`;
       const eventSource = new EventSource(url);
@@ -127,9 +94,6 @@ export class AuditService {
    * Signals the backend to abort the current audit and kill child processes.
    */
   async cancelDeepAudit(): Promise<boolean> {
-    if (window.electronAPI) {
-      return window.electronAPI.invoke('deep-audit:cancel');
-    }
     const resp = await fetch(
       `${getHttpBaseUrl()}/api/deep-audit/cancel`,
       { method: 'POST' },
