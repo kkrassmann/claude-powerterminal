@@ -624,11 +624,15 @@ export function startStaticServer(port: number): http.Server {
           const groups = JSON.parse(body);
           const filePath = path.join(app.getPath('userData'), 'groups.json');
           saveGroupsToFile(filePath, groups);
+          console.log(`[HTTP] POST /api/groups: saved ${groups.length} groups to disk`);
 
           // Notify Electron renderer so desktop picks up remote changes
           const win = getMainWindow();
-          if (win) {
+          if (win && !win.isDestroyed()) {
             win.webContents.send(IPC_CHANNELS.GROUPS_CHANGED, groups);
+            console.log(`[HTTP] POST /api/groups: sent GROUPS_CHANGED IPC to renderer`);
+          } else {
+            console.warn(`[HTTP] POST /api/groups: no active window to notify (win=${!!win})`);
           }
 
           res.writeHead(200, corsHeaders);
@@ -1104,7 +1108,14 @@ export function startStaticServer(port: number): http.Server {
 
       // Determine MIME type
       const mimeType = MIME_TYPES[ext] || 'application/octet-stream';
-      res.writeHead(200, { 'Content-Type': mimeType });
+      // Angular hashed filenames (main-XXXX.js) are cache-safe; index.html must revalidate
+      const cacheControl = ext === '.html'
+        ? 'no-cache, must-revalidate'
+        : 'public, max-age=86400';
+      res.writeHead(200, {
+        'Content-Type': mimeType,
+        'Cache-Control': cacheControl,
+      });
       res.end(data);
     });
   });

@@ -28,6 +28,7 @@ export class GroupService {
       if (window.electronAPI) {
         // Desktop: listen for remote group changes pushed via HTTP → IPC
         window.electronAPI.on(IPC_CHANNELS.GROUPS_CHANGED, (groups: SessionGroup[]) => {
+          console.log(`[GroupService] Received GROUPS_CHANGED via IPC: ${groups?.length} groups`);
           this.groups$.next(groups);
         });
       } else {
@@ -254,11 +255,14 @@ export class GroupService {
 
     // Remote browser: save via HTTP API
     try {
-      await fetch(`${getHttpBaseUrl()}/api/groups`, {
+      const url = `${getHttpBaseUrl()}/api/groups`;
+      console.log(`[GroupService] POST ${url} with ${groups.length} groups`);
+      const resp = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(groups),
       });
+      console.log(`[GroupService] POST response: ${resp.status}`);
     } catch (error) {
       console.error('[GroupService] Failed to save groups via HTTP:', error);
     }
