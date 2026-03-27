@@ -213,28 +213,29 @@ export function startWebSocketServer(port: number = WS_PORT): WebSocketServer {
             break;
 
           case 'resize':
-            // Track this client's dimensions for min-size calculation
-            (client as any)._cols = msg.cols;
-            (client as any)._rows = msg.rows;
-
-            // Use minimum dimensions across all connected clients for this session
-            // (prevents display corruption when desktop + mobile share a session)
-            let minCols = msg.cols;
-            let minRows = msg.rows;
-            if (wss) {
-              wss.clients.forEach((c: any) => {
-                if (c.sessionId === sessionId && c._cols && c._rows && c.readyState === 1) {
-                  minCols = Math.min(minCols, c._cols);
-                  minRows = Math.min(minRows, c._rows);
-                }
-              });
+            // Only the first connected client for this session controls the PTY size.
+            // Other clients (e.g., phone viewing a desktop session) just observe.
+            if (!(client as any)._isResizeOwner) {
+              // Check if any other client already owns resize for this session
+              let hasOwner = false;
+              if (wss) {
+                wss.clients.forEach((c: any) => {
+                  if (c !== ws && c.sessionId === sessionId && c._isResizeOwner && c.readyState === 1) {
+                    hasOwner = true;
+                  }
+                });
+              }
+              if (!hasOwner) {
+                (client as any)._isResizeOwner = true;
+              }
             }
 
-            // Wrap in try/catch: resize on exited PTY crashes on Windows (RESEARCH.md pitfall)
-            try {
-              ptyProcess.resize(minCols, minRows);
-            } catch (error: any) {
-              console.warn(`[WebSocket] Resize failed for session ${sessionId}:`, error.message);
+            if ((client as any)._isResizeOwner) {
+              try {
+                ptyProcess.resize(msg.cols, msg.rows);
+              } catch (error: any) {
+                console.warn(`[WebSocket] Resize failed for session ${sessionId}:`, error.message);
+              }
             }
             break;
 
