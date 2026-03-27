@@ -32,6 +32,7 @@ function makeFakePty() {
     }),
     onExit: vi.fn((cb: (ev: { exitCode: number }) => void) => {
       exitListeners.push(cb);
+      return { dispose: vi.fn(() => { const i = exitListeners.indexOf(cb); if (i !== -1) exitListeners.splice(i, 1); }) };
     }),
     // Test helpers
     _emitData: (data: string) => dataListeners.forEach((cb) => cb(data)),

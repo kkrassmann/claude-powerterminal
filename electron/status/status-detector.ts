@@ -16,8 +16,9 @@
 
 import { stripAnsi, extractWindowTitle } from './ansi-strip';
 import { info, debug as logDebug } from '../utils/log-service';
+import { TerminalStatus } from '../../src/shared/ws-protocol';
 
-export type TerminalStatus = 'WORKING' | 'THINKING' | 'WAITING' | 'ERROR' | 'DONE';
+export type { TerminalStatus };
 
 export type StatusChangeCallback = (sessionId: string, status: TerminalStatus, previousStatus: TerminalStatus) => void;
 

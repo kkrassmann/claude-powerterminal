@@ -41,7 +41,7 @@ export interface HistoryEntry {
  * Read all score history entries from disk.
  * Returns empty array if file is missing, empty, or corrupt.
  */
-export function readScoreHistory(): HistoryEntry[] {
+function readScoreHistory(): HistoryEntry[] {
   try {
     const filePath = getHistoryFilePath();
     if (!fs.existsSync(filePath)) return [];

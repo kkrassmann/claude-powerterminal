@@ -5,7 +5,7 @@
  * with persistence via IPC to groups.json in userData directory.
  */
 
-import { Injectable } from '@angular/core';
+import { Injectable, OnDestroy } from '@angular/core';
 import { BehaviorSubject } from 'rxjs';
 import { SessionGroup, LayoutConfig, LayoutPreset, DEFAULT_GROUP_COLORS } from '../../../shared/group-types';
 import { getHttpBaseUrl } from '../../../shared/ws-protocol';
@@ -13,19 +13,28 @@ import { getHttpBaseUrl } from '../../../shared/ws-protocol';
 @Injectable({
   providedIn: 'root'
 })
-export class GroupService {
+export class GroupService implements OnDestroy {
   /** Reactive stream of all session groups. */
   groups$ = new BehaviorSubject<SessionGroup[]>([]);
 
   /** Reactive stream of active layout configuration. */
   activeLayout$ = new BehaviorSubject<LayoutConfig>({ preset: 'overview' });
 
+  private pollIntervalId: ReturnType<typeof setInterval> | null = null;
+
   constructor() {
     this.loadGroups();
 
     // Poll for group changes — keeps all clients (desktop + remote) in sync
     if (typeof window !== 'undefined') {
-      setInterval(() => this.loadGroups(), 5000);
+      this.pollIntervalId = setInterval(() => this.loadGroups(), 5000);
+    }
+  }
+
+  ngOnDestroy(): void {
+    if (this.pollIntervalId !== null) {
+      clearInterval(this.pollIntervalId);
+      this.pollIntervalId = null;
     }
   }
 

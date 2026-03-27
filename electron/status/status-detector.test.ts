@@ -19,7 +19,7 @@ function makeDetector(): {
   detector: StatusDetector;
   callback: ReturnType<typeof vi.fn>;
 } {
-  const callback = vi.fn<Parameters<StatusChangeCallback>, void>();
+  const callback = vi.fn<StatusChangeCallback>();
   const detector = new StatusDetector(SESSION_ID, callback);
   return { detector, callback };
 }
@@ -229,7 +229,7 @@ describe('StatusDetector', () => {
 
     detector.processExit();
     expect(detector.getStatus()).toBe('DONE');
-    const lastCall = callback.mock.calls.at(-1)!;
+    const lastCall = callback.mock.calls[callback.mock.calls.length - 1];
     expect(lastCall[1]).toBe('DONE');
     expect(lastCall[2]).toBe('WAITING');
     detector.destroy();

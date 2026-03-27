@@ -13,17 +13,7 @@ import { parseGitStatus } from '../utils/git-status-parser';
 
 const execFileAsync = promisify(execFile);
 
-/**
- * Git repository context (main process copy, duplicated from renderer model).
- * Main process can't import from Angular src, so we duplicate the interface.
- */
-interface GitContext {
-  readonly branch: string | null;
-  readonly added: number;
-  readonly modified: number;
-  readonly deleted: number;
-  readonly isGitRepo: boolean;
-}
+import { GitContext } from '../../src/shared/git-types';
 
 /**
  * Register all Git-related IPC handlers.

@@ -126,7 +126,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
   private sessionsSubscription: Subscription | null = null;
   private scoreRefreshInterval: ReturnType<typeof setInterval> | null = null;
-  private layoutSubscription: Subscription | null = null;
 
   /** Height resize state */
   private resizing = false;
@@ -218,7 +217,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     // Clean up subscriptions and polling
     this.sessionsSubscription?.unsubscribe();
-    this.layoutSubscription?.unsubscribe();
     this.gitContextService.stopPolling();
     if (this.scoreRefreshInterval) {
       clearInterval(this.scoreRefreshInterval);

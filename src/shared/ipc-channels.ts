@@ -9,7 +9,6 @@ export const IPC_CHANNELS = {
   PTY_KILL: 'pty:kill',
   PTY_DATA: 'pty:data',
   PTY_EXIT: 'pty:exit',
-  PTY_RESIZE: 'pty:resize',
   PTY_LIST: 'pty:list',
   PTY_RESTART: 'pty:restart',
   SESSION_RESTORE_COMPLETE: 'session:restore-complete',
@@ -34,6 +33,7 @@ export const IPC_CHANNELS = {
   APP_LAN_URL: 'app:lan-url',
   APP_GIT_BRANCH: 'app:git-branch',
   APP_WS_PORT: 'app:ws-port',
+  APP_HTTP_TOKEN: 'app:http-token',
 
   // Log analysis channels
   LOG_ANALYSIS: 'analysis:logs',

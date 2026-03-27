@@ -5,8 +5,17 @@ import { IPC_CHANNELS } from '../src/shared/ipc-channels';
  * Preload script for secure IPC communication.
  * Exposes a limited, type-safe API to the renderer process via contextBridge.
  *
- * Security: Only specific channels are exposed, preventing arbitrary IPC access.
+ * Security: Only whitelisted IPC channels are allowed, preventing arbitrary IPC access.
  */
+
+// Build whitelist from IPC_CHANNELS constants
+const validChannels = new Set<string>(Object.values(IPC_CHANNELS));
+
+function assertValidChannel(channel: string): void {
+  if (!validChannels.has(channel)) {
+    throw new Error(`Blocked IPC access to unauthorized channel: "${channel}"`);
+  }
+}
 
 // Define the API shape for type safety
 export interface ElectronAPI {
@@ -28,6 +37,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
    * @returns Promise with the handler's return value
    */
   invoke: (channel: string, ...args: any[]): Promise<any> => {
+    assertValidChannel(channel);
     return ipcRenderer.invoke(channel, ...args);
   },
 
@@ -37,6 +47,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
    * @param callback - Function to call when event is received
    */
   on: (channel: string, callback: (...args: any[]) => void): void => {
+    assertValidChannel(channel);
     ipcRenderer.on(channel, (_event, ...args) => callback(...args));
   },
 
@@ -46,6 +57,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
    * @param callback - The callback function to remove
    */
   removeListener: (channel: string, callback: (...args: any[]) => void): void => {
+    assertValidChannel(channel);
     ipcRenderer.removeListener(channel, callback);
   },
 });

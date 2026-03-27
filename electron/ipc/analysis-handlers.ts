@@ -15,10 +15,20 @@ import { runDeepAudit, cancelDeepAudit } from '../analysis/deep-audit-engine';
 import type { SessionAnalysis, SessionScoreDetail } from '../../src/shared/analysis-types';
 import type { DeepAuditResult } from '../../src/shared/audit-types';
 
-// Per-session detail cache with 5-minute TTL
+import { DETAIL_CACHE_TTL_MS, MAX_DETAIL_CACHE_SIZE } from '../../src/shared/constants';
+
+// Per-session detail cache with 5-minute TTL and max 50 entries
 // Avoids re-parsing when user opens multiple session details in sequence
 const sessionDetailCache = new Map<string, { result: SessionScoreDetail; cachedAt: number }>();
-const DETAIL_CACHE_TTL = 5 * 60 * 1000;
+
+function cacheDetailResult(sessionId: string, result: SessionScoreDetail): void {
+  // Evict oldest entry when cache is full
+  if (sessionDetailCache.size >= MAX_DETAIL_CACHE_SIZE) {
+    const oldestKey = sessionDetailCache.keys().next().value;
+    if (oldestKey) sessionDetailCache.delete(oldestKey);
+  }
+  sessionDetailCache.set(sessionId, { result, cachedAt: Date.now() });
+}
 
 /**
  * Register all analysis-related IPC handlers.
@@ -78,12 +88,12 @@ export function registerAnalysisHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.LOG_SESSION_DETAIL, async (_event, sessionId: string) => {
     const now = Date.now();
     const cached = sessionDetailCache.get(sessionId);
-    if (cached && now - cached.cachedAt < DETAIL_CACHE_TTL) {
+    if (cached && now - cached.cachedAt < DETAIL_CACHE_TTL_MS) {
       return cached.result;
     }
     const result = await computeSessionScore(sessionId);
     if (result) {
-      sessionDetailCache.set(sessionId, { result, cachedAt: now });
+      cacheDetailResult(sessionId, result);
     }
     return result ?? null;
   });

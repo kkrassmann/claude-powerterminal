@@ -27,8 +27,8 @@ process.on('unhandledRejection', (reason) => {
 
 import { app, BrowserWindow, Menu, ipcMain } from 'electron';
 import * as pty from 'node-pty';
-import { registerPtyHandlers, getPtyProcesses, setShuttingDown, isShuttingDown, isSessionRestarting } from './ipc/pty-handlers';
-import { registerSessionHandlers } from './ipc/session-handlers';
+import { registerPtyHandlers, getPtyProcesses, setShuttingDown, isShuttingDown } from './ipc/pty-handlers';
+import { registerSessionHandlers, loadSessionsFromDisk, getSessionsFilePath } from './ipc/session-handlers';
 import { registerGitHandlers } from './ipc/git-handlers';
 import { registerAnalysisHandlers } from './ipc/analysis-handlers';
 import { registerLogHandlers } from './ipc/log-handlers';
@@ -36,12 +36,11 @@ import { registerGroupHandlers } from './ipc/group-handlers';
 import { registerTemplateHandlers } from './ipc/template-handlers';
 import { registerWorktreeHandlers } from './ipc/worktree-handlers';
 import { registerReviewHandlers } from './ipc/review-handlers';
-import { startWebSocketServer, stopWebSocketServer, getScrollbackBuffers, getStatusDetectors, broadcastStatus } from './websocket/ws-server';
-import { ScrollbackBuffer } from '../src/shared/scrollback-buffer';
+import { startWebSocketServer, stopWebSocketServer } from './websocket/ws-server';
 import { deleteSessionFromDisk } from './ipc/session-handlers';
+import { SessionMetadata } from '../src/shared/session-types';
 import { IPC_CHANNELS } from '../src/shared/ipc-channels';
 import { killPtyProcess } from './utils/process-cleanup';
-import { StatusDetector } from './status/status-detector';
 import { startStaticServer } from './http/static-server';
 import { WS_PORT, HTTP_PORT } from '../src/shared/ws-protocol';
 import { killAllDeepAuditProcesses } from './analysis/deep-audit-engine';
@@ -49,9 +48,11 @@ import { getLocalNetworkAddress } from './utils/network-info';
 import { sanitizeEnvForClaude } from './utils/env-sanitize';
 import { getAngularBuildDir } from './utils/paths';
 import { info, warn as logWarn, error as logError } from './utils/log-service';
-import { initSessionLogDir, appendSessionLog, loadSessionLog, deleteSessionLog, cleanupOrphanedLogs } from './utils/session-log';
+import { initSessionLogDir, cleanupOrphanedLogs } from './utils/session-log';
+import { wirePtyHandlers } from './utils/pty-wiring';
 
 import { setMainWindow } from './utils/window-ref';
+import { randomUUID } from 'crypto';
 
 // Scope userData by mode: dev uses separate directory to avoid conflicts with release builds
 const userDataName = app.isPackaged ? 'claude-powerterminal' : 'claude-powerterminal-dev';
@@ -59,6 +60,11 @@ app.setPath('userData', path.join(app.getPath('appData'), userDataName));
 
 let mainWindow: BrowserWindow | null = null;
 let lanUrl: string | null = null;
+
+/** Auth token for HTTP API — generated once per app lifecycle */
+const httpApiToken = randomUUID();
+/** HTTP server instance for cleanup on quit */
+let httpServer: ReturnType<typeof startStaticServer> | null = null;
 
 /**
  * Create the main application window.
@@ -132,44 +138,6 @@ function createWindow(): void {
     mainWindow = null;
     setMainWindow(null);
   });
-}
-
-/**
- * Session metadata interface (matches src/app/models/session.model.ts)
- */
-interface SessionMetadata {
-  sessionId: string;
-  workingDirectory: string;
-  cliFlags: string[];
-  createdAt: string;
-}
-
-/**
- * Get the path to sessions.json file in userData directory.
- */
-function getSessionsFilePath(): string {
-  const userDataPath = app.getPath('userData');
-  return path.join(userDataPath, 'sessions.json');
-}
-
-/**
- * Load sessions from disk.
- * Returns empty array if file doesn't exist or is invalid.
- */
-function loadSessionsFromDisk(): SessionMetadata[] {
-  try {
-    const filePath = getSessionsFilePath();
-    if (!fs.existsSync(filePath)) {
-      info('Auto-Restore', 'No sessions file found');
-      return [];
-    }
-    const data = fs.readFileSync(filePath, 'utf-8');
-    const sessions = JSON.parse(data);
-    return sessions;
-  } catch (error: any) {
-    logError('Auto-Restore', 'Error loading sessions', undefined, error.message);
-    return [];
-  }
 }
 
 /**
@@ -255,58 +223,20 @@ async function spawnPtyFresh(session: SessionMetadata): Promise<pty.IPty> {
  * Setup PTY event handlers and register in process map.
  */
 function registerRestoredPty(session: SessionMetadata, ptyProcess: pty.IPty): void {
-  const ptyProcesses = getPtyProcesses();
-  ptyProcesses.set(session.sessionId, ptyProcess);
-  getScrollbackBuffers().set(session.sessionId, new ScrollbackBuffer(10000));
-
-  // Load saved scrollback from disk (persisted from previous run)
-  const savedData = loadSessionLog(session.sessionId);
-  if (savedData) {
-    getScrollbackBuffers().get(session.sessionId)!.append(savedData);
-    info('Auto-Restore', `Loaded ${savedData.length} chars of saved scrollback`, session.sessionId);
-  }
-
-  // Create status detector for restored session
-  const statusDetector = new StatusDetector(session.sessionId, (sid, status) => {
-    broadcastStatus(sid, status);
-  });
-  getStatusDetectors().set(session.sessionId, statusDetector);
-
-  ptyProcess.onData((data) => {
-    const buffer = getScrollbackBuffers().get(session.sessionId);
-    if (buffer) buffer.append(data);
-    appendSessionLog(session.sessionId, data);
-
-    // Feed to status detector
-    const detector = getStatusDetectors().get(session.sessionId);
-    if (detector) detector.processOutput(data);
-
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send(IPC_CHANNELS.PTY_DATA, { sessionId: session.sessionId, data });
-    }
-  });
-
-  ptyProcess.onExit(({ exitCode, signal }) => {
-    if (isSessionRestarting(session.sessionId)) return;
-    info('Auto-Restore', `Session exited with code ${exitCode}`, session.sessionId);
-
-    // Notify status detector of exit
-    const detector = getStatusDetectors().get(session.sessionId);
-    if (detector) {
-      detector.processExit();
-      detector.destroy();
-      getStatusDetectors().delete(session.sessionId);
-    }
-
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send(IPC_CHANNELS.PTY_EXIT, { sessionId: session.sessionId, exitCode, signal });
-    }
-    ptyProcesses.delete(session.sessionId);
-    getScrollbackBuffers().delete(session.sessionId);
-    if (!isShuttingDown()) {
-      deleteSessionFromDisk(session.sessionId);
-      deleteSessionLog(session.sessionId);
-    }
+  wirePtyHandlers({
+    sessionId: session.sessionId,
+    ptyProcess,
+    loadSavedScrollback: true,
+    onData: (sid, data) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send(IPC_CHANNELS.PTY_DATA, { sessionId: sid, data });
+      }
+    },
+    onExit: (sid, exitCode, signal) => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        mainWindow.webContents.send(IPC_CHANNELS.PTY_EXIT, { sessionId: sid, exitCode, signal });
+      }
+    },
   });
 }
 
@@ -399,21 +329,23 @@ app.whenReady().then(async () => {
   // Start WebSocket server before creating window
   startWebSocketServer(wsPort);
 
-  // Start HTTP static server for LAN access
-  startStaticServer(httpPort);
+  // Start HTTP static server for LAN access (with auth token)
+  httpServer = startStaticServer(httpPort, httpApiToken);
 
   // Discover LAN IP and log access URL
   const lanIp = getLocalNetworkAddress();
   if (lanIp) {
     lanUrl = `http://${lanIp}:${httpPort}`;
     info('App', `LAN access: ${lanUrl}`);
+    info('App', `HTTP API token: ${httpApiToken}`);
   } else {
     info('App', 'LAN access: not available');
   }
 
-  // Register IPC handler for LAN URL and WS port
+  // Register IPC handler for LAN URL, WS port, and HTTP API token
   ipcMain.handle(IPC_CHANNELS.APP_LAN_URL, () => lanUrl);
   ipcMain.handle(IPC_CHANNELS.APP_WS_PORT, () => wsPort);
+  ipcMain.handle(IPC_CHANNELS.APP_HTTP_TOKEN, () => httpApiToken);
 
   // Init scrollback persistence directory before restoring sessions
   initSessionLogDir(path.join(app.getPath('userData'), 'scrollback'));
@@ -470,8 +402,12 @@ app.on('will-quit', async (event) => {
   // Kill any active deep audit claude processes
   killAllDeepAuditProcesses();
 
-  // Stop WebSocket server first (closes all WebSocket connections)
+  // Stop WebSocket + HTTP servers
   stopWebSocketServer();
+  if (httpServer) {
+    httpServer.close();
+    httpServer = null;
+  }
 
   // Kill all active PTY processes using taskkill /T /F to kill entire process tree
   const killPromises = Array.from(ptyProcesses.entries()).map(async ([sessionId, ptyProcess]) => {

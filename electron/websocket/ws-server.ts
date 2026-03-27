@@ -11,6 +11,12 @@ import { ScrollbackBuffer } from '../../src/shared/scrollback-buffer';
 import { WS_PORT, WS_CLOSE_CODES, ServerMessage, ClientMessage, TerminalStatus } from '../../src/shared/ws-protocol';
 import { StatusDetector } from '../status/status-detector';
 
+/** Extended WebSocket with session tracking metadata */
+interface ExtendedWebSocket extends WebSocket {
+  isAlive: boolean;
+  sessionId: string;
+}
+
 /**
  * Map of session IDs to scrollback buffers.
  * Buffers are created when PTY processes are spawned and persist across WebSocket connections.
@@ -57,7 +63,7 @@ export function broadcastStatus(sessionId: string, status: TerminalStatus): void
   if (!wss) return;
 
   wss.clients.forEach((ws) => {
-    const client = ws as any;
+    const client = ws as ExtendedWebSocket;
     if (client.sessionId === sessionId && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ type: 'status', status }));
     }
@@ -84,7 +90,7 @@ export function startWebSocketServer(port: number = WS_PORT): WebSocketServer {
     if (!wss) return;
 
     wss.clients.forEach((ws) => {
-      const client = ws as any;
+      const client = ws as ExtendedWebSocket;
 
       if (client.isAlive === false) {
         console.log(`[WebSocket] Terminating dead connection for session ${client.sessionId || 'unknown'}`);
@@ -120,11 +126,12 @@ export function startWebSocketServer(port: number = WS_PORT): WebSocketServer {
     console.log(`[WebSocket] Client connected to session ${sessionId}`);
 
     // Setup heartbeat
-    (ws as any).isAlive = true;
-    (ws as any).sessionId = sessionId;
+    const client = ws as ExtendedWebSocket;
+    client.isAlive = true;
+    client.sessionId = sessionId;
 
     ws.on('pong', () => {
-      (ws as any).isAlive = true;
+      client.isAlive = true;
     });
 
     // Safe send helper — prevents errors from crashing the connection
@@ -170,8 +177,8 @@ export function startWebSocketServer(port: number = WS_PORT): WebSocketServer {
       safeSend({ type: 'output', data });
     });
 
-    // Handle PTY exit
-    ptyProcess.onExit(({ exitCode }) => {
+    // Handle PTY exit — store disposable for cleanup on ws close
+    const exitDisposable = ptyProcess.onExit(({ exitCode }) => {
       console.log(`[WebSocket] PTY exited for session ${sessionId} with code ${exitCode}`);
       safeSend({ type: 'exit', exitCode });
     });
@@ -226,8 +233,9 @@ export function startWebSocketServer(port: number = WS_PORT): WebSocketServer {
     ws.on('close', () => {
       console.log(`[WebSocket] Client disconnected from session ${sessionId}`);
 
-      // Clean up onData handler to prevent memory leaks
+      // Clean up PTY event handlers to prevent memory leaks
       dataDisposable.dispose();
+      exitDisposable.dispose();
 
       // Do NOT dispose PTY or buffer — session persists, only WebSocket connection closes
     });

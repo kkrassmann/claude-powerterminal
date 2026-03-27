@@ -8,17 +8,18 @@
 import * as pty from 'node-pty';
 import * as fs from 'fs';
 import * as path from 'path';
-import { execSync } from 'child_process';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import { ipcMain } from 'electron';
+
+const execFileAsync = promisify(execFile);
 import { IPC_CHANNELS } from '../../src/shared/ipc-channels';
 import { killPtyProcess } from '../utils/process-cleanup';
-import { getScrollbackBuffers, getStatusDetectors, broadcastStatus } from '../websocket/ws-server';
-import { ScrollbackBuffer } from '../../src/shared/scrollback-buffer';
-import { deleteSessionFromDisk, getSessionFromDisk } from './session-handlers';
-import { StatusDetector } from '../status/status-detector';
+import { getScrollbackBuffers, getStatusDetectors } from '../websocket/ws-server';
+import { getSessionFromDisk } from './session-handlers';
 import { sanitizeEnvForClaude } from '../utils/env-sanitize';
 import { info, warn as logWarn, error as logError } from '../utils/log-service';
-import { appendSessionLog, loadSessionLog, deleteSessionLog } from '../utils/session-log';
+import { wirePtyHandlers } from '../utils/pty-wiring';
 
 /**
  * Map of session IDs to active PTY processes.
@@ -114,15 +115,22 @@ export function registerPtyHandlers(): void {
         }
       }
 
-      // Check 2: External Claude CLI processes (e.g. user's terminal CLI session)
+      // Check 2: External Claude CLI processes (async, non-blocking)
       try {
         let externalCount = 0;
         if (process.platform === 'win32') {
-          const out = execSync('wmic process where "name=\'claude.exe\'" get processid,commandline /format:csv', { encoding: 'utf-8', timeout: 3000 });
-          externalCount = out.split('\n').filter(l => l.includes('claude.exe')).length;
+          const { stdout } = await execFileAsync(
+            'tasklist', ['/FI', 'IMAGENAME eq claude.exe', '/FO', 'CSV', '/NH'],
+            { encoding: 'utf-8', timeout: 3000, windowsHide: true }
+          );
+          // Each CSV line represents one process; filter out "no tasks" messages
+          externalCount = stdout.split('\n').filter(l => l.includes('"claude.exe"')).length;
         } else {
-          const out = execSync('ps -eo pid,command', { encoding: 'utf-8', timeout: 3000 });
-          externalCount = out.split('\n').filter(l => /\bclaude\b/.test(l) && !l.includes('grep') && !l.includes('ps -eo')).length;
+          const { stdout } = await execFileAsync(
+            'ps', ['-eo', 'pid,command'],
+            { encoding: 'utf-8', timeout: 3000 }
+          );
+          externalCount = stdout.split('\n').filter(l => /\bclaude\b/.test(l) && !l.includes('grep') && !l.includes('ps -eo')).length;
         }
         const ownCount = ptyProcesses.size;
         if (externalCount > ownCount) {
@@ -154,73 +162,23 @@ export function registerPtyHandlers(): void {
         useConpty: true, // Windows ConPTY mode (auto-enabled on Win10 1809+)
       });
 
-      // Store in map for later access
-      ptyProcesses.set(sessionId, ptyProcess);
-
-      // Create scrollback buffer for WebSocket replay
-      getScrollbackBuffers().set(sessionId, new ScrollbackBuffer(10000));
-
-      // Load saved scrollback from disk when resuming
-      if (useResume) {
-        const savedData = loadSessionLog(sessionId);
-        if (savedData) {
-          getScrollbackBuffers().get(sessionId)!.append(savedData);
-          info('PTY', `Loaded ${savedData.length} chars of saved scrollback`, sessionId);
-        }
-      }
-
-      // Create status detector
-      const statusDetector = new StatusDetector(sessionId, (sid, status, prev) => {
-        broadcastStatus(sid, status);
-      });
-      getStatusDetectors().set(sessionId, statusDetector);
-
       info('PTY', `PTY spawned with PID ${ptyProcess.pid}`, sessionId);
 
-      // Setup output streaming to renderer (guard against destroyed window during quit)
-      ptyProcess.onData((data) => {
-        // Append to scrollback buffer for WebSocket replay
-        const buffer = getScrollbackBuffers().get(sessionId);
-        if (buffer) {
-          buffer.append(data);
-        }
-        appendSessionLog(sessionId, data);
-
-        // Feed output to status detector
-        const detector = getStatusDetectors().get(sessionId);
-        if (detector) {
-          detector.processOutput(data);
-        }
-
-        if (!event.sender.isDestroyed()) {
-          event.sender.send(IPC_CHANNELS.PTY_DATA, { sessionId, data });
-        }
-      });
-
-      // Setup exit handling
-      ptyProcess.onExit(({ exitCode, signal }) => {
-        if (restartingSessions.has(sessionId)) return;
-        info('PTY', `Exited with code ${exitCode}, signal ${signal}`, sessionId);
-
-        // Notify status detector of exit
-        const detector = getStatusDetectors().get(sessionId);
-        if (detector) {
-          detector.processExit();
-          detector.destroy();
-          getStatusDetectors().delete(sessionId);
-        }
-
-        if (!event.sender.isDestroyed()) {
-          event.sender.send(IPC_CHANNELS.PTY_EXIT, { sessionId, exitCode, signal });
-        }
-        ptyProcesses.delete(sessionId);
-        getScrollbackBuffers().delete(sessionId);
-
-        // Only remove from disk if CLI exited normally (not during app shutdown)
-        if (!shuttingDown) {
-          deleteSessionFromDisk(sessionId);
-          deleteSessionLog(sessionId);
-        }
+      // Wire up scrollback, status detection, and event handlers
+      wirePtyHandlers({
+        sessionId,
+        ptyProcess,
+        loadSavedScrollback: useResume,
+        onData: (_sid, data) => {
+          if (!event.sender.isDestroyed()) {
+            event.sender.send(IPC_CHANNELS.PTY_DATA, { sessionId, data });
+          }
+        },
+        onExit: (_sid, exitCode, signal) => {
+          if (!event.sender.isDestroyed()) {
+            event.sender.send(IPC_CHANNELS.PTY_EXIT, { sessionId, exitCode, signal });
+          }
+        },
       });
 
       return { success: true, pid: ptyProcess.pid };
@@ -346,61 +304,21 @@ export function registerPtyHandlers(): void {
       useConpty: true,
     });
 
-    // Replace in map and reset scrollback
-    ptyProcesses.set(sessionId, newPty);
-    getScrollbackBuffers().set(sessionId, new ScrollbackBuffer(10000));
-
-    // Load saved scrollback so terminal shows previous output after restart
-    const savedData = loadSessionLog(sessionId);
-    if (savedData) {
-      getScrollbackBuffers().get(sessionId)!.append(savedData);
-      info('PTY', `Loaded ${savedData.length} chars of saved scrollback after restart`, sessionId);
-    }
-
-    // Create new status detector
-    const newDetector = new StatusDetector(sessionId, (sid, status, prev) => {
-      broadcastStatus(sid, status);
-    });
-    getStatusDetectors().set(sessionId, newDetector);
-
-    // Wire up new event handlers
-    newPty.onData((data) => {
-      const buffer = getScrollbackBuffers().get(sessionId);
-      if (buffer) buffer.append(data);
-      appendSessionLog(sessionId, data);
-
-      // Feed to status detector
-      const detector = getStatusDetectors().get(sessionId);
-      if (detector) {
-        detector.processOutput(data);
-      }
-
-      if (!event.sender.isDestroyed()) {
-        event.sender.send(IPC_CHANNELS.PTY_DATA, { sessionId, data });
-      }
-    });
-
-    newPty.onExit(({ exitCode, signal }) => {
-      if (restartingSessions.has(sessionId)) return;
-      info('PTY', `Exited with code ${exitCode}, signal ${signal}`, sessionId);
-
-      // Notify status detector of exit
-      const detector = getStatusDetectors().get(sessionId);
-      if (detector) {
-        detector.processExit();
-        detector.destroy();
-        getStatusDetectors().delete(sessionId);
-      }
-
-      if (!event.sender.isDestroyed()) {
-        event.sender.send(IPC_CHANNELS.PTY_EXIT, { sessionId, exitCode, signal });
-      }
-      ptyProcesses.delete(sessionId);
-      getScrollbackBuffers().delete(sessionId);
-      if (!shuttingDown) {
-        deleteSessionFromDisk(sessionId);
-        deleteSessionLog(sessionId);
-      }
+    // Wire up scrollback, status detection, and event handlers
+    wirePtyHandlers({
+      sessionId,
+      ptyProcess: newPty,
+      loadSavedScrollback: true,
+      onData: (_sid, data) => {
+        if (!event.sender.isDestroyed()) {
+          event.sender.send(IPC_CHANNELS.PTY_DATA, { sessionId, data });
+        }
+      },
+      onExit: (_sid, exitCode, signal) => {
+        if (!event.sender.isDestroyed()) {
+          event.sender.send(IPC_CHANNELS.PTY_EXIT, { sessionId, exitCode, signal });
+        }
+      },
     });
 
     // Keep guard active for 5s to absorb any delayed old-PTY onExit events (Windows async cleanup)

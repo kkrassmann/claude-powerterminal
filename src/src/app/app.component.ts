@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterOutlet } from '@angular/router';
 import { SessionCreateComponent } from './components/session-create/session-create.component';
@@ -23,12 +23,14 @@ import { GroupService } from './services/group.service';
   templateUrl: './app.component.html',
   styleUrl: './app.component.css'
 })
-export class AppComponent implements OnInit {
+export class AppComponent implements OnInit, OnDestroy {
   title = 'Claude PowerTerminal';
   pendingSessions: SessionMetadata[] = [];
   lanUrl: string | null = null;
   showAnalysis = false;
   appBranch: string | null = null;
+
+  private intervalIds: ReturnType<typeof setInterval>[] = [];
 
   /** ID of the session whose detail panel is currently open, or null if closed. */
   selectedSessionId: string | null = null;
@@ -70,12 +72,21 @@ export class AppComponent implements OnInit {
         if (loaded > 0) clearInterval(retryInterval);
       });
     }, 3000);
+    this.intervalIds.push(retryInterval);
     setTimeout(() => clearInterval(retryInterval), 30000);
 
     // Poll for session updates (keeps UI in sync with server state)
-    setInterval(() => {
+    const pollInterval = setInterval(() => {
       this.loadRemoteSessions();
     }, 5000);
+    this.intervalIds.push(pollInterval);
+  }
+
+  ngOnDestroy(): void {
+    for (const id of this.intervalIds) {
+      clearInterval(id);
+    }
+    this.intervalIds = [];
   }
 
   onSessionExited(sessionId: string): void {

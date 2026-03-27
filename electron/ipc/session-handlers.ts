@@ -9,22 +9,13 @@ import { app, ipcMain } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 import { IPC_CHANNELS } from '../../src/shared/ipc-channels';
+import { SessionMetadata } from '../../src/shared/session-types';
 import { info, warn as logWarn, error as logError } from '../utils/log-service';
-
-/**
- * SessionMetadata interface (matches src/app/models/session.model.ts)
- */
-interface SessionMetadata {
-  sessionId: string;
-  workingDirectory: string;
-  cliFlags: string[];
-  createdAt: string;
-}
 
 /**
  * Get the path to sessions.json file in userData directory.
  */
-function getSessionsFilePath(): string {
+export function getSessionsFilePath(): string {
   const userDataPath = app.getPath('userData');
   return path.join(userDataPath, 'sessions.json');
 }
@@ -33,7 +24,7 @@ function getSessionsFilePath(): string {
  * Load sessions from disk.
  * Returns empty array if file doesn't exist or is invalid.
  */
-function loadSessionsFromDisk(): SessionMetadata[] {
+export function loadSessionsFromDisk(): SessionMetadata[] {
   try {
     const filePath = getSessionsFilePath();
     if (!fs.existsSync(filePath)) {
@@ -70,6 +61,16 @@ function saveSessionsToDisk(sessions: SessionMetadata[]): void {
     logError('Session', 'Error saving sessions', undefined, error.message);
     throw error;
   }
+}
+
+/**
+ * Save a single session to disk (append to sessions.json).
+ * Used by the HTTP server to persist new sessions created via REST API.
+ */
+export function saveSessionToDisk(session: SessionMetadata): void {
+  const sessions = loadSessionsFromDisk();
+  sessions.push(session);
+  saveSessionsToDisk(sessions);
 }
 
 /**

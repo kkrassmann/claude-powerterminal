@@ -21,27 +21,38 @@ afterEach(() => {
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 
+// Helper: wait for async file operations to flush
+const flush = () => new Promise(r => setTimeout(r, 50));
+
 describe('session-log', () => {
-  it('append then load returns identical data', () => {
+  it('append then load returns identical data', async () => {
     appendSessionLog('s1', 'hello world');
+    await flush();
     const result = loadSessionLog('s1');
     expect(result).toBe('hello world');
   });
 
-  it('multiple appends concatenate correctly', () => {
+  it('multiple appends concatenate correctly', async () => {
     appendSessionLog('s2', 'aaa');
+    await flush();
     appendSessionLog('s2', 'bbb');
+    await flush();
     appendSessionLog('s2', 'ccc');
+    await flush();
     const result = loadSessionLog('s2');
     expect(result).toBe('aaabbbccc');
   });
 
-  it('file is trimmed when exceeding 1MB', () => {
+  it('file is trimmed when exceeding 1MB', async () => {
     const chunk = 'x'.repeat(100_000); // 100KB per chunk
     // Write 12 chunks = 1.2MB — should trigger trim
     for (let i = 0; i < 12; i++) {
       appendSessionLog('s3', chunk);
+      await flush();
     }
+
+    // Wait for trim operation to complete
+    await new Promise(r => setTimeout(r, 200));
 
     const filePath = path.join(tmpDir, 's3.buf');
     const stat = fs.statSync(filePath);
@@ -56,6 +67,7 @@ describe('session-log', () => {
 
   it('delete removes file', async () => {
     appendSessionLog('s4', 'data');
+    await flush();
     const filePath = path.join(tmpDir, 's4.buf');
     expect(fs.existsSync(filePath)).toBe(true);
 
@@ -73,6 +85,7 @@ describe('session-log', () => {
     appendSessionLog('active1', 'keep');
     appendSessionLog('stale1', 'remove');
     appendSessionLog('stale2', 'remove');
+    await flush();
 
     cleanupOrphanedLogs(new Set(['active1']));
 
@@ -84,9 +97,10 @@ describe('session-log', () => {
     expect(fs.existsSync(path.join(tmpDir, 'stale2.buf'))).toBe(false);
   });
 
-  it('preserves escape sequences in roundtrip', () => {
+  it('preserves escape sequences in roundtrip', async () => {
     const ansi = '\x1b[31mRED\x1b[0m normal \x1b[1;32mGREEN\x1b[0m';
     appendSessionLog('s5', ansi);
+    await flush();
     expect(loadSessionLog('s5')).toBe(ansi);
   });
 });

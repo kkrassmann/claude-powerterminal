@@ -13,15 +13,14 @@ import { execFile, spawn } from 'child_process';
 import { promisify } from 'util';
 import { getPtyProcesses, markSessionRestarting, clearSessionRestarting } from '../ipc/pty-handlers';
 import { app } from 'electron';
-import { getScrollbackBuffers, getStatusDetectors, broadcastStatus } from '../websocket/ws-server';
-import { ScrollbackBuffer } from '../../src/shared/scrollback-buffer';
-import { StatusDetector } from '../status/status-detector';
-import { deleteSessionFromDisk, getSessionFromDisk } from '../ipc/session-handlers';
+import { getScrollbackBuffers, getStatusDetectors } from '../websocket/ws-server';
+import { getSessionFromDisk, loadSessionsFromDisk } from '../ipc/session-handlers';
 import { sanitizeEnvForClaude } from '../utils/env-sanitize';
 import { killPtyProcess } from '../utils/process-cleanup';
 import { getMainWindow } from '../utils/window-ref';
 import { parseGitStatus } from '../utils/git-status-parser';
 import { IPC_CHANNELS } from '../../src/shared/ipc-channels';
+import { wirePtyHandlers } from '../utils/pty-wiring';
 import { analyzeAllSessions, computeSessionScore } from '../analysis/log-analyzer';
 import { discoverClaudeProjects, runProjectAudit } from '../analysis/audit-engine';
 import { runDeepAudit, cancelDeepAudit } from '../analysis/deep-audit-engine';
@@ -30,55 +29,11 @@ import { getAngularBuildDir } from '../utils/paths';
 import { exportAsJsonl } from '../utils/log-service';
 import { loadTemplatesFromDisk, saveTemplatesToDisk } from '../ipc/template-handlers';
 import { loadGroupsFromFile, saveGroupsToFile } from '../ipc/group-handlers';
-import { appendSessionLog, loadSessionLog, deleteSessionLog } from '../utils/session-log';
 import { SessionTemplate } from '../../src/shared/template-types';
 import { WorktreeInfo, WorktreeCreateOptions } from '../../src/shared/worktree-types';
 
-/**
- * SessionMetadata interface (matches src/app/models/session.model.ts)
- */
-interface SessionMetadata {
-  sessionId: string;
-  workingDirectory: string;
-  cliFlags: string[];
-  createdAt: string;
-}
-
-/**
- * Load sessions from disk.
- * Returns empty array if file doesn't exist or is invalid.
- */
-function loadSessionsFromDisk(): SessionMetadata[] {
-  try {
-    const userDataPath = app.getPath('userData');
-    const filePath = path.join(userDataPath, 'sessions.json');
-    if (!fs.existsSync(filePath)) {
-      return [];
-    }
-    const data = fs.readFileSync(filePath, 'utf-8');
-    const sessions = JSON.parse(data);
-    return sessions;
-  } catch (error: any) {
-    console.error('[Static Server] Error loading sessions:', error.message);
-    return [];
-  }
-}
-
-/**
- * Save a new session to disk (append to sessions.json).
- */
-function saveSessionToDisk(session: SessionMetadata): void {
-  try {
-    const sessions = loadSessionsFromDisk();
-    sessions.push(session);
-    const userDataPath = app.getPath('userData');
-    const filePath = path.join(userDataPath, 'sessions.json');
-    fs.writeFileSync(filePath, JSON.stringify(sessions, null, 2), 'utf-8');
-    console.log(`[Static Server] Saved session ${session.sessionId} to disk`);
-  } catch (error: any) {
-    console.error('[Static Server] Error saving session:', error.message);
-  }
-}
+/** Import saveSessionToDisk helper that uses session-handlers' loadSessionsFromDisk */
+import { saveSessionToDisk } from '../ipc/session-handlers';
 
 const execFileAsync = promisify(execFile);
 
@@ -99,6 +54,14 @@ const MIME_TYPES: Record<string, string> = {
   '.map': 'application/json',
 };
 
+/** Module-level auth token, set by startStaticServer */
+let apiAuthToken: string | null = null;
+
+/** Get the current HTTP API auth token (for display in UI) */
+export function getHttpApiToken(): string | null {
+  return apiAuthToken;
+}
+
 /**
  * Start HTTP static file server.
  *
@@ -107,9 +70,11 @@ const MIME_TYPES: Record<string, string> = {
  * - Requests without extensions or 404s serve index.html (Angular routing)
  *
  * @param port - Port to listen on (e.g., 9801)
+ * @param authToken - Bearer token required for all /api/* routes
  * @returns http.Server instance
  */
-export function startStaticServer(port: number): http.Server {
+export function startStaticServer(port: number, authToken: string): http.Server {
+  apiAuthToken = authToken;
   const buildDir = getAngularBuildDir();
 
   // CORS headers for API endpoints
@@ -122,16 +87,27 @@ export function startStaticServer(port: number): http.Server {
     const url = new URL(req.url || '/', `http://${req.headers.host}`);
     const pathname = url.pathname;
 
-    // Handle CORS preflight for API endpoints
+    // Handle CORS preflight for API endpoints (skip auth for preflight)
     if (req.method === 'OPTIONS' && pathname.startsWith('/api/')) {
       res.writeHead(204, {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
         'Access-Control-Max-Age': '86400',
       });
       res.end();
       return;
+    }
+
+    // Enforce Bearer token authentication on all /api/* routes
+    if (pathname.startsWith('/api/')) {
+      const authHeader = req.headers['authorization'] || '';
+      const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+      if (token !== authToken) {
+        res.writeHead(401, corsHeaders);
+        res.end(JSON.stringify({ error: 'Unauthorized — provide Authorization: Bearer <token>' }));
+        return;
+      }
     }
 
     // POST /api/sessions - Create new session via HTTP API
@@ -183,53 +159,17 @@ export function startStaticServer(port: number): http.Server {
             useConpty: true,
           });
 
-          // Register in PTY processes map
-          activePtys.set(sessionId, ptyProcess);
-
-          // Create scrollback buffer for WebSocket replay
-          getScrollbackBuffers().set(sessionId, new ScrollbackBuffer(10000));
-
-          // Load saved scrollback from disk when resuming
-          if (resume) {
-            const savedData = loadSessionLog(sessionId);
-            if (savedData) {
-              getScrollbackBuffers().get(sessionId)!.append(savedData);
-            }
-          }
-
-          // Create status detector
-          const statusDetector = new StatusDetector(sessionId, (sid, status) => {
-            broadcastStatus(sid, status);
-          });
-          getStatusDetectors().set(sessionId, statusDetector);
-
-          // Wire up PTY event handlers
-          ptyProcess.onData((data) => {
-            const buffer = getScrollbackBuffers().get(sessionId);
-            if (buffer) buffer.append(data);
-            appendSessionLog(sessionId, data);
-            const detector = getStatusDetectors().get(sessionId);
-            if (detector) detector.processOutput(data);
-          });
-
-          ptyProcess.onExit(({ exitCode }) => {
-            console.log(`[HTTP] Session ${sessionId} exited (code ${exitCode})`);
-            const detector = getStatusDetectors().get(sessionId);
-            if (detector) {
-              detector.processExit();
-              detector.destroy();
-              getStatusDetectors().delete(sessionId);
-            }
-            getPtyProcesses().delete(sessionId);
-            getScrollbackBuffers().delete(sessionId);
-            deleteSessionFromDisk(sessionId);
-            deleteSessionLog(sessionId);
-
-            // Notify Electron renderer to remove the exited session
-            const win = getMainWindow();
-            if (win && !win.isDestroyed()) {
-              win.webContents.send(IPC_CHANNELS.PTY_EXIT, { sessionId, exitCode });
-            }
+          // Wire up scrollback, status detection, and event handlers
+          wirePtyHandlers({
+            sessionId,
+            ptyProcess,
+            loadSavedScrollback: !!resume,
+            onExit: (sid, exitCode) => {
+              const win = getMainWindow();
+              if (win && !win.isDestroyed()) {
+                win.webContents.send(IPC_CHANNELS.PTY_EXIT, { sessionId: sid, exitCode });
+              }
+            },
           });
 
           // Save session metadata to disk
@@ -1119,43 +1059,11 @@ export function startStaticServer(port: number): http.Server {
             useConpty: true,
           });
 
-          // Replace in map and reset scrollback
-          getPtyProcesses().set(sessionId, newPty);
-          getScrollbackBuffers().set(sessionId, new ScrollbackBuffer(10000));
-
-          // Load saved scrollback so terminal shows previous output after restart
-          const savedData = loadSessionLog(sessionId);
-          if (savedData) {
-            getScrollbackBuffers().get(sessionId)!.append(savedData);
-          }
-
-          // Create new status detector
-          const newDetector = new StatusDetector(sessionId, (sid, status) => {
-            broadcastStatus(sid, status);
-          });
-          getStatusDetectors().set(sessionId, newDetector);
-
-          // Wire up PTY event handlers (WebSocket handles data forwarding)
-          newPty.onData((data) => {
-            const buffer = getScrollbackBuffers().get(sessionId);
-            if (buffer) buffer.append(data);
-            appendSessionLog(sessionId, data);
-            const detector = getStatusDetectors().get(sessionId);
-            if (detector) detector.processOutput(data);
-          });
-
-          newPty.onExit(({ exitCode }) => {
-            console.log(`[HTTP] Session ${sessionId} exited after restart (code ${exitCode})`);
-            const detector = getStatusDetectors().get(sessionId);
-            if (detector) {
-              detector.processExit();
-              detector.destroy();
-              getStatusDetectors().delete(sessionId);
-            }
-            getPtyProcesses().delete(sessionId);
-            getScrollbackBuffers().delete(sessionId);
-            deleteSessionFromDisk(sessionId);
-            deleteSessionLog(sessionId);
+          // Wire up scrollback, status detection, and event handlers
+          wirePtyHandlers({
+            sessionId,
+            ptyProcess: newPty,
+            loadSavedScrollback: true,
           });
 
           // Keep guard active for 5s to absorb delayed old-PTY onExit events

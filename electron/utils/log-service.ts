@@ -31,6 +31,7 @@ function addEntry(level: LogLevel, source: string, message: string, sessionId?: 
   };
 
   if (entries.length >= MAX_ENTRIES) {
+    // O(n) shift is acceptable here — MAX_ENTRIES is 2000 and this runs infrequently
     entries.shift();
   }
   entries.push(entry);

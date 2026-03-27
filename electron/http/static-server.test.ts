@@ -33,10 +33,16 @@ vi.mock('node-pty', () => ({
 const mockPtyProcesses = new Map<string, any>();
 vi.mock('../ipc/pty-handlers', () => ({
   getPtyProcesses: () => mockPtyProcesses,
+  markSessionRestarting: vi.fn(),
+  clearSessionRestarting: vi.fn(),
 }));
 
+const mockLoadSessions = vi.fn().mockReturnValue([]);
 vi.mock('../ipc/session-handlers', () => ({
   deleteSessionFromDisk: vi.fn(),
+  getSessionFromDisk: vi.fn(),
+  loadSessionsFromDisk: (...args: any[]) => mockLoadSessions(...args),
+  saveSessionToDisk: vi.fn(),
 }));
 
 const mockLoadGroups = vi.fn().mockReturnValue([]);
@@ -67,6 +73,10 @@ vi.mock('../utils/window-ref', () => ({
 
 vi.mock('../utils/env-sanitize', () => ({
   sanitizeEnvForClaude: () => ({ ...process.env }),
+}));
+
+vi.mock('../utils/pty-wiring', () => ({
+  wirePtyHandlers: vi.fn(),
 }));
 
 vi.mock('../utils/git-status-parser', () => ({
@@ -173,6 +183,7 @@ function request(
       path: urlPath,
       method,
       headers: {
+        'Authorization': 'Bearer test-token',
         ...(payload ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(payload) } : {}),
       },
     };
@@ -219,7 +230,7 @@ beforeAll(async () => {
   fs.writeFileSync(path.join(tmpBuildDir, 'styles.css'), 'body { color: red; }');
 
   // Start the server on a random port (port 0 lets the OS assign one)
-  server = startStaticServer(0);
+  server = startStaticServer(0, 'test-token');
 
   // Wait for server to start listening
   await new Promise<void>((resolve) => {
@@ -252,16 +263,11 @@ beforeEach(() => {
   mockPtyProcesses.clear();
   mockScrollbackBuffers.clear();
   mockStatusDetectors.clear();
+  mockLoadSessions.mockReturnValue([]);
   mockLoadGroups.mockReturnValue([]);
   mockSaveGroups.mockReset();
   mockLoadTemplates.mockReturnValue([]);
   mockSaveTemplates.mockReset();
-
-  // Reset sessions.json
-  const sessionsPath = path.join(tmpUserData, 'sessions.json');
-  if (fs.existsSync(sessionsPath)) {
-    fs.unlinkSync(sessionsPath);
-  }
 });
 
 // =========================================================================
@@ -311,12 +317,12 @@ describe('GET /api/sessions', () => {
   });
 
   it('returns active sessions cross-referenced with saved data', async () => {
-    // Set up saved sessions on disk
+    // Set up saved sessions via mock
     const sessions = [
       { sessionId: 'sess-1', workingDirectory: '/tmp/project-a', cliFlags: [], createdAt: '2026-01-01T00:00:00Z' },
       { sessionId: 'sess-2', workingDirectory: '/tmp/project-b', cliFlags: [], createdAt: '2026-01-01T00:00:00Z' },
     ];
-    fs.writeFileSync(path.join(tmpUserData, 'sessions.json'), JSON.stringify(sessions));
+    mockLoadSessions.mockReturnValue(sessions);
 
     // Only sess-1 has an active PTY
     mockPtyProcesses.set('sess-1', { pid: 1234 });
@@ -335,7 +341,7 @@ describe('GET /api/sessions', () => {
     const sessions = [
       { sessionId: 'dead-sess', workingDirectory: '/tmp/dead', cliFlags: [], createdAt: '2026-01-01T00:00:00Z' },
     ];
-    fs.writeFileSync(path.join(tmpUserData, 'sessions.json'), JSON.stringify(sessions));
+    mockLoadSessions.mockReturnValue(sessions);
     // No PTY registered for dead-sess
 
     const res = await request(server, 'GET', '/api/sessions');
@@ -416,14 +422,14 @@ describe('POST /api/sessions', () => {
       })
     );
 
-    // Verify PTY was registered in the map
-    expect(mockPtyProcesses.has('new-sess-1')).toBe(true);
-
-    // Verify scrollback buffer was created
-    expect(mockScrollbackBuffers.has('new-sess-1')).toBe(true);
-
-    // Verify status detector was created
-    expect(mockStatusDetectors.has('new-sess-1')).toBe(true);
+    // Verify wirePtyHandlers was called with session details
+    const { wirePtyHandlers } = await import('../utils/pty-wiring');
+    expect(wirePtyHandlers).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sessionId: 'new-sess-1',
+        ptyProcess: mockPty,
+      })
+    );
   });
 
   it('uses --resume flag when resume is true', async () => {
@@ -465,6 +471,7 @@ describe('POST /api/sessions', () => {
         path: '/api/sessions',
         method: 'POST',
         headers: {
+          'Authorization': 'Bearer test-token',
           'Content-Type': 'application/json',
           'Content-Length': Buffer.byteLength(payload),
         },
@@ -679,6 +686,7 @@ describe('POST /api/groups', () => {
         path: '/api/groups',
         method: 'POST',
         headers: {
+          'Authorization': 'Bearer test-token',
           'Content-Type': 'application/json',
           'Content-Length': Buffer.byteLength(payload),
         },
@@ -819,6 +827,7 @@ describe('POST /api/templates', () => {
         path: '/api/templates',
         method: 'POST',
         headers: {
+          'Authorization': 'Bearer test-token',
           'Content-Type': 'application/json',
           'Content-Length': Buffer.byteLength(payload),
         },

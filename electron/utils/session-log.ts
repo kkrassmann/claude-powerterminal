@@ -1,7 +1,7 @@
 /**
  * Per-session rolling log file manager.
  *
- * Persists every PTY output chunk to disk instantly via appendFileSync.
+ * Persists every PTY output chunk to disk via async append.
  * When the file exceeds 1MB, trims to ~900KB. On session close, deletes
  * the file. On restore, loads saved data into ScrollbackBuffer.
  *
@@ -11,13 +11,18 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-const MAX_LOG_BYTES = 1_048_576;  // 1MB
-const TRIM_TARGET   =   921_600;  // ~900KB — keep this much after trim
+import { SESSION_LOG_MAX_BYTES, SESSION_LOG_TRIM_TARGET } from '../../src/shared/constants';
+
+const MAX_LOG_BYTES = SESSION_LOG_MAX_BYTES;
+const TRIM_TARGET   = SESSION_LOG_TRIM_TARGET;
 
 let scrollbackDir: string = '';
 
 /** Approximate byte size per session (avoids fs.statSync on every append) */
 const byteCounts = new Map<string, number>();
+
+/** Tracks whether a trim is in progress per session to avoid concurrent trims */
+const trimInProgress = new Set<string>();
 
 /**
  * Initialize the scrollback directory. Must be called once before any other function.
@@ -32,28 +37,35 @@ function logPath(sessionId: string): string {
 }
 
 /**
- * Append PTY output chunk to session's log file (sync, instant).
+ * Append PTY output chunk to session's log file (async, non-blocking).
  * Trims to TRIM_TARGET if file exceeds MAX_LOG_BYTES.
  */
 export function appendSessionLog(sessionId: string, data: string): void {
   const filePath = logPath(sessionId);
-  fs.appendFileSync(filePath, data, 'utf-8');
+
+  // Fire-and-forget async append
+  fs.promises.appendFile(filePath, data, 'utf-8').catch(() => {});
 
   const added = Buffer.byteLength(data, 'utf-8');
   const current = (byteCounts.get(sessionId) ?? 0) + added;
   byteCounts.set(sessionId, current);
 
-  if (current > MAX_LOG_BYTES) {
-    try {
-      const content = fs.readFileSync(filePath);
+  if (current > MAX_LOG_BYTES && !trimInProgress.has(sessionId)) {
+    trimInProgress.add(sessionId);
+    fs.promises.readFile(filePath).then((content) => {
       if (content.length > MAX_LOG_BYTES) {
         const trimmed = content.subarray(content.length - TRIM_TARGET);
-        fs.writeFileSync(filePath, trimmed);
-        byteCounts.set(sessionId, trimmed.length);
+        return fs.promises.writeFile(filePath, trimmed).then(() => {
+          byteCounts.set(sessionId, trimmed.length);
+        });
       } else {
         byteCounts.set(sessionId, content.length);
       }
-    } catch { /* file may have been deleted concurrently */ }
+    }).catch(() => {
+      /* file may have been deleted concurrently */
+    }).finally(() => {
+      trimInProgress.delete(sessionId);
+    });
   }
 }
 
