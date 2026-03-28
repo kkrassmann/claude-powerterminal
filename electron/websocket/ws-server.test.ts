@@ -685,3 +685,117 @@ describe('Multiple concurrent connections', () => {
     ws2.close();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Resize ownership
+// ---------------------------------------------------------------------------
+
+describe('Resize ownership', () => {
+  beforeEach(async () => {
+    await startTestServer();
+  });
+
+  afterEach(async () => {
+    await stopTestServer();
+  });
+
+  it('first client becomes resize owner — PTY.resize() is called with its dimensions', async () => {
+    const pty = makeFakePty();
+    registerSession('owner-session', pty);
+
+    const { ws } = await openClientAndWaitForStatus('owner-session');
+
+    await sendMessage(ws, { type: 'resize', cols: 120, rows: 40 });
+    await new Promise((r) => setTimeout(r, 30));
+
+    expect(pty.resize).toHaveBeenCalledWith(120, 40);
+    ws.close();
+  });
+
+  it('second client resize is ignored — PTY.resize() is only called once (for the first client)', async () => {
+    const pty = makeFakePty();
+    registerSession('two-clients-session', pty);
+
+    const { ws: ws1 } = await openClientAndWaitForStatus('two-clients-session');
+    const { ws: ws2 } = await openClientAndWaitForStatus('two-clients-session');
+
+    // First client claims ownership
+    await sendMessage(ws1, { type: 'resize', cols: 100, rows: 30 });
+    await new Promise((r) => setTimeout(r, 30));
+
+    // Second client sends resize — should be ignored
+    await sendMessage(ws2, { type: 'resize', cols: 200, rows: 50 });
+    await new Promise((r) => setTimeout(r, 30));
+
+    expect(pty.resize).toHaveBeenCalledTimes(1);
+    expect(pty.resize).toHaveBeenCalledWith(100, 30);
+
+    ws1.close();
+    ws2.close();
+  });
+
+  it('resize ownership transfers when owner disconnects — second client can then resize', async () => {
+    const pty = makeFakePty();
+    registerSession('transfer-session', pty);
+
+    const { ws: ws1 } = await openClientAndWaitForStatus('transfer-session');
+    const { ws: ws2 } = await openClientAndWaitForStatus('transfer-session');
+
+    // First client becomes owner
+    await sendMessage(ws1, { type: 'resize', cols: 80, rows: 24 });
+    await new Promise((r) => setTimeout(r, 30));
+    expect(pty.resize).toHaveBeenCalledTimes(1);
+
+    // Owner disconnects
+    ws1.close();
+    await new Promise((r) => setTimeout(r, 80));
+
+    // Second client sends resize — ownership should have transferred
+    await sendMessage(ws2, { type: 'resize', cols: 160, rows: 48 });
+    await new Promise((r) => setTimeout(r, 30));
+
+    expect(pty.resize).toHaveBeenCalledTimes(2);
+    expect(pty.resize).toHaveBeenLastCalledWith(160, 48);
+
+    ws2.close();
+  });
+
+  it('sends pty-size message immediately on connect', async () => {
+    registerSession('pty-size-session');
+
+    const { ws, collector } = await openClientWithCollector(
+      `ws://127.0.0.1:${testPort}/terminal/pty-size-session`
+    );
+
+    // First message must be pty-size, second is status
+    const [first] = await collector.take(1) as any[];
+
+    expect(first.type).toBe('pty-size');
+    expect(typeof first.cols).toBe('number');
+    expect(typeof first.rows).toBe('number');
+
+    ws.close();
+  });
+
+  it('multiple sessions have independent resize owners', async () => {
+    const ptyA = makeFakePty();
+    const ptyB = makeFakePty();
+    registerSession('resize-session-a', ptyA);
+    registerSession('resize-session-b', ptyB);
+
+    const { ws: wsA } = await openClientAndWaitForStatus('resize-session-a');
+    const { ws: wsB } = await openClientAndWaitForStatus('resize-session-b');
+
+    // Each client resizes its own session
+    await sendMessage(wsA, { type: 'resize', cols: 90, rows: 25 });
+    await sendMessage(wsB, { type: 'resize', cols: 110, rows: 35 });
+    await new Promise((r) => setTimeout(r, 30));
+
+    // Both PTYs must have been resized independently
+    expect(ptyA.resize).toHaveBeenCalledWith(90, 25);
+    expect(ptyB.resize).toHaveBeenCalledWith(110, 35);
+
+    wsA.close();
+    wsB.close();
+  });
+});
