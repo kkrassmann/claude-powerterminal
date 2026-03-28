@@ -58,7 +58,6 @@ export class TerminalComponent implements OnInit, OnDestroy {
   private isBuffering = false;
   private inputDisposable: any = null; // Tracks term.onData listener to prevent leaks
   private resyncInterval?: any; // Periodic buffer resync for remote browsers
-  private isPtySizeLocked = false; // True when PTY sent its size (non-owner client)
   private scrollDisposable: any = null;
 
   isScrolledUp = false;
@@ -325,11 +324,8 @@ export class TerminalComponent implements OnInit, OnDestroy {
             break;
 
           case 'pty-size':
-            // Server sent the PTY's actual dimensions — resize xterm to match
-            // This ensures rendering matches the PTY regardless of container size
-            this.term.resize(msg.cols, msg.rows);
-            this.isPtySizeLocked = true;
-            console.log(`[Terminal] Locked to PTY size: ${msg.cols}x${msg.rows}`);
+            // Informational — PTY dimensions for non-owner clients. No action needed;
+            // the server-side resize ownership prevents non-owners from changing PTY size.
             break;
         }
       } catch (error) {
@@ -392,9 +388,6 @@ export class TerminalComponent implements OnInit, OnDestroy {
     this.resizeObserver = new ResizeObserver(() => {
       clearTimeout(this.resizeTimeout);
       this.resizeTimeout = setTimeout(() => {
-        // If PTY size is locked (non-owner client), don't resize — just keep PTY dimensions
-        if (this.isPtySizeLocked) return;
-
         // Remember scroll state before fit (fit can reset viewport position)
         const wasAtBottom = !this.isScrolledUp;
 
