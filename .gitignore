@@ -28,3 +28,4 @@ sessions.json
 *.log
 /.claude/worktrees/
 /.claude/settings.local.json
+coverage/
