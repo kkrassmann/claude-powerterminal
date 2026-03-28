@@ -588,6 +588,21 @@ describe('POST /api/pty/write', () => {
     expect(mockWrite).toHaveBeenCalledWith('test input\n');
   });
 
+  it('returns 500 when ptyProcess.write throws', async () => {
+    mockPtyProcesses.set('throw-on-write', {
+      pid: 2222,
+      write: () => { throw new Error('write pipe broken'); },
+    });
+
+    const res = await request(server, 'POST', '/api/pty/write', {
+      sessionId: 'throw-on-write',
+      data: 'hello',
+    });
+
+    expect(res.status).toBe(500);
+    expect(res.body.error).toContain('write pipe broken');
+  });
+
   it('writes empty string data without error', async () => {
     const mockWrite = vi.fn();
     mockPtyProcesses.set('empty-write', { pid: 1111, write: mockWrite });
@@ -1214,5 +1229,569 @@ describe('Unknown routes', () => {
     expect(res.status).toBe(200);
     // Falls through to SPA fallback
     expect(res.rawBody).toContain('Test App');
+  });
+});
+
+// =========================================================================
+// GET /api/app/info
+// =========================================================================
+
+describe('GET /api/app/info', () => {
+  it('returns homeDir, lanUrl, and token fields', async () => {
+    const res = await request(server, 'GET', '/api/app/info');
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('homeDir');
+    expect(res.body).toHaveProperty('lanUrl');
+    expect(res.body).toHaveProperty('token');
+    // Server was started with 'test-token'
+    expect(res.body.token).toBe('test-token');
+    expect(typeof res.body.homeDir).toBe('string');
+  });
+
+  it('includes CORS headers', async () => {
+    const res = await request(server, 'GET', '/api/app/info');
+    expect(res.headers['access-control-allow-origin']).toBe('*');
+  });
+});
+
+// =========================================================================
+// GET /api/app/home-dir
+// =========================================================================
+
+describe('GET /api/app/home-dir', () => {
+  it('returns homeDir string', async () => {
+    const res = await request(server, 'GET', '/api/app/home-dir');
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('homeDir');
+    expect(typeof res.body.homeDir).toBe('string');
+  });
+
+  it('includes CORS headers', async () => {
+    const res = await request(server, 'GET', '/api/app/home-dir');
+    expect(res.headers['access-control-allow-origin']).toBe('*');
+  });
+});
+
+// =========================================================================
+// POST /api/pty/restart
+// =========================================================================
+
+describe('POST /api/pty/restart', () => {
+  it('returns 400 when sessionId is missing', async () => {
+    const res = await request(server, 'POST', '/api/pty/restart', {});
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain('Missing sessionId');
+  });
+
+  it('returns 404 when session PTY is not found', async () => {
+    const res = await request(server, 'POST', '/api/pty/restart', { sessionId: 'no-such-session' });
+    expect(res.status).toBe(404);
+    expect(res.body.success).toBe(false);
+    expect(res.body.error).toContain('Session not found');
+  });
+
+  it('returns 404 when session metadata is missing', async () => {
+    const { getSessionFromDisk } = await import('../ipc/session-handlers');
+    vi.mocked(getSessionFromDisk).mockReturnValueOnce(null as any);
+
+    mockPtyProcesses.set('meta-missing-sess', {
+      pid: 7001,
+      write: vi.fn(),
+      kill: vi.fn(),
+      onExit: vi.fn(),
+      resize: vi.fn(),
+    });
+
+    const res = await request(server, 'POST', '/api/pty/restart', { sessionId: 'meta-missing-sess' });
+    expect(res.status).toBe(404);
+    expect(res.body.success).toBe(false);
+    expect(res.body.error).toContain('metadata not found');
+  });
+
+  it('restarts a session: kills old PTY and spawns new one', async () => {
+    const { getSessionFromDisk } = await import('../ipc/session-handlers');
+    vi.mocked(getSessionFromDisk).mockReturnValueOnce({
+      sessionId: 'restart-sess',
+      workingDirectory: os.tmpdir(),
+      cliFlags: ['--verbose'],
+      createdAt: '2026-01-01T00:00:00Z',
+    } as any);
+
+    const oldPtyWrite = vi.fn();
+    const oldPtyOnExit = vi.fn((cb: () => void) => { cb(); });
+    mockPtyProcesses.set('restart-sess', {
+      pid: 9001,
+      write: oldPtyWrite,
+      kill: vi.fn(),
+      onExit: oldPtyOnExit,
+      resize: vi.fn(),
+    });
+
+    const ptyMod = await import('node-pty');
+    const newMockPty = {
+      pid: 9002,
+      onData: vi.fn(),
+      onExit: vi.fn(),
+      write: vi.fn(),
+      kill: vi.fn(),
+      resize: vi.fn(),
+    };
+    vi.mocked(ptyMod.spawn).mockReturnValue(newMockPty as any);
+
+    const res = await request(server, 'POST', '/api/pty/restart', {
+      sessionId: 'restart-sess',
+      cols: 120,
+      rows: 40,
+    });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.pid).toBe(9002);
+
+    // Verify old PTY received /exit signal
+    expect(oldPtyWrite).toHaveBeenCalledWith('/exit\n');
+
+    // Verify new PTY was spawned with --resume and correct dimensions
+    expect(ptyMod.spawn).toHaveBeenCalledWith(
+      expect.stringContaining('claude'),
+      expect.arrayContaining(['--resume', 'restart-sess']),
+      expect.objectContaining({ cols: 120, rows: 40, cwd: os.tmpdir() })
+    );
+  });
+
+  it('uses default cols/rows (80x30) when not provided', async () => {
+    const { getSessionFromDisk } = await import('../ipc/session-handlers');
+    vi.mocked(getSessionFromDisk).mockReturnValueOnce({
+      sessionId: 'restart-defaults',
+      workingDirectory: os.tmpdir(),
+      cliFlags: [],
+      createdAt: '2026-01-01T00:00:00Z',
+    } as any);
+
+    mockPtyProcesses.set('restart-defaults', {
+      pid: 9003,
+      write: vi.fn(),
+      kill: vi.fn(),
+      onExit: vi.fn((cb: () => void) => { cb(); }),
+      resize: vi.fn(),
+    });
+
+    const ptyMod = await import('node-pty');
+    vi.mocked(ptyMod.spawn).mockReturnValue({
+      pid: 9004, onData: vi.fn(), onExit: vi.fn(), write: vi.fn(), kill: vi.fn(), resize: vi.fn(),
+    } as any);
+
+    const res = await request(server, 'POST', '/api/pty/restart', { sessionId: 'restart-defaults' });
+    expect(res.status).toBe(200);
+    expect(ptyMod.spawn).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(Array),
+      expect.objectContaining({ cols: 80, rows: 30 })
+    );
+  });
+
+  it('returns 500 when new PTY spawn throws', async () => {
+    const { getSessionFromDisk } = await import('../ipc/session-handlers');
+    vi.mocked(getSessionFromDisk).mockReturnValueOnce({
+      sessionId: 'restart-spawn-fail',
+      workingDirectory: os.tmpdir(),
+      cliFlags: [],
+      createdAt: '2026-01-01T00:00:00Z',
+    } as any);
+
+    mockPtyProcesses.set('restart-spawn-fail', {
+      pid: 9010,
+      write: vi.fn(),
+      kill: vi.fn(),
+      onExit: vi.fn((cb: () => void) => { cb(); }),
+      resize: vi.fn(),
+    });
+
+    const ptyMod = await import('node-pty');
+    vi.mocked(ptyMod.spawn).mockImplementationOnce(() => {
+      throw new Error('spawn failed: no such file');
+    });
+
+    const res = await request(server, 'POST', '/api/pty/restart', { sessionId: 'restart-spawn-fail' });
+    expect(res.status).toBe(500);
+    expect(res.body.success).toBe(false);
+    expect(res.body.error).toContain('spawn failed');
+  });
+
+  it('destroys existing status detector during restart', async () => {
+    const { getSessionFromDisk } = await import('../ipc/session-handlers');
+    vi.mocked(getSessionFromDisk).mockReturnValueOnce({
+      sessionId: 'restart-detector',
+      workingDirectory: os.tmpdir(),
+      cliFlags: [],
+      createdAt: '2026-01-01T00:00:00Z',
+    } as any);
+
+    const mockDestroy = vi.fn();
+    mockStatusDetectors.set('restart-detector', { destroy: mockDestroy });
+    mockPtyProcesses.set('restart-detector', {
+      pid: 9005,
+      write: vi.fn(),
+      kill: vi.fn(),
+      onExit: vi.fn((cb: () => void) => { cb(); }),
+      resize: vi.fn(),
+    });
+
+    const ptyMod = await import('node-pty');
+    vi.mocked(ptyMod.spawn).mockReturnValue({
+      pid: 9006, onData: vi.fn(), onExit: vi.fn(), write: vi.fn(), kill: vi.fn(), resize: vi.fn(),
+    } as any);
+
+    await request(server, 'POST', '/api/pty/restart', { sessionId: 'restart-detector' });
+    expect(mockDestroy).toHaveBeenCalledOnce();
+  });
+});
+
+// =========================================================================
+// POST /api/worktrees
+// =========================================================================
+
+describe('POST /api/worktrees', () => {
+  it('returns 400 when repoPath is missing', async () => {
+    const res = await request(server, 'POST', '/api/worktrees', { branchName: 'feature/test' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain('Missing repoPath or branchName');
+  });
+
+  it('returns 400 when branchName is missing', async () => {
+    const res = await request(server, 'POST', '/api/worktrees', { repoPath: os.tmpdir() });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain('Missing repoPath or branchName');
+  });
+
+  it('returns 500 when git worktree add fails (not a git repo)', async () => {
+    const res = await request(server, 'POST', '/api/worktrees', {
+      repoPath: os.tmpdir(),
+      branchName: 'feature/new-thing',
+    });
+    expect(res.status).toBe(500);
+    expect(res.body).toHaveProperty('error');
+  });
+
+  it('includes CORS headers on error', async () => {
+    const res = await request(server, 'POST', '/api/worktrees', {});
+    expect(res.headers['access-control-allow-origin']).toBe('*');
+  });
+});
+
+// =========================================================================
+// DELETE /api/worktrees
+// =========================================================================
+
+describe('DELETE /api/worktrees', () => {
+  it('returns 400 when path parameter is missing', async () => {
+    const res = await request(server, 'DELETE', '/api/worktrees');
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain('Missing path parameter');
+  });
+
+  it('returns 500 when the worktree path does not exist', async () => {
+    const res = await request(server, 'DELETE', '/api/worktrees?path=/nonexistent/worktree/path');
+    expect(res.status).toBe(500);
+    expect(res.body).toHaveProperty('error');
+  });
+
+  it('accepts explicit repoPath parameter alongside path', async () => {
+    const res = await request(
+      server,
+      'DELETE',
+      `/api/worktrees?path=/nonexistent/wt&repoPath=${encodeURIComponent(process.cwd())}`
+    );
+    // Will fail because the worktree doesn't exist, but should attempt operation
+    expect([200, 500]).toContain(res.status);
+  });
+
+  it('includes CORS headers', async () => {
+    const res = await request(server, 'DELETE', '/api/worktrees');
+    expect(res.headers['access-control-allow-origin']).toBe('*');
+  });
+});
+
+// =========================================================================
+// POST /api/review/reject-hunk
+// =========================================================================
+
+describe('POST /api/review/reject-hunk', () => {
+  it('returns 400 when cwd is missing', async () => {
+    const res = await request(server, 'POST', '/api/review/reject-hunk', { patchContent: '@@ -1 +1 @@' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain('Missing cwd or patchContent');
+  });
+
+  it('returns 400 when patchContent is missing', async () => {
+    const res = await request(server, 'POST', '/api/review/reject-hunk', { cwd: os.tmpdir() });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain('Missing cwd or patchContent');
+  });
+
+  it('returns 200 with a success boolean when patch is provided', async () => {
+    // An invalid patch — git apply will reject it (success=false), but endpoint returns 200
+    const res = await request(server, 'POST', '/api/review/reject-hunk', {
+      cwd: os.tmpdir(),
+      patchContent: 'this is not a real patch',
+    });
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('success');
+    expect(typeof res.body.success).toBe('boolean');
+  });
+
+  it('includes CORS headers', async () => {
+    const res = await request(server, 'POST', '/api/review/reject-hunk', { cwd: '/x', patchContent: 'p' });
+    expect(res.headers['access-control-allow-origin']).toBe('*');
+  });
+});
+
+// =========================================================================
+// POST /api/review/reject-file
+// =========================================================================
+
+describe('POST /api/review/reject-file', () => {
+  it('returns 400 when cwd is missing', async () => {
+    const res = await request(server, 'POST', '/api/review/reject-file', { filePath: 'foo.ts' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain('Missing cwd or filePath');
+  });
+
+  it('returns 400 when filePath is missing', async () => {
+    const res = await request(server, 'POST', '/api/review/reject-file', { cwd: os.tmpdir() });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain('Missing cwd or filePath');
+  });
+
+  it('returns 200 success:true when file is tracked in a git repo', async () => {
+    const res = await request(server, 'POST', '/api/review/reject-file', {
+      cwd: process.cwd(),
+      filePath: 'package.json',
+    });
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+  });
+
+  it('returns 500 with success:false when git checkout fails', async () => {
+    // tmpdir is not a git repo so git will throw — handler returns 500
+    const res = await request(server, 'POST', '/api/review/reject-file', {
+      cwd: os.tmpdir(),
+      filePath: 'nonexistent-file-xyz.txt',
+    });
+    expect(res.status).toBe(500);
+    expect(res.body.success).toBe(false);
+    expect(res.body).toHaveProperty('error');
+  });
+
+  it('includes CORS headers', async () => {
+    const res = await request(server, 'POST', '/api/review/reject-file', { cwd: '/x', filePath: 'f' });
+    expect(res.headers['access-control-allow-origin']).toBe('*');
+  });
+});
+
+// =========================================================================
+// POST /api/review/apply-patch
+// =========================================================================
+
+describe('POST /api/review/apply-patch', () => {
+  it('returns 400 when cwd is missing', async () => {
+    const res = await request(server, 'POST', '/api/review/apply-patch', { patchContent: 'patch' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain('Missing cwd or patchContent');
+  });
+
+  it('returns 400 when patchContent is missing', async () => {
+    const res = await request(server, 'POST', '/api/review/apply-patch', { cwd: os.tmpdir() });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain('Missing cwd or patchContent');
+  });
+
+  it('returns 200 with boolean success field when patch content is provided', async () => {
+    const res = await request(server, 'POST', '/api/review/apply-patch', {
+      cwd: os.tmpdir(),
+      patchContent: 'this is not a real patch',
+    });
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('success');
+    expect(typeof res.body.success).toBe('boolean');
+  });
+
+  it('includes CORS headers', async () => {
+    const res = await request(server, 'POST', '/api/review/apply-patch', { cwd: '/x', patchContent: 'p' });
+    expect(res.headers['access-control-allow-origin']).toBe('*');
+  });
+});
+
+// =========================================================================
+// GET /api/deep-audit/run (SSE streaming)
+// =========================================================================
+
+describe('GET /api/deep-audit/run', () => {
+  it('returns 400 when path parameter is missing', async () => {
+    const res = await request(server, 'GET', '/api/deep-audit/run');
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain('path parameter required');
+  });
+
+  it('streams SSE result event when audit succeeds', async () => {
+    const { runDeepAudit } = await import('../analysis/deep-audit-engine');
+    vi.mocked(runDeepAudit).mockResolvedValueOnce({ result: 'ok', findings: [] } as any);
+
+    const addr = server.address() as { port: number };
+    const rawResponse = await new Promise<{ status: number; headers: http.IncomingHttpHeaders; body: string }>(
+      (resolve, reject) => {
+        let data = '';
+        const req = http.request(
+          {
+            hostname: '127.0.0.1',
+            port: addr.port,
+            path: `/api/deep-audit/run?path=${encodeURIComponent('/some/project')}`,
+            method: 'GET',
+            headers: { Authorization: 'Bearer test-token' },
+          },
+          (res) => {
+            res.on('data', (chunk) => (data += chunk));
+            res.on('end', () => resolve({ status: res.statusCode || 0, headers: res.headers, body: data }));
+          }
+        );
+        req.on('error', reject);
+        req.end();
+      }
+    );
+
+    expect(rawResponse.headers['content-type']).toContain('text/event-stream');
+    expect(rawResponse.body).toContain('event: result');
+    expect(rawResponse.body).toContain('"result":"ok"');
+  });
+
+  it('streams SSE error event when audit throws', async () => {
+    const { runDeepAudit } = await import('../analysis/deep-audit-engine');
+    vi.mocked(runDeepAudit).mockRejectedValueOnce(new Error('deep audit exploded'));
+
+    const addr = server.address() as { port: number };
+    const rawResponse = await new Promise<string>((resolve, reject) => {
+      let data = '';
+      const req = http.request(
+        {
+          hostname: '127.0.0.1',
+          port: addr.port,
+          path: `/api/deep-audit/run?path=${encodeURIComponent('/bad/project')}`,
+          method: 'GET',
+          headers: { Authorization: 'Bearer test-token' },
+        },
+        (res) => {
+          res.on('data', (chunk) => (data += chunk));
+          res.on('end', () => resolve(data));
+        }
+      );
+      req.on('error', reject);
+      req.end();
+    });
+
+    expect(rawResponse).toContain('event: error');
+    expect(rawResponse).toContain('deep audit exploded');
+  });
+});
+
+// =========================================================================
+// GET /api/worktrees — active session cross-reference (hasSession flag)
+// =========================================================================
+
+describe('GET /api/worktrees with active session cross-reference', () => {
+  it('marks hasSession=true when an active PTY session CWD matches a worktree path', async () => {
+    const cwd = process.cwd();
+    mockLoadSessions.mockReturnValue([
+      { sessionId: 'wt-active', workingDirectory: cwd, cliFlags: [], createdAt: '2026-01-01T00:00:00Z' },
+    ]);
+    mockPtyProcesses.set('wt-active', { pid: 8000 });
+
+    const res = await request(server, 'GET', `/api/worktrees?repoPath=${encodeURIComponent(cwd)}`);
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+    if (res.body.length > 0) {
+      // The main worktree path should be flagged as hasSession=true
+      expect(res.body[0].hasSession).toBe(true);
+    }
+  });
+
+  it('returns 500 for a directory that is not a git repo', async () => {
+    const res = await request(server, 'GET', `/api/worktrees?repoPath=${encodeURIComponent(os.tmpdir())}`);
+    expect(res.status).toBe(500);
+    expect(res.body).toHaveProperty('error');
+  });
+});
+
+// =========================================================================
+// POST /api/sessions — directory-already-has-session warning path
+// =========================================================================
+
+describe('POST /api/sessions directory-collision warning', () => {
+  it('spawns a new session even when another session already uses the same directory', async () => {
+    const sharedDir = os.tmpdir();
+    mockLoadSessions.mockReturnValue([
+      { sessionId: 'existing-sess', workingDirectory: sharedDir, cliFlags: [], createdAt: '2026-01-01T00:00:00Z' },
+    ]);
+    mockPtyProcesses.set('existing-sess', { pid: 9900 });
+
+    const ptyMod = await import('node-pty');
+    vi.mocked(ptyMod.spawn).mockReturnValue({
+      pid: 9901, onData: vi.fn(), onExit: vi.fn(), write: vi.fn(), kill: vi.fn(), resize: vi.fn(),
+    } as any);
+
+    const res = await request(server, 'POST', '/api/sessions', {
+      sessionId: 'new-in-same-dir',
+      cwd: sharedDir,
+    });
+
+    // Should still succeed — the warning is a console.log, not a rejection
+    expect(res.status).toBe(201);
+    expect(res.body.success).toBe(true);
+  });
+});
+
+// =========================================================================
+// Static file serving — additional edge cases
+// =========================================================================
+
+describe('Static file serving — edge cases', () => {
+  it('serves a file with a query string, stripping it before lookup (line 1131)', async () => {
+    const res = await request(server, 'GET', '/main.js?v=12345');
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toContain('application/javascript');
+  });
+
+  it('serves unknown extension files with application/octet-stream MIME type', async () => {
+    fs.writeFileSync(path.join(tmpBuildDir, 'data.bin'), Buffer.from([0x00, 0x01, 0x02]));
+    const res = await request(server, 'GET', '/data.bin');
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toBe('application/octet-stream');
+  });
+
+  it('returns 500 when index.html is missing and a non-existent file is requested (lines 1144-1146)', async () => {
+    const indexPath = path.join(tmpBuildDir, 'index.html');
+    const backupPath = path.join(tmpBuildDir, 'index.html.bak');
+    fs.renameSync(indexPath, backupPath);
+
+    try {
+      const res = await request(server, 'GET', '/definitely-not-here.xyz');
+      expect(res.status).toBe(500);
+      expect(res.rawBody).toContain('500 Internal Server Error');
+    } finally {
+      fs.renameSync(backupPath, indexPath);
+    }
+  });
+
+  it('serves .svg files with image/svg+xml MIME type', async () => {
+    fs.writeFileSync(path.join(tmpBuildDir, 'logo.svg'), '<svg xmlns="http://www.w3.org/2000/svg"/>');
+    const res = await request(server, 'GET', '/logo.svg');
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toBe('image/svg+xml');
+  });
+
+  it('serves .woff2 files with font/woff2 MIME type', async () => {
+    fs.writeFileSync(path.join(tmpBuildDir, 'font.woff2'), Buffer.from([0x77, 0x4f, 0x46, 0x32]));
+    const res = await request(server, 'GET', '/font.woff2');
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toBe('font/woff2');
   });
 });
