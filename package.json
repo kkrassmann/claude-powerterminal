@@ -1,6 +1,6 @@
 {
   "name": "@kkrassmann/claude-powerterminal",
-  "version": "1.1.2",
+  "version": "1.2.0",
   "description": "Multi-session terminal manager for Claude CLI with status monitoring",
   "main": "dist/electron/main.js",
   "scripts": {

@@ -3,6 +3,38 @@
 All notable changes to this project will be documented in this file.
 Format based on [Keep a Changelog](https://keepachangelog.com/).
 
+## [1.2.0] - 2026-03-28
+
+### Features
+
+- Fix remote browser access, add auto-mode permission selector and dev port isolation (37790b4)
+- Sync session groups to remote browser via HTTP API (0778e28)
+- Send PTY dimensions to non-owner clients for correct rendering (b6d7f8a)
+- Add explorer, debugger agents and skill-debug pipeline (4a74824)
+- Add review-reuse/efficiency/security agents, implement-pipeline, and skill-implement/skill-code (a53ddf5)
+- Add test-generator agent with CPT-specific Vitest patterns (b09ca06)
+
+### Bug Fixes
+
+- Resolve all 41 system review findings — 3 critical, 14 major, 24 minor (db5354e)
+- Only first connected client controls PTY resize — resize ownership (f07cbe4)
+- Let non-owner clients use their own terminal size without PTY resize (c235e18)
+- Add /api/app/info endpoint for LAN URL + fix HTTP base URL in dev mode (0f5b088)
+- Correct HTTP base URL for dev mode, disable auth temporarily (0c87861)
+- Bidirectional group sync between desktop and remote browser (d1ea679)
+- Add cache-control headers and diagnostic logging for group sync (c77dde0)
+
+### Refactoring
+
+- Migrate all Angular services to HTTP-only — single source of truth (c31d83a)
+
+### Tests
+
+- Boost coverage from 63% to 75% with 90 new tests — 434 total (6b80c80)
+- Add 5 resize ownership tests for WebSocket multi-client sessions (91293cc)
+- Add critical backend test suites — 147 new tests (c2a7412)
+- Add comprehensive HTTP route test suite — 82 tests (79552ed)
+
 ## [1.1.1] - 2026-03-05
 
 ### Bug Fixes
