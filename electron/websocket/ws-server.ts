@@ -130,6 +130,13 @@ export function startWebSocketServer(port: number = WS_PORT): WebSocketServer {
     client.isAlive = true;
     client.sessionId = sessionId;
 
+    // Send current PTY dimensions so client can match them
+    try {
+      const cols = (ptyProcess as any).cols || 80;
+      const rows = (ptyProcess as any).rows || 30;
+      ws.send(JSON.stringify({ type: 'pty-size', cols, rows }));
+    } catch { /* ignore if PTY doesn't expose size */ }
+
     ws.on('pong', () => {
       client.isAlive = true;
     });

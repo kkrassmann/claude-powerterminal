@@ -229,7 +229,7 @@ async function openClientAndWaitForStatus(sessionId: string) {
   const { ws, collector } = await openClientWithCollector(
     `ws://127.0.0.1:${testPort}/terminal/${sessionId}`
   );
-  await collector.take(1); // consume initial 'status'
+  await collector.take(2); // consume initial 'pty-size' + 'status'
   return { ws, collector };
 }
 
@@ -351,8 +351,8 @@ describe('Scrollback buffer replay', () => {
     const { ws, collector } = await openClientWithCollector(
       `ws://127.0.0.1:${testPort}/terminal/no-buf`
     );
-    // Empty buffer — just a status message arrives
-    const msgs = await collector.take(1);
+    // Empty buffer — pty-size + status message arrive
+    const msgs = await collector.take(2);
     const types = msgs.map((m: any) => m.type);
     expect(types).not.toContain('buffering');
     ws.close();
@@ -368,8 +368,8 @@ describe('Scrollback buffer replay', () => {
     const { ws, collector } = await openClientWithCollector(
       `ws://127.0.0.1:${testPort}/terminal/status-test`
     );
-    // buffering(1) + 1 output line + buffered(1) + status(1) = 4
-    const msgs = await collector.take(4);
+    // pty-size(1) + buffering(1) + 1 output line + buffered(1) + status(1) = 5
+    const msgs = await collector.take(5);
     const statusMsg = msgs.find((m: any) => m.type === 'status') as any;
     expect(statusMsg).toBeDefined();
     expect(statusMsg.status).toBe('WAITING');
@@ -485,8 +485,8 @@ describe('Client message handling', () => {
     const { ws, collector } = await openClientWithCollector(
       `ws://127.0.0.1:${testPort}/terminal/replay-session`
     );
-    // Initial replay: buffering + 2 output + buffered + status = 5
-    await collector.take(5);
+    // Initial: pty-size + buffering + 2 output + buffered + status = 6
+    await collector.take(6);
 
     await sendMessage(ws, { type: 'buffer-replay' });
     const msgs = await collector.take(2) as any[];

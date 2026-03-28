@@ -17,6 +17,7 @@ export type ServerMessage =
   | { type: 'status'; status: TerminalStatus }  // Terminal status update
   | { type: 'buffer-clear' }               // Clear terminal before buffer replay
   | { type: 'buffer-replay'; data: string } // Full scrollback buffer replay
+  | { type: 'pty-size'; cols: number; rows: number } // PTY dimensions (sent on connect)
 
 // Client -> Server messages
 export type ClientMessage =
